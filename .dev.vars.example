@@ -1,0 +1,12 @@
+# Copy non-secret values into .dev.vars. Inject secrets separately and never commit them.
+ZITADEL_ORIGIN=https://your-zitadel.example
+ZITADEL_ORGANIZATION_ID=replace-with-organization-id
+ZITADEL_ALLOWED_CLIENT_IDS=replace-with-client-id,replace-with-another-client-id
+LOGIN_V2_FALLBACK_URL=https://your-zitadel.example/ui/v2/login
+PAGES_ORIGIN=http://localhost:5173
+SESSION_LIFETIME_SECONDS=900
+# ZITADEL_LOGIN_CLIENT_PAT is a ZITADEL machine-user PAT.
+ZITADEL_LOGIN_CLIENT_PAT=
+# FLOW_COOKIE_KEY is 32 random bytes encoded as unpadded base64url.
+# Generate with: openssl rand -base64 32 | tr '+/' '-_' | tr -d '='
+FLOW_COOKIE_KEY=

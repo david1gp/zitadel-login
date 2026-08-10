@@ -1,0 +1,29 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "zitadel-login",
+  "main": "src/worker.ts",
+  "workers_dev": false,
+  "compatibility_date": "2026-08-10",
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "ZITADEL_ORIGIN": "https://your-zitadel.example",
+    "ZITADEL_ORGANIZATION_ID": "replace-with-organization-id",
+    "ZITADEL_ALLOWED_CLIENT_IDS": "replace-with-client-id,replace-with-another-client-id",
+    "LOGIN_V2_FALLBACK_URL": "https://your-zitadel.example/ui/v2/login",
+    "PAGES_ORIGIN": "https://your-pages.example",
+    "SESSION_LIFETIME_SECONDS": "900"
+  },
+  "ratelimits": [
+    {
+      "name": "RATE_LIMITER",
+      "namespace_id": "replace-with-rate-limit-namespace-id",
+      "simple": {
+        "limit": 5,
+        "period": 60
+      }
+    }
+  ]
+  // Set ZITADEL_LOGIN_CLIENT_PAT and FLOW_COOKIE_KEY with `wrangler secret put`.
+}

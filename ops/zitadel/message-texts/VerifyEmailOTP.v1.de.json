@@ -1,0 +1,10 @@
+{
+  "language": "de",
+  "title": "Ihr Anmeldecode",
+  "preHeader": "Ihr sicherer Anmeldecode ist bereit",
+  "subject": "Ihr Anmeldecode ist {{.OTP}}",
+  "greeting": "Hallo {{.DisplayName}},",
+  "text": "Kopieren Sie diesen sechsstelligen Anmeldecode und fügen Sie ihn ein: {{.OTP}}. Er ist fünf Minuten gültig. Falls Sie diesen Code nicht angefordert haben, können Sie diese E-Mail ignorieren.",
+  "buttonText": "Anmeldung fortsetzen",
+  "footerText": "Diese Nachricht hilft Ihnen bei der sicheren Anmeldung. Geben Sie diesen Code niemals weiter."
+}

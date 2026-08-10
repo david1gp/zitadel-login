@@ -1,0 +1,100 @@
+{
+  "name": "@adaptive-ds/zitadel-login",
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "bun run dev:browser",
+    "dev:browser": "vite --config client/vite.config.ts",
+    "dev:worker": "wrangler dev --config wrangler.jsonc",
+    "build": "bun run build:browser && bun run build:worker",
+    "build:browser": "vite build --config client/vite.config.ts",
+    "build:worker": "tsc -p tsconfig.worker.json",
+    "type-check": "tsc -p tsconfig.browser.json && tsc -p tsconfig.worker.json",
+    "test": "bun test --pass-with-no-tests",
+    "deploy": "bash ./ops/deploy.sh",
+    "release": "bash ./ops/release.sh",
+    "format": "biome format --write README.md client/index.html client src test package.json tsconfig.json tsconfig.browser.json tsconfig.worker.json biome.json bunfig.toml cliff.toml wrangler.example.jsonc",
+    "format:check": "biome format README.md client/index.html client src test package.json tsconfig.json tsconfig.browser.json tsconfig.worker.json biome.json bunfig.toml cliff.toml wrangler.example.jsonc"
+  },
+  "dependencies": {
+    "hono": "^4.12.28",
+    "solid-js": "^1.9.12",
+    "valibot": "^1.3.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.2",
+    "@cloudflare/workers-types": "^5.20260810.1",
+    "@types/bun": "latest",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16",
+    "vite-plugin-solid": "^2.11.12",
+    "wrangler": "^4.120.1"
+  },
+  "prettier": {
+    "semi": false,
+    "printWidth": 120,
+    "trailingComma": "all"
+  },
+  "type": "module",
+  "private": false,
+  "license": "MIT",
+  "homepage": "https://github.com/david1gp/zitadel-login",
+  "author": {
+    "name": "David Siewert",
+    "url": "https://david-siewert.com/"
+  },
+  "funding": {
+    "type": "individual",
+    "url": "https://github.com/sponsors/david1gp"
+  },
+  "engines": {
+    "node": ">=22",
+    "bun": ">=1.3.0"
+  },
+  "description": "A native ZITADEL passwordless email-OTP Login App for Cloudflare Workers and Pages.",
+  "keywords": [
+    "zitadel",
+    "zitadel-login",
+    "authentication",
+    "passwordless-authentication",
+    "passwordless",
+    "email-otp",
+    "oidc",
+    "login",
+    "solidjs",
+    "cloudflare-workers",
+    "cloudflare-pages",
+    "hono",
+    "bun",
+    "typescript"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/david1gp/zitadel-login.git"
+  },
+  "bugs": {
+    "url": "https://github.com/david1gp/zitadel-login/issues"
+  },
+  "exports": {
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "client",
+    "src",
+    "ops",
+    ".dev.vars.example",
+    ".env.example",
+    "wrangler.example.jsonc",
+    "biome.json",
+    "bunfig.toml",
+    "cliff.toml",
+    "tsconfig.json",
+    "tsconfig.browser.json",
+    "tsconfig.worker.json",
+    "LICENSE",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
