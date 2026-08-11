@@ -8,12 +8,15 @@
     "build": "bun run build:browser && bun run build:worker",
     "build:browser": "vite build --config client/vite.config.ts",
     "build:worker": "tsc -p tsconfig.worker.json",
-    "type-check": "tsc -p tsconfig.browser.json && tsc -p tsconfig.worker.json",
+    "type-check": "tsc -p tsconfig.browser.json && tsc -p tsconfig.worker.json && bun run type-check:ops",
+    "type-check:ops": "tsc --ignoreConfig --noEmit --target ESNext --module ESNext --moduleResolution Bundler --strict --noUncheckedIndexedAccess --noImplicitReturns --types bun ops/zitadel/*.ts",
     "test": "bun test --pass-with-no-tests",
+    "ops:zitadel:otp-email": "bun run ops/zitadel/organizationOtpEmailConfigure.ts",
+    "ops:zitadel:test-client": "bun run ops/zitadel/oidcTestClientConfigure.ts",
     "deploy": "bash ./ops/deploy.sh",
     "release": "bash ./ops/release.sh",
-    "format": "biome format --write README.md client/index.html client src test package.json tsconfig.json tsconfig.browser.json tsconfig.worker.json biome.json bunfig.toml cliff.toml wrangler.example.jsonc",
-    "format:check": "biome format README.md client/index.html client src test package.json tsconfig.json tsconfig.browser.json tsconfig.worker.json biome.json bunfig.toml cliff.toml wrangler.example.jsonc"
+    "format": "biome format --write README.md client/index.html client src test ops/zitadel package.json tsconfig.json tsconfig.browser.json tsconfig.worker.json biome.json bunfig.toml cliff.toml wrangler.example.jsonc",
+    "format:check": "biome format README.md client/index.html client src test ops/zitadel package.json tsconfig.json tsconfig.browser.json tsconfig.worker.json biome.json bunfig.toml cliff.toml wrangler.example.jsonc"
   },
   "dependencies": {
     "hono": "^4.12.28",

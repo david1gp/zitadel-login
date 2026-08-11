@@ -11,7 +11,7 @@ This repository is a deployable application bundle, not a general-purpose authen
 ## Why This Exists
 
 - **Native by design:** uses ZITADEL v2 Auth Request, User, Authentication Method, Session, and OIDC callback APIs instead of maintaining a parallel identity store.
-- **Simple for users:** enter an email address, receive a six-digit code, and return to the application.
+- **Simple for users:** enter an email address, receive a verification code, and return to the application.
 - **Safe fallback:** users who are not eligible for email OTP continue through the existing ZITADEL Login V2 flow.
 - **Small operational footprint:** a static SolidJS/Vite page on Cloudflare Pages and a Hono Worker with no application database.
 - **Conservative security model:** sensitive orchestration state is encrypted, short-lived, host-only cookie state; the ZITADEL machine credential never reaches the browser.
@@ -147,6 +147,15 @@ The following assumes the deployed ZITADEL/Login V2 API version is v4.16.0.
 
 The message artifacts prefer the existing `auth@contentoren.de` sender where available, with `it@contentoren.de` as the fallback sender decision from the project setup. Sender identity and SMTP credentials are configured in ZITADEL, not this repository.
 
+The project-owned bootstrap command validates the exact organization ID/name pair and active SMTP sender, reconciles both committed message-text artifacts, and paginates all active human users in that organization before adding native OTP Email only to verified-email users that do not already have it. It excludes machine users at the ZITADEL query, includes administrators, emits aggregate/redacted JSON only, and defaults to dry-run. Provide `ZITADEL_ORIGIN`, `ZITADEL_ORGANIZATION_ID`, `ZITADEL_ORGANIZATION_NAME`, `ZITADEL_ADMIN_PAT`, and an exact eligible canary address as `ZITADEL_OTP_CONFIRM_EMAIL` through a private environment source:
+
+```bash
+bun run ops:zitadel:otp-email
+ZITADEL_OTP_MODE=apply bun run ops:zitadel:otp-email
+```
+
+`ops:zitadel:test-client` validates the Login V2 routing prerequisite and reconciles the dedicated public Authorization Code + S256 PKCE test client. It also defaults to dry-run; use `ZITADEL_E2E_MODE=apply` only through a private environment source when creating the absent project or client. It does not run authorization or mailbox tests.
+
 ## Scripts
 
 | Script | Purpose |
@@ -160,6 +169,8 @@ The message artifacts prefer the existing `auth@contentoren.de` sender where ava
 | `bun run type-check` | Type-check browser and Worker projects. |
 | `bun run test` | Run Bun tests. |
 | `bun run format` / `bun run format:check` | Format or check source and project metadata. |
+| `bun run ops:zitadel:otp-email` | Dry-run native OTP Email message/enrollment reconciliation; `ZITADEL_OTP_MODE=apply` permits changes. |
+| `bun run ops:zitadel:test-client` | Dry-run dedicated public OIDC test-client reconciliation; `ZITADEL_E2E_MODE=apply` permits changes. |
 | `bun run deploy` | Build and deploy Worker plus Pages; requires local Wrangler config and Cloudflare auth. |
 | `bun run release` | Generate a changelog, version, commit, tag, push, and GitHub release. Requires `git-cliff`, `jq`, `gh`, and authenticated Git/GitHub access. |
 
