@@ -13,7 +13,8 @@
     "ZITADEL_ALLOWED_CLIENT_IDS": "replace-with-client-id,replace-with-another-client-id",
     "LOGIN_V2_FALLBACK_URL": "https://your-zitadel.example/ui/v2/login",
     "PAGES_ORIGIN": "https://your-pages.example",
-    "SESSION_LIFETIME_SECONDS": "900"
+    "SESSION_LIFETIME_SECONDS": "900",
+    "ZITADEL_MFA_V2_ENABLED": "false"
   },
   "ratelimits": [
     {
@@ -26,4 +27,5 @@
     }
   ]
   // Set ZITADEL_LOGIN_CLIENT_PAT and FLOW_COOKIE_KEY with `wrangler secret put`.
+  // Set RECENT_ACCOUNT_COOKIE_KEY and RECENT_ACCOUNT_COOKIE_PREVIOUS_KEY separately to opt into recent accounts.
 }

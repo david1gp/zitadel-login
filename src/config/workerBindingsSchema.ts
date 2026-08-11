@@ -19,6 +19,15 @@ const rateLimiterSchema = v.custom<WorkerRateLimiter>((value) => {
   return typeof value.limit === "function"
 }, "Expected a Cloudflare Rate Limit binding")
 
+const booleanBindingSchema = v.optional(
+  v.pipe(
+    v.string(),
+    v.picklist(["true", "false"]),
+    v.transform((value) => value === "true"),
+  ),
+  "false",
+)
+
 export const workerBindingsSchema = v.strictObject({
   ZITADEL_ORIGIN: originSchema,
   ZITADEL_ORGANIZATION_ID: v.pipe(v.string(), v.minLength(1), v.maxLength(200)),
@@ -48,6 +57,22 @@ export const workerBindingsSchema = v.strictObject({
     v.string(),
     v.regex(/^[A-Za-z0-9_-]{43}$/, "Expected an unpadded base64url-encoded 32-byte key"),
   ),
+  FLOW_COOKIE_PREVIOUS_KEY: v.optional(
+    v.pipe(v.string(), v.regex(/^[A-Za-z0-9_-]{43}$/, "Expected an unpadded base64url-encoded 32-byte key")),
+  ),
+  RECENT_ACCOUNT_COOKIE_KEY: v.optional(
+    v.pipe(v.string(), v.regex(/^[A-Za-z0-9_-]{43}$/, "Expected an unpadded base64url-encoded 32-byte key")),
+  ),
+  RECENT_ACCOUNT_COOKIE_PREVIOUS_KEY: v.optional(
+    v.pipe(v.string(), v.regex(/^[A-Za-z0-9_-]{43}$/, "Expected an unpadded base64url-encoded 32-byte key")),
+  ),
+  ZITADEL_LOGIN_V2_ENABLED: booleanBindingSchema,
+  ZITADEL_EMAIL_OTP_V2_ENABLED: booleanBindingSchema,
+  ZITADEL_PASSWORD_V2_ENABLED: booleanBindingSchema,
+  ZITADEL_PASSKEY_V2_ENABLED: booleanBindingSchema,
+  ZITADEL_IDP_V2_ENABLED: booleanBindingSchema,
+  ZITADEL_MFA_V2_ENABLED: booleanBindingSchema,
+  ZITADEL_RECENT_ACCOUNT_V2_ENABLED: booleanBindingSchema,
   RATE_LIMITER: rateLimiterSchema,
 })
 

@@ -2,11 +2,14 @@ import type { Context } from "hono"
 import { Hono } from "hono"
 import * as v from "valibot"
 
+import { bootstrapCacheCreate } from "../branding/bootstrapCacheCreate"
+import { bootstrapViewGet } from "../branding/bootstrapViewGet"
 import { workerBindingsParse } from "../config/workerBindingsParse"
 import type { WorkerBindings, WorkerBindingsInput, WorkerRateLimiter } from "../config/workerBindingsSchema"
 import { flowCookieOpen } from "../flow/flowCookieOpen"
 import type { FlowCookie } from "../flow/flowCookieSchema"
 import { flowCookieSeal } from "../flow/flowCookieSeal"
+import { flowV2RouterCreate } from "../flow/http/flowV2RouterCreate"
 import type { Result } from "../result/Result"
 import { resultCreate } from "../result/resultCreate"
 import { resultErrorCreate } from "../result/resultErrorCreate"
@@ -39,6 +42,7 @@ type Logger = {
 }
 
 type Dependencies = {
+  bootstrapCache: ReturnType<typeof bootstrapCacheCreate>
   fetch: Fetch
   now: () => number
   randomBytes: (length: number) => Uint8Array
@@ -210,6 +214,7 @@ async function payloadParse<T>(c: AppContext, schema: v.GenericSchema<unknown, T
 
 export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
   const dependencies: Dependencies = {
+    bootstrapCache: bootstrapCacheCreate(),
     fetch,
     now: () => Math.floor(Date.now() / 1000),
     randomBytes: (length) => crypto.getRandomValues(new Uint8Array(length)),
@@ -314,6 +319,22 @@ export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
     return c.json({ status: "fallback", fallbackUrl: "/api/fallback" })
   }
 
+  function bootstrapResultResponse(c: AppContext, result: Result<unknown>, status: 200 | 400 | 403 | 502) {
+    if (result.success) return c.json(result, status)
+    return c.json({ success: false, op: "bootstrap", errorMessage: "Bootstrap is temporarily unavailable." }, status)
+  }
+
+  function bootstrapOrganizationScopeIsValid(authRequest: { scope: string[] }, organizationId: string): boolean {
+    if (authRequest.scope.some((scope) => scope.startsWith("urn:zitadel:iam:org:domain:"))) return false
+    const organizationScopes = authRequest.scope.filter((scope) => scope.startsWith("urn:zitadel:iam:org:id:"))
+    return organizationScopes.every((scope) => scope === `urn:zitadel:iam:org:id:${organizationId}`)
+  }
+
+  const bootstrapQuerySchema = v.strictObject({
+    authRequest: v.optional(v.pipe(v.string(), v.minLength(1), v.maxLength(200), v.regex(/^[A-Za-z0-9._~-]+$/))),
+    updatedAt: v.optional(v.pipe(v.string(), v.regex(/^\d+$/), v.transform(Number), v.integer(), v.minValue(0))),
+  })
+
   app.use("*", async (c, next) => {
     const bindings = bindingsGet(c)
     if (!bindings.success) {
@@ -346,6 +367,16 @@ export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
     }
     return undefined
   })
+
+  app.route(
+    "/",
+    flowV2RouterCreate({
+      fetch: dependencies.fetch,
+      now: dependencies.now,
+      randomBytes: dependencies.randomBytes,
+      logger: dependencies.logger,
+    }),
+  )
 
   app.get("/api/auth-request", async (c) => {
     const bindings = bindingsGet(c)
@@ -400,6 +431,76 @@ export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
       loginHint: authRequest.data.loginHint,
       uiLocales: authRequest.data.uiLocales,
     })
+  })
+
+  app.get("/api/v2/bootstrap", async (c) => {
+    const bindings = bindingsGet(c)
+    if (!bindings.success) return bootstrapResultResponse(c, bindings, 502)
+    const query = v.safeParse(bootstrapQuerySchema, c.req.query())
+    if (!query.success)
+      return bootstrapResultResponse(c, resultErrorCreate("bootstrap", "Invalid bootstrap request"), 400)
+
+    if (query.output.authRequest) {
+      const authRequest = await authRequestGet(bindings.data, query.output.authRequest)
+      if (
+        !authRequest.success ||
+        !bootstrapOrganizationScopeIsValid(authRequest.data, bindings.data.ZITADEL_ORGANIZATION_ID)
+      )
+        return bootstrapResultResponse(c, resultErrorCreate("bootstrap", "Invalid bootstrap request"), 403)
+    }
+
+    const cacheKey = [
+      "v1",
+      bindings.data.ZITADEL_ORIGIN,
+      bindings.data.ZITADEL_ORGANIZATION_ID,
+      Number(bindings.data.ZITADEL_LOGIN_V2_ENABLED),
+      Number(bindings.data.ZITADEL_EMAIL_OTP_V2_ENABLED),
+      Number(bindings.data.ZITADEL_PASSWORD_V2_ENABLED),
+      Number(bindings.data.ZITADEL_PASSKEY_V2_ENABLED),
+      Number(bindings.data.ZITADEL_IDP_V2_ENABLED),
+      Number(bindings.data.ZITADEL_MFA_V2_ENABLED),
+    ].join(":")
+    const now = dependencies.now()
+    const cached = dependencies.bootstrapCache.get(cacheKey, now)
+    if (cached) {
+      return bootstrapResultResponse(c, resultCreate(query.output.updatedAt === cached.updatedAt ? null : cached), 200)
+    }
+
+    const client = zitadelClientCreate(bindings.data, dependencies.fetch)
+    const defaultOrganization = await client.defaultOrganizationGet()
+    if (
+      !defaultOrganization.success ||
+      defaultOrganization.data.id !== bindings.data.ZITADEL_ORGANIZATION_ID ||
+      (defaultOrganization.data.state !== undefined && defaultOrganization.data.state !== "ORGANIZATION_STATE_ACTIVE")
+    ) {
+      dependencies.logger.warn("bootstrap_organization_rejected")
+      return bootstrapResultResponse(c, resultErrorCreate("bootstrap", "Bootstrap organization is unavailable"), 403)
+    }
+
+    const view = await bootstrapViewGet({
+      client,
+      now,
+      organization: { id: defaultOrganization.data.id, name: defaultOrganization.data.name },
+      origin: bindings.data.ZITADEL_ORIGIN,
+      capabilities: {
+        loginV2: bindings.data.ZITADEL_LOGIN_V2_ENABLED,
+        emailOtpV2: bindings.data.ZITADEL_EMAIL_OTP_V2_ENABLED,
+        passwordV2: bindings.data.ZITADEL_PASSWORD_V2_ENABLED,
+        passkeyV2: bindings.data.ZITADEL_PASSKEY_V2_ENABLED,
+        idpV2: bindings.data.ZITADEL_IDP_V2_ENABLED,
+        mfaV2: bindings.data.ZITADEL_MFA_V2_ENABLED,
+      },
+    })
+    if (!view.success) {
+      dependencies.logger.error("bootstrap_settings_failed")
+      return bootstrapResultResponse(c, view, 502)
+    }
+    dependencies.bootstrapCache.set(cacheKey, view.data, now + 3600)
+    return bootstrapResultResponse(
+      c,
+      resultCreate(query.output.updatedAt === view.data.updatedAt ? null : view.data),
+      200,
+    )
   })
 
   app.post("/api/email-otp/start", async (c) => {

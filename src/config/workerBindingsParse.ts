@@ -17,6 +17,9 @@ export function workerBindingsParse(input: WorkerBindingsInput) {
   if (fallbackUrl.origin !== zitadelOrigin.origin || fallbackUrl.username || fallbackUrl.password) {
     return resultErrorCreate(op, "LOGIN_V2_FALLBACK_URL must use ZITADEL_ORIGIN")
   }
+  if (parsed.output.ZITADEL_RECENT_ACCOUNT_V2_ENABLED && !parsed.output.RECENT_ACCOUNT_COOKIE_KEY) {
+    return resultErrorCreate(op, "RECENT_ACCOUNT_COOKIE_KEY is required when recent accounts are enabled")
+  }
 
   return resultCreate<WorkerBindings>(parsed.output)
 }
