@@ -10,7 +10,7 @@
     "build:worker": "tsc -p tsconfig.worker.json",
     "type-check": "tsc -p tsconfig.browser.json && tsc -p tsconfig.worker.json && bun run type-check:ops",
     "type-check:ops": "tsc --ignoreConfig --noEmit --target ESNext --module ESNext --moduleResolution Bundler --strict --noUncheckedIndexedAccess --noImplicitReturns --types bun ops/zitadel/*.ts",
-    "test": "bun test --pass-with-no-tests",
+    "test": "bun test --pass-with-no-tests && vitest run --config client/vitest.config.ts",
     "ops:zitadel:otp-email": "bun run ops/zitadel/organizationOtpEmailConfigure.ts",
     "ops:zitadel:test-client": "bun run ops/zitadel/oidcTestClientConfigure.ts",
     "deploy": "bash ./ops/deploy.sh",
@@ -26,10 +26,13 @@
   "devDependencies": {
     "@biomejs/biome": "^2.5.2",
     "@cloudflare/workers-types": "^5.20260810.1",
+    "@solidjs/testing-library": "^0.8.10",
     "@types/bun": "latest",
+    "happy-dom": "^20.11.2",
     "typescript": "^6.0.3",
     "vite": "^8.0.16",
     "vite-plugin-solid": "^2.11.12",
+    "vitest": "^4.1.10",
     "wrangler": "^4.120.1"
   },
   "prettier": {

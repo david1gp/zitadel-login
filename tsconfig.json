@@ -3,6 +3,8 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
     "allowImportingTsExtensions": false,
     "resolveJsonModule": true,
     "noEmit": true,

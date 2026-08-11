@@ -3,17 +3,36 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#173f36" />
+    <meta name="theme-color" content="#f5f3ed" />
+    <meta name="color-scheme" content="light dark" />
     <meta name="robots" content="noindex, nofollow" />
-    <meta name="description" content="Passwordless email-code sign-in protected by ZITADEL." />
+    <meta name="description" content="Sign in to Contentoren." />
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Adaptive" />
-    <meta property="og:title" content="Sign in | Adaptive" />
-    <meta property="og:description" content="Passwordless email-code sign-in protected by ZITADEL." />
+    <meta property="og:site_name" content="Contentoren" />
+    <meta property="og:title" content="Sign in | Contentoren" />
+    <meta property="og:description" content="Sign in to Contentoren." />
     <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="Sign in | Adaptive" />
-    <meta name="twitter:description" content="Passwordless email-code sign-in protected by ZITADEL." />
-    <title>Sign in | Adaptive</title>
+    <meta name="twitter:title" content="Sign in | Contentoren" />
+    <meta name="twitter:description" content="Sign in to Contentoren." />
+    <title>Sign in | Contentoren</title>
+    <script>
+      (() => {
+        let value = "system"
+        try {
+          const input = JSON.parse(localStorage.getItem("zitadel-login:theme:v1") || "null")
+          if (
+            input &&
+            Object.keys(input).length === 2 &&
+            (input.value === "light" || input.value === "dark" || input.value === "system") &&
+            Number.isInteger(input.updatedAt) &&
+            input.updatedAt >= 0
+          ) value = input.value
+        } catch {}
+        const theme = value === "system" && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : value === "system" ? "light" : value
+        document.documentElement.dataset.theme = theme
+        document.documentElement.style.colorScheme = theme
+      })()
+    </script>
   </head>
   <body>
     <div id="app"></div>

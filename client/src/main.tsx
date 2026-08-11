@@ -1,6 +1,6 @@
 import { render } from "solid-js/web"
 
-import { App } from "./App"
+import { App } from "./app/ui/App"
 import "./styles.css"
 
 declare global {

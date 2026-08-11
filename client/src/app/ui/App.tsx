@@ -1,0 +1,162 @@
+import { Match, Show, Switch } from "solid-js"
+
+import { BrandHeader } from "../../branding/ui/BrandHeader"
+import { EmailOtpPanel } from "../../email-otp/ui/EmailOtpPanel"
+import { MethodChooser } from "../../flow/ui/MethodChooser"
+import { UnsupportedMethodPanel } from "../../flow/ui/UnsupportedMethodPanel"
+import { IdentityProviderPanel } from "../../identity-provider/ui/IdentityProviderPanel"
+import { MfaPanel } from "../../mfa/ui/MfaPanel"
+import { PasskeyPanel } from "../../passkey/ui/PasskeyPanel"
+import { PasswordPanel } from "../../password/ui/PasswordPanel"
+import { ThemeToggle } from "../../preferences/ui/ThemeToggle"
+import { appStateCreate } from "./appStateCreate"
+
+type AppProps = { apiOrigin: string }
+
+export function App(props: AppProps) {
+  const state = appStateCreate(() => props.apiOrigin)
+
+  return (
+    <main class="page-shell">
+      <section class="login-card" aria-busy={state.busy()}>
+        <div class="card-top">
+          <BrandHeader
+            assetUrl={state.brandAssetUrl}
+            name={() => state.bootstrap().organization.name}
+            onAssetError={state.brandAssetFail}
+          />
+          <ThemeToggle
+            preference={state.preferredTheme}
+            switchable={state.themeSwitchable}
+            select={state.themeSelect}
+          />
+        </div>
+        <div class="content">
+          <Switch>
+            <Match when={state.status() === "loading" || state.status() === "continuing"}>
+              <div class="loading-state" role="status">
+                <span class="spinner" aria-hidden="true" />
+                <p>{state.status() === "continuing" ? "Continuing sign-in..." : "Loading sign-in..."}</p>
+              </div>
+            </Match>
+            <Match when={state.status() === "fatal"}>
+              <div class="intro">
+                <p class="step">Unable to continue</p>
+                <h1 ref={state.headingRegister} id="login-title" tabindex="-1">
+                  Start sign-in again
+                </h1>
+              </div>
+            </Match>
+            <Match when={state.status() === "ready" && !state.selection()}>
+              <MethodChooser
+                methods={state.methods}
+                select={state.selectMethod}
+                headingRegister={state.headingRegister}
+                recentAccounts={state.recentAccounts}
+                selectAccount={state.selectAccount}
+                busy={state.busy}
+              />
+            </Match>
+            <Match when={state.status() === "ready" && state.selection()?.method === "email_otp"}>
+              <EmailOtpPanel
+                step={state.emailStep}
+                email={state.email}
+                code={state.code}
+                busy={state.busy}
+                valid={state.emailValid}
+                maskedEmail={state.maskedEmail}
+                notice={state.notice}
+                rememberIdentifier={state.rememberIdentifier}
+                headingRegister={state.headingRegister}
+                emailInputRegister={state.emailInputRegister}
+                codeInputRegister={state.codeInputRegister}
+                emailInput={state.emailInput}
+                codeInput={state.codeInput}
+                rememberIdentifierChange={state.rememberIdentifierChange}
+                emailSubmit={state.emailSubmit}
+                codeSubmit={state.codeSubmit}
+                resend={state.resend}
+                emailChange={state.emailChange}
+                showChooser={state.showChooser}
+              />
+            </Match>
+            <Match when={state.status() === "ready" && state.selection()?.method === "password"}>
+              <PasswordPanel
+                identifier={state.passwordIdentifier}
+                password={state.passwordValue}
+                showPassword={state.passwordShow}
+                mfaRequired={state.passwordMfaRequired}
+                busy={state.busy}
+                valid={state.passwordValid}
+                rememberIdentifier={state.rememberIdentifier}
+                headingRegister={state.headingRegister}
+                identifierInputRegister={state.passwordIdentifierInputRegister}
+                passwordInputRegister={state.passwordInputRegister}
+                identifierInput={state.passwordIdentifierInput}
+                passwordInput={state.passwordInput}
+                toggleShowPassword={state.passwordToggleShow}
+                rememberIdentifierChange={state.rememberIdentifierChange}
+                submit={state.passwordSubmit}
+                showChooser={state.showChooser}
+              />
+            </Match>
+            <Match when={state.status() === "ready" && state.selection()?.method === "passkey"}>
+              <PasskeyPanel
+                identifier={state.passkeyIdentifier}
+                options={state.passkeyOptions}
+                mfaRequired={state.passkeyMfaRequired}
+                busy={state.busy}
+                isSupported={state.passkeyIsSupported}
+                rememberIdentifier={state.rememberIdentifier}
+                headingRegister={state.headingRegister}
+                identifierInputRegister={state.passkeyIdentifierInputRegister}
+                identifierInput={state.passkeyIdentifierInput}
+                rememberIdentifierChange={state.rememberIdentifierChange}
+                submit={state.passkeySubmit}
+                showChooser={state.showChooser}
+              />
+            </Match>
+            <Match when={state.status() === "ready" && state.selection()?.method === "identity_provider"}>
+              <IdentityProviderPanel
+                providerName={state.identityProviderProviderName}
+                providerType={state.identityProviderProviderType}
+                subroute={state.selectedSubroute}
+                busy={state.busy}
+                headingRegister={state.headingRegister}
+                submit={state.identityProviderSubmit}
+                showChooser={state.showChooser}
+              />
+            </Match>
+            <Match when={state.status() === "ready" && state.selection()?.method === "mfa"}>
+              <MfaPanel
+                apiOrigin={() => props.apiOrigin}
+                flowHandle={state.flowHandle}
+                csrfToken={state.csrfToken}
+                csrfTokenSet={state.csrfTokenSet}
+                selection={state.selection}
+                busy={state.busy}
+                busySet={state.busySet}
+                headingRegister={state.headingRegister}
+                errorClear={state.errorClear}
+                failureSet={state.failureSet}
+                fallbackContinue={state.fallbackContinue}
+                statusContinue={state.statusContinue}
+                routeSet={state.routeSet}
+              />
+            </Match>
+          </Switch>
+          <Show when={state.error()}>
+            <div ref={state.errorRegister} id="error-message" class="error-message" role="alert" tabindex="-1">
+              {state.error()}
+            </div>
+          </Show>
+          <Show when={state.notice() && state.emailStep() !== "code"}>
+            <p class="notice-message" role="status">
+              {state.notice()}
+            </p>
+          </Show>
+        </div>
+      </section>
+    </main>
+  )
+}
