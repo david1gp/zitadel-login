@@ -19,8 +19,9 @@ Use ZITADEL’s native Session/Login APIs and existing SMTP path wherever they s
 7. **Completed** — Implement the SolidJS Pages UI and branded email-template integration.
 8. **Completed** — Add Bun tests and securely verify the complete local flow.
 9. **Completed** — Complete README and package metadata; verify formatting, tests, and builds.
-10. **In progress** — Create the public GitHub repository and push without environment files or secrets.
-11. **Pending** — Deploy Worker and Pages, configure ZITADEL, and run E2E against the ZITADEL `ssotest` user.
+10. **Completed** — Create the public GitHub repository and push without environment files or secrets.
+11. **Completed** — Deploy Worker and Pages, configure ZITADEL, and run E2E against the designated test user.
+12. **Completed** — Run final verification and push the deployed/configured state to GitHub.
 
 ## Active paths
 
@@ -30,6 +31,9 @@ Use ZITADEL’s native Session/Login APIs and existing SMTP path wherever they s
 - Mailcow deployment: `/home/david/leo_internal/contentoren-server/mailcow`
 - Email reference: `/home/david/adaptive/email-generator`
 - ZITADEL source: `/home/david/opensource/zitadel`
+- GitHub: `https://github.com/david1gp/zitadel-login`
+- Cloudflare Pages: `https://zitadel-login.pages.dev`
+- Production login: `https://login.contentoren.de`
 
 ## Durable decisions
 
@@ -63,3 +67,13 @@ Use ZITADEL’s native Session/Login APIs and existing SMTP path wherever they s
 - The Pages UI reads a non-secret runtime API origin from `globalThis.ZITADEL_LOGIN_CONFIG.apiOrigin`, defaulting to same-origin.
 - Browser-facing APIs expose only relative Worker continuation paths. The Worker retains sensitive OIDC callback destinations and performs the final top-level redirect.
 - Keep English and German native `VerifyEmailOTP` message-field artifacts under `ops/zitadel/message-texts/`, using ZITADEL’s `{{.OTP}}` placeholder and native delivery shell.
+- GitHub repository is public on `main`; environment files, local Wrangler state/config, keys, dependencies, and build output are ignored.
+- Production routing target: static Pages at `https://login.contentoren.de` with the Worker on the same origin for `/api/*`; the Pages fallback deployment is live at `https://zitadel-login.pages.dev`.
+- Cloudflare production routing is active: Pages serves `login.contentoren.de`, the Worker handles `login.contentoren.de/api/*`, and encrypted Worker secrets provide the login-client PAT and flow-cookie key.
+- `ops:zitadel:otp-email` is the idempotent organization configuration command; dry-run is default and `ZITADEL_OTP_MODE=apply` is required for mutations.
+- All current active Contentoren human users with verified primary email, including administrators, are enrolled in native OTP Email. Service users remain excluded.
+- ZITADEL uses the preferred SMTP sender; English and German VerifyEmailOTP message fields are applied from the repository artifacts.
+- A dedicated Contentoren public OIDC Authorization Code + S256 PKCE client provides isolated E2E coverage with a loopback callback and application-specific Login App base URI `https://login.contentoren.de`.
+- ZITADEL Login V2 is not instance-required and has no global custom base URI, allowing application-specific routing while retaining native Login V2 fallback.
+- Accept native ZITADEL email OTP codes containing 6–20 digits; the deployed provider currently issues 8-digit codes.
+- Live E2E uses the dedicated PKCE client and confirms the complete authorization request, native email delivery, OTP verification, callback state, token exchange, and intended-user userinfo response.
