@@ -49,6 +49,29 @@ describe("login API browser contract", () => {
     })
   })
 
+  test("posts an 8-digit verification payload and accepts continuation", async () => {
+    globalThis.fetch = async (input, init) => {
+      expect(String(input)).toBe("https://worker.example/api/email-otp/verify")
+      expect(init).toEqual({
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: "12345678", csrfToken: "token" }),
+      })
+      return Response.json({ status: "verified", continuationUrl: "/api/email-otp/callback" })
+    }
+
+    const result = await loginApiRequest("https://worker.example", {
+      type: "verify",
+      code: "12345678",
+      csrfToken: "token",
+    })
+    expect(result).toEqual({
+      success: true,
+      data: { status: "verified", continuationUrl: "/api/email-otp/callback" },
+    })
+  })
+
   test("returns the Worker safe error message without accepting malformed success data", async () => {
     globalThis.fetch = async () =>
       Response.json({ error: { code: "invalid_code", message: "The code is invalid or expired." } }, { status: 401 })

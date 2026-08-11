@@ -51,6 +51,25 @@ function postHeaders(cookie: string): HeadersInit {
 }
 
 describe("Worker native email OTP flow", () => {
+  test("accepts omitted empty repeated fields from ZITADEL proto JSON", async () => {
+    const { prompt: _prompt, uiLocales: _uiLocales, ...liveAuthRequest } = authRequest
+    const app = workerAppCreate({ fetch: async () => jsonResponse({ authRequest: liveAuthRequest }) })
+
+    const response = await app.request(
+      `https://worker.example/api/auth-request?authRequest=${authRequest.id}`,
+      { headers: { origin: bindings.PAGES_ORIGIN } },
+      bindings,
+    )
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({
+      status: "ready",
+      csrfToken: expect.any(String),
+      loginHint: "person@example.com",
+      uiLocales: [],
+    })
+  })
+
   test("uses rotated session tokens and redirects the callback without exposing it as JSON", async () => {
     let call = 0
     const fetchMock = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {

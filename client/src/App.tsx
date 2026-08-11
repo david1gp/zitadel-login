@@ -35,7 +35,7 @@ export function App(props: AppProps) {
               <div class="intro">
                 <p class="step">Step 1 of 2</p>
                 <h1 id="login-title">Sign in without a password</h1>
-                <p>Enter your email address. If email sign-in is available, we will send you a six-digit code.</p>
+                <p>Enter your email address. If email sign-in is available, we will send you a verification code.</p>
               </div>
               <form onSubmit={state.emailSubmit} novalidate>
                 <label for="email">Email address</label>
@@ -69,12 +69,12 @@ export function App(props: AppProps) {
                 <p class="step">Step 2 of 2</p>
                 <h1 id="login-title">Check your email</h1>
                 <p>
-                  Enter the six-digit code sent for <strong>{state.maskedEmail()}</strong>. It may take a moment to
+                  Enter the verification code sent for <strong>{state.maskedEmail()}</strong>. It may take a moment to
                   arrive.
                 </p>
               </div>
               <form onSubmit={state.codeSubmit} novalidate>
-                <label for="code">Six-digit code</label>
+                <label for="code">Verification code</label>
                 <input
                   ref={state.codeInputRegister}
                   class="code-input"
@@ -83,8 +83,8 @@ export function App(props: AppProps) {
                   type="text"
                   autocomplete="one-time-code"
                   inputmode="numeric"
-                  pattern="[0-9]{6}"
-                  maxlength="6"
+                  pattern="[0-9]{6,20}"
+                  maxlength="20"
                   required
                   value={state.code()}
                   onInput={state.codeInput}
@@ -94,7 +94,11 @@ export function App(props: AppProps) {
                 <p id="code-help" class="field-help">
                   Codes expire after five minutes.
                 </p>
-                <button class="primary" type="submit" disabled={state.busy() || state.code().length !== 6}>
+                <button
+                  class="primary"
+                  type="submit"
+                  disabled={state.busy() || state.code().length < 6 || state.code().length > 20}
+                >
                   <Show when={!state.busy()} fallback={<span class="button-progress">Verifying...</span>}>
                     Continue securely
                   </Show>

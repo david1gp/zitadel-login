@@ -95,8 +95,8 @@ export function loginStateCreate(apiOrigin: () => string) {
     event.preventDefault()
     error.set("")
     notice.set("")
-    if (code.get().length !== 6) {
-      failureSet("Enter the complete six-digit code.")
+    if (code.get().length < 6 || code.get().length > 20) {
+      failureSet("Enter the complete verification code.")
       focusSchedule(() => codeInput)
       return
     }
@@ -151,7 +151,7 @@ export function loginStateCreate(apiOrigin: () => string) {
     }),
     emailInput: (event: InputEvent & { currentTarget: HTMLInputElement }) => email.set(event.currentTarget.value),
     codeInput: (event: InputEvent & { currentTarget: HTMLInputElement }) =>
-      code.set(event.currentTarget.value.replace(/\D/g, "").slice(0, 6)),
+      code.set(event.currentTarget.value.replace(/\D/g, "").slice(0, 20)),
     emailInputRegister: (element: HTMLInputElement) => (emailInput = element),
     codeInputRegister: (element: HTMLInputElement) => (codeInput = element),
     errorRegister: (element: HTMLDivElement) => (errorElement = element),

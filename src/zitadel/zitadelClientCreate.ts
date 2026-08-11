@@ -18,8 +18,8 @@ const authRequestSchema = v.object({
   clientId: v.pipe(v.string(), v.minLength(1), v.maxLength(200)),
   redirectUri: v.pipe(v.string(), v.minLength(1), v.maxLength(2048)),
   scope: v.array(v.string()),
-  prompt: v.array(promptSchema),
-  uiLocales: v.array(v.string()),
+  prompt: v.optional(v.array(promptSchema), []),
+  uiLocales: v.optional(v.array(v.string()), []),
   loginHint: v.optional(v.string()),
   hintUserId: v.optional(v.string()),
 })
