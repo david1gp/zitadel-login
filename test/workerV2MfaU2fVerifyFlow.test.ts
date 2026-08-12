@@ -268,7 +268,7 @@ describe("Worker MFA U2F assertion verify flow", () => {
     if (!opened.success) return
     expect(opened.data.stage).toBe("verified")
     if (opened.data.stage !== "verified") return
-    expect(opened.data.sessionToken).toBe("updated-u2f-session-token")
+    expect(opened.data.sessionToken).toBe("updated-mfa-session-token")
   })
 
   test("works identically via /api/v2/mfa/webauthn/verify alias endpoint", async () => {

@@ -94,6 +94,7 @@ async function main() {
 
     console.log("6. Testing Additional-Factor Transition (77777777)...")
     await runCommand("agent-browser", ["open", mfaEmailUrl])
+    await new Promise((r) => setTimeout(r, 800))
     snap = await runCommand("agent-browser", ["snapshot"])
     sendBtnRef = refGet(snap, /button "Send code".*ref=(e\d+)/)
     await runCommand("agent-browser", ["click", sendBtnRef])
@@ -157,6 +158,7 @@ async function main() {
 
     console.log("6. Testing Additional-Factor Transition (77777777)...")
     await runCommand("agent-browser", ["open", mfaSmsUrl])
+    await new Promise((r) => setTimeout(r, 800))
     snap = await runCommand("agent-browser", ["snapshot"])
     sendBtnRef = refGet(snap, /button "Send code".*ref=(e\d+)/)
     await runCommand("agent-browser", ["click", sendBtnRef])
@@ -192,6 +194,128 @@ async function main() {
     await runCommand("agent-browser", ["set", "media", "dark"])
     snap = await runCommand("agent-browser", ["snapshot"])
     console.log("Snapshot Mobile & Dark Mode:\n", snap)
+
+    console.log("=== Testing email OTP enrollment ===")
+    const emailEnrollFlow = "GGGGGGGGGGGGGGGGGGGGGG"
+    const emailEnrollUrl = `http://localhost:3001/login/mfa/email-otp?flow=${emailEnrollFlow}`
+
+    console.log("1. Desktop enrollment requires explicit action...")
+    await runCommand("agent-browser", ["set", "viewport", "1280", "800"])
+    await runCommand("agent-browser", ["set", "media", "light"])
+    await runCommand("agent-browser", ["open", emailEnrollUrl])
+    await new Promise((r) => setTimeout(r, 800))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot email enrollment start:\n", snap)
+    if (!snap.includes("Set up email codes")) {
+      throw new Error("Email OTP enrollment start UI missing explicit set up action")
+    }
+    if (snap.includes('textbox "Verification code"')) {
+      throw new Error("Email OTP enrollment exposed the code stage before explicit enrollment")
+    }
+
+    console.log("2. Enrollment advances straight to the code stage without a duplicate challenge...")
+    const enrollEmailRef = refGet(snap, /button "Set up email codes".*ref=(e\d+)/)
+    await runCommand("agent-browser", ["click", enrollEmailRef])
+    await new Promise((r) => setTimeout(r, 800))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot email enrollment code stage:\n", snap)
+    if (!snap.includes("Verification code") || !snap.includes("Resend code")) {
+      throw new Error("Email OTP enrollment did not reach the enrollment-aware code stage")
+    }
+
+    console.log("3. Resend stays available on the enrollment-aware code stage...")
+    resendBtnRef = refGet(snap, /button "Resend code.*".*ref=(e\d+)/)
+    console.log("Email enrollment resend ref found:", resendBtnRef)
+
+    console.log("4. Invalid code keeps the code stage with accessible messaging...")
+    inputRef = refGet(snap, /textbox "Verification code".*ref=(e\d+)/)
+    await runCommand("agent-browser", ["fill", inputRef, "99999999"])
+    await runCommand("agent-browser", ["press", "Enter"])
+    await new Promise((r) => setTimeout(r, 500))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot email enrollment invalid code:\n", snap)
+    if (!snap.includes("invalid") && !snap.includes("expired")) {
+      throw new Error("Email OTP enrollment invalid-code message not displayed")
+    }
+
+    console.log("5. Mobile and dark mode enrollment rendering...")
+    await runCommand("agent-browser", ["set", "viewport", "375", "667"])
+    await runCommand("agent-browser", ["set", "media", "dark"])
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot email enrollment mobile dark:\n", snap)
+
+    console.log("6. Reload resumes authoritative code state and persists no code...")
+    await runCommand("agent-browser", ["set", "viewport", "1280", "800"])
+    await runCommand("agent-browser", ["set", "media", "light"])
+    await runCommand("agent-browser", ["reload"])
+    await new Promise((r) => setTimeout(r, 800))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot email enrollment reload:\n", snap)
+    if (!snap.includes("Verification code") || snap.includes("Set up email codes") || snap.includes("99999999")) {
+      throw new Error("Reloaded email OTP enrollment did not resume the authoritative code state")
+    }
+
+    console.log("7. Enrollment-to-completion ordering...")
+    inputRef = refGet(snap, /textbox "Verification code".*ref=(e\d+)/)
+    await runCommand("agent-browser", ["fill", inputRef, "12345678"])
+    await runCommand("agent-browser", ["press", "Enter"])
+    await new Promise((r) => setTimeout(r, 800))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot email enrollment completion:\n", snap)
+    if (!snap.includes("Authorized successfully!")) {
+      throw new Error("Email OTP enrollment did not complete authorization after verification")
+    }
+
+    console.log("=== Testing U2F/passkey enrollment ===")
+    const enrollFlow = "FFFFFFFFFFFFFFFFFFFFFF"
+    const resumedSetupFlow = "EEEEEEEEEEEEEEEEEEEEEE"
+    const enrollUrl = `http://localhost:3001/login/mfa/u2f?flow=${enrollFlow}`
+
+    console.log("1. Desktop enrollment requires explicit action...")
+    await runCommand("agent-browser", ["set", "viewport", "1280", "800"])
+    await runCommand("agent-browser", ["set", "media", "light"])
+    await runCommand("agent-browser", ["open", enrollUrl])
+    await new Promise((r) => setTimeout(r, 800))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot enrollment start:\n", snap)
+    if (!snap.includes("Set up a security key") || !snap.includes("Register security key")) {
+      throw new Error("U2F enrollment start UI missing heading or explicit register button")
+    }
+
+    console.log("2. Registration ceremony starts only on explicit action and blocks duplicates...")
+    const registerRef = refGet(snap, /button "Register security key".*ref=(e\d+)/)
+    await runCommand("agent-browser", ["click", registerRef])
+    await new Promise((r) => setTimeout(r, 1500))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot registration in flight:\n", snap)
+    if (!snap.includes("Registering...") && !snap.includes("Register security key")) {
+      throw new Error("Enrollment panel lost its registration action")
+    }
+
+    console.log("3. Reload keeps enrollment view-only and persists no registration material...")
+    await runCommand("agent-browser", ["reload"])
+    await new Promise((r) => setTimeout(r, 800))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot enrollment reload:\n", snap)
+    if (snap.includes("GAOHYz2jE69kJMYo6Laij8yWw9")) {
+      throw new Error("Registration challenge leaked into the reloaded page")
+    }
+
+    console.log("4. Mobile and dark mode enrollment rendering...")
+    await runCommand("agent-browser", ["set", "viewport", "375", "667"])
+    await runCommand("agent-browser", ["set", "media", "dark"])
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot enrollment mobile dark:\n", snap)
+
+    console.log("5. Resumed mfa_webauthn_setup is authoritative and offers only safe fallback...")
+    await runCommand("agent-browser", ["set", "viewport", "1280", "800"])
+    await runCommand("agent-browser", ["open", `http://localhost:3001/login/mfa/u2f?flow=${resumedSetupFlow}`])
+    await new Promise((r) => setTimeout(r, 800))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot resumed setup:\n", snap)
+    if (!snap.includes("Continue in ZITADEL") || snap.includes("Register security key")) {
+      throw new Error("Resumed WebAuthn setup did not offer fallback-only handling")
+    }
 
     await runCommand("agent-browser", ["close"])
     console.log("Agent-browser verification completed successfully!")

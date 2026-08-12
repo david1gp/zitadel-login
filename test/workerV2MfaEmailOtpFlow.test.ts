@@ -195,7 +195,7 @@ describe("Worker MFA Email OTP Challenge & Resend Flow", () => {
     expect(body.success).toBe(true)
     expect(body.data.kind).toBe("render")
     expect(body.data.route).toBe(`/login/mfa?flow=${flowHandle}`)
-    expect(body.data.screen).toEqual({ name: "mfa", factors: ["AUTHENTICATION_METHOD_TYPE_OTP_EMAIL"] })
+    expect(body.data.screen).toEqual({ name: "mfa_email_otp_code", challengeIssued: true })
 
     const setCookie = response.headers.get("set-cookie")
     expect(setCookie).toBeTruthy()
@@ -214,14 +214,28 @@ describe("Worker MFA Email OTP Challenge & Resend Flow", () => {
     const app = workerAppCreate(dependenciesCreate(native.fetch))
     const cookie = await flowCookieCreate()
 
+    const challenged = await app.request(
+      `${origin}/api/v2/mfa/email-otp/challenge?flow=${flowHandle}`,
+      {
+        method: "POST",
+        headers: { origin, "content-type": "application/json", cookie },
+        body: JSON.stringify({ csrfToken }),
+      },
+      bindings,
+    )
+    const challengeCookie = challenged.headers
+      .get("set-cookie")
+      ?.match(/__Host-zitadel-login-flow-AAAAAAAAAAAAAAAAAAAAAA=([^;]+)/)?.[1]
+    expect(challengeCookie).toBeTruthy()
+
     const response = await app.request(
-      `${origin}/api/v2/mfa/otp/resend?flow=${flowHandle}`,
+      `${origin}/api/v2/mfa/email-otp/resend?flow=${flowHandle}`,
       {
         method: "POST",
         headers: {
           origin,
           "content-type": "application/json",
-          cookie,
+          cookie: `__Host-zitadel-login-flow-${flowHandle}=${challengeCookie}`,
         },
         body: JSON.stringify({ csrfToken }),
       },
@@ -236,7 +250,7 @@ describe("Worker MFA Email OTP Challenge & Resend Flow", () => {
     const match = setCookie?.match(/__Host-zitadel-login-flow-AAAAAAAAAAAAAAAAAAAAAA=([^;]+)/)
     const opened = await flowV2CookieOpen(match![1]!, flowHandle, [key], now)
     expect(opened.success).toBe(true)
-    if (opened.success && opened.data.stage === "mfa") {
+    if (opened.success && opened.data.stage === "mfa_email_otp_code") {
       expect(opened.data.sessionToken).toBe("rotated-mfa-token")
     }
   })

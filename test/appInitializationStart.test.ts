@@ -107,4 +107,99 @@ describe("appInitializationStart", () => {
       expect(result.data.loginHint).toBe("resumed@example.com")
     }
   })
+
+  test("marks resumed TOTP setup as unavailable without reconstructing setup material", async () => {
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes("/api/v2/bootstrap")) return Response.json({ success: true, data: bootstrap })
+      if (url.includes("/api/v2/flow/resume")) {
+        return Response.json({
+          success: true,
+          data: {
+            kind: "render",
+            route: `/login/mfa?flow=${validFlow}`,
+            screen: { name: "mfa_totp_setup" },
+            csrfToken: validCsrf,
+          },
+        })
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    const result = await appInitializationStart(
+      "https://worker.example",
+      new URL(`https://login.example/login/mfa/totp?flow=${validFlow}`),
+      () => undefined,
+    )
+
+    expect(result.success).toBe(true)
+    if (result.success && result.data.status === "ready") {
+      expect(result.data.routeSelection).toEqual({ method: "mfa", factor: "totp" })
+      expect(result.data.totpSetupUnavailable).toBe(true)
+      expect(result.data.webAuthnSetupUnavailable).toBeUndefined()
+    }
+  })
+
+  test("marks resumed WebAuthn setup as unavailable and keeps the authoritative method", async () => {
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes("/api/v2/bootstrap")) return Response.json({ success: true, data: bootstrap })
+      if (url.includes("/api/v2/flow/resume")) {
+        return Response.json({
+          success: true,
+          data: {
+            kind: "render",
+            route: `/login/mfa?flow=${validFlow}`,
+            screen: { name: "mfa_webauthn_setup", method: "passkey" },
+            csrfToken: validCsrf,
+          },
+        })
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    const result = await appInitializationStart(
+      "https://worker.example",
+      new URL(`https://login.example/login/mfa/passkey?flow=${validFlow}`),
+      () => undefined,
+    )
+
+    expect(result.success).toBe(true)
+    if (result.success && result.data.status === "ready") {
+      expect(result.data.webAuthnSetupUnavailable).toBe("passkey")
+      expect(result.data.totpSetupUnavailable).toBe(false)
+    }
+  })
+
+  test("resumes authoritative email enrollment code state without returning to enrollment", async () => {
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes("/api/v2/bootstrap")) return Response.json({ success: true, data: bootstrap })
+      if (url.includes("/api/v2/flow/resume")) {
+        return Response.json({
+          success: true,
+          data: {
+            kind: "render",
+            route: `/login/mfa?flow=${validFlow}`,
+            screen: { name: "mfa_email_otp_code", challengeIssued: true },
+            csrfToken: validCsrf,
+          },
+        })
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    const result = await appInitializationStart(
+      "https://worker.example",
+      new URL(`https://login.example/login/mfa?flow=${validFlow}`),
+      () => undefined,
+    )
+
+    expect(result.success).toBe(true)
+    if (result.success && result.data.status === "ready") {
+      expect(result.data.emailOtpCodePending).toBe(true)
+      expect(result.data.totpSetupUnavailable).toBe(false)
+      expect(result.data.webAuthnSetupUnavailable).toBeUndefined()
+    }
+  })
 })

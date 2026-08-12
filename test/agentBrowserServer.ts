@@ -5,6 +5,7 @@ const port = 3001
 const pagesOrigin = `http://localhost:${port}`
 const validFlow = "AAAAAAAAAAAAAAAAAAAAAA"
 const validCsrf = "B".repeat(43)
+const emailOtpEnrollmentActivated = new Set<string>()
 
 const bootstrap = {
   branding: {
@@ -67,14 +68,58 @@ const server = Bun.serve({
     }
 
     if (url.pathname === "/api/v2/flow/initialize" || url.pathname === "/api/v2/flow/resume") {
-      const isMfa = url.searchParams.get("flow") === "mfa-flow" || req.headers.get("referer")?.includes("/login/mfa")
+      const requestedFlow = url.searchParams.get("flow")
+      const isMfa = requestedFlow === "mfa-flow" || req.headers.get("referer")?.includes("/login/mfa")
+      const flow =
+        requestedFlow === "CCCCCCCCCCCCCCCCCCCCCC" ||
+        requestedFlow === "DDDDDDDDDDDDDDDDDDDDDD" ||
+        requestedFlow === "EEEEEEEEEEEEEEEEEEEEEE" ||
+        requestedFlow === "FFFFFFFFFFFFFFFFFFFFFF" ||
+        requestedFlow === "GGGGGGGGGGGGGGGGGGGGGG"
+          ? requestedFlow
+          : validFlow
+      if (requestedFlow === "EEEEEEEEEEEEEEEEEEEEEE") {
+        return Response.json({
+          success: true,
+          data: {
+            kind: "render",
+            route: `/login/mfa/u2f?flow=${flow}`,
+            screen: { name: "mfa_webauthn_setup", method: "u2f" },
+            csrfToken: validCsrf,
+          },
+        })
+      }
+      if (requestedFlow === "GGGGGGGGGGGGGGGGGGGGGG") {
+        return Response.json({
+          success: true,
+          data: {
+            kind: "render",
+            route: `/login/mfa/email-otp?flow=${flow}`,
+            screen: emailOtpEnrollmentActivated.has(flow)
+              ? { name: "mfa_email_otp_code", challengeIssued: true }
+              : { name: "mfa" },
+            csrfToken: validCsrf,
+          },
+        })
+      }
+      if (requestedFlow === "FFFFFFFFFFFFFFFFFFFFFF") {
+        return Response.json({
+          success: true,
+          data: {
+            kind: "render",
+            route: `/login/mfa/u2f?flow=${flow}`,
+            screen: { name: "mfa" },
+            csrfToken: validCsrf,
+          },
+        })
+      }
       return Response.json({
         success: true,
         data: {
           kind: "render",
-          route: isMfa ? `/login/mfa/totp?flow=${validFlow}` : `/login?flow=${validFlow}`,
+          route: isMfa ? `/login/mfa/totp?flow=${flow}` : `/login?flow=${validFlow}`,
           screen: isMfa
-            ? { name: "mfa" }
+            ? { name: requestedFlow === "CCCCCCCCCCCCCCCCCCCCCC" ? "mfa_totp_setup" : "mfa" }
             : {
                 name: "email_otp_start",
                 recentAccounts: mockRecentAccounts,
@@ -83,7 +128,6 @@ const server = Bun.serve({
         },
       })
     }
-
     if (url.pathname === "/api/v2/mfa/options") {
       const flow = url.searchParams.get("flow")
       if (flow === "mfa-email-check-flow") {
@@ -104,6 +148,24 @@ const server = Bun.serve({
           },
         })
       }
+      if (flow === "FFFFFFFFFFFFFFFFFFFFFF") {
+        return Response.json({
+          success: true,
+          data: { mode: "enroll", methods: [{ type: "u2f" }] },
+        })
+      }
+      if (flow === "GGGGGGGGGGGGGGGGGGGGGG") {
+        return Response.json({
+          success: true,
+          data: { mode: "enroll", methods: [{ type: "email_otp" }] },
+        })
+      }
+      if (flow === "DDDDDDDDDDDDDDDDDDDDDD") {
+        return Response.json({
+          success: true,
+          data: { mode: "enroll", methods: [{ type: "totp" }] },
+        })
+      }
       return Response.json({
         success: true,
         data: {
@@ -111,6 +173,119 @@ const server = Bun.serve({
           methods: [{ type: "totp" }, { type: "email_otp" }, { type: "sms_otp" }],
         },
       })
+    }
+
+    if (url.pathname === "/api/v2/mfa/u2f/enroll" || url.pathname === "/api/v2/mfa/passkey/enroll") {
+      const method = url.pathname.includes("/passkey/") ? "passkey" : "u2f"
+      return Response.json(
+        {
+          success: true,
+          data: {
+            options: {
+              publicKey: {
+                attestation: "none",
+                authenticatorSelection: { userVerification: method === "passkey" ? "required" : "discouraged" },
+                challenge: "GAOHYz2jE69kJMYo6Laij8yWw9-dKKgbViNhfuy0StA",
+                pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+                rp: { id: "localhost", name: "Contentoren" },
+                timeout: 300000,
+                user: { displayName: "User", id: "dXNlci1pZA", name: "user@example.com" },
+              },
+            },
+            transition: {
+              kind: "render",
+              route: `/login/mfa/${method}?flow=${url.searchParams.get("flow") ?? validFlow}`,
+              screen: { name: "mfa_webauthn_setup", method },
+              csrfToken: validCsrf,
+            },
+          },
+        },
+        { status: 201 },
+      )
+    }
+
+    if (url.pathname === "/api/v2/mfa/u2f/enroll/verify" || url.pathname === "/api/v2/mfa/passkey/enroll/verify") {
+      const method = url.pathname.includes("/passkey/") ? "passkey" : "u2f"
+      return Response.json({
+        success: true,
+        data: {
+          transition: {
+            kind: "render",
+            route: `/login/mfa/${method}?flow=${url.searchParams.get("flow") ?? validFlow}`,
+            screen: {
+              name: "mfa",
+              factors: ["AUTHENTICATION_METHOD_TYPE_U2F"],
+              options: {
+                publicKey: {
+                  challenge: "GAOHYz2jE69kJMYo6Laij8yWw9-dKKgbViNhfuy0StA",
+                  rpId: "localhost",
+                  userVerification: method === "passkey" ? "required" : "discouraged",
+                },
+              },
+            },
+            csrfToken: validCsrf,
+          },
+        },
+      })
+    }
+
+    if (url.pathname === "/api/v2/mfa/email-otp/enroll") {
+      const body = (await req.json()) as Record<string, unknown>
+      if (body.method !== "email_otp" || body.csrfToken !== validCsrf || "email" in body) {
+        return Response.json(
+          { success: false, op: "mfaEmailOtpEnrollment", errorMessage: "csrf_rejected" },
+          { status: 403 },
+        )
+      }
+      emailOtpEnrollmentActivated.add(url.searchParams.get("flow") ?? validFlow)
+      return Response.json(
+        {
+          success: true,
+          data: {
+            transition: {
+              kind: "render",
+              route: `/login/mfa?flow=${url.searchParams.get("flow") ?? validFlow}`,
+              screen: { name: "mfa_email_otp_code", challengeIssued: true },
+              csrfToken: validCsrf,
+            },
+          },
+        },
+        { status: 201 },
+      )
+    }
+
+    if (url.pathname === "/api/v2/mfa/otp/enroll") {
+      return Response.json(
+        {
+          success: true,
+          data: {
+            provisioningUri:
+              "otpauth://totp/Contentoren:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Contentoren&algorithm=SHA1&digits=6&period=30",
+            secret: "JBSWY3DPEHPK3PXP",
+            transition: {
+              kind: "render",
+              route: `/login/mfa?flow=${validFlow}`,
+              screen: { name: "mfa_totp_setup" },
+              csrfToken: validCsrf,
+            },
+          },
+        },
+        { status: 201 },
+      )
+    }
+
+    if (url.pathname === "/api/v2/mfa/otp/enroll/verify") {
+      const body = (await req.json()) as { code: string; csrfToken: string }
+      if (body.code === "123456") {
+        return Response.json({
+          success: true,
+          data: { transition: { kind: "complete", path: `/api/v2/flow/continue?flow=${validFlow}` } },
+        })
+      }
+      return Response.json(
+        { success: false, op: "mfaTotpEnrollmentVerify", errorMessage: "code_invalid" },
+        { status: 401 },
+      )
     }
 
     if (

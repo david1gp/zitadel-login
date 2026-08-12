@@ -145,7 +145,7 @@ describe("mfaV2EmailOtpChallenge", () => {
     expect(result.data.transition).toEqual({
       kind: "render",
       route: `/login/mfa?flow=${state.flowHandle}`,
-      screen: { name: "mfa", factors: state.mfaMethods },
+      screen: { name: "mfa_email_otp_code", challengeIssued: true },
       csrfToken: state.csrfToken,
     })
     expect(native.calls.some((c) => c.method === "PATCH" && c.url === `${identityOrigin}/v2/sessions/session-1`)).toBe(

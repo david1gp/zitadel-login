@@ -55,6 +55,7 @@ const bindings = {
 type NativeOptions = {
   emailOtpStatus?: number
   sessionStatus?: number
+  checkedToken?: string
   latestToken?: string
   factors?: Record<string, unknown>
   methods?: string[]
@@ -79,7 +80,7 @@ function nativeCreate(options: NativeOptions = {}) {
 
     if (url === `${identityOrigin}/v2/sessions/session-1` && method === "PATCH") {
       if (options.emailOtpStatus) return Response.json({}, { status: options.emailOtpStatus })
-      return Response.json({ sessionToken: options.latestToken ?? "secret-latest-token" })
+      return Response.json({ sessionToken: options.checkedToken ?? options.latestToken ?? "secret-latest-token" })
     }
     if (url.startsWith(`${identityOrigin}/v2/sessions/session-1?`) && method === "GET") {
       if (options.sessionStatus) return Response.json({}, { status: options.sessionStatus })
@@ -259,6 +260,26 @@ describe("mfaV2EmailOtpVerify", () => {
     })
 
     expect(result.success).toBe(true)
+  })
+
+  test("retains the newest revalidated Session token when post-check policy falls back", async () => {
+    const native = nativeCreate({
+      checkedToken: "secret-checked-token",
+      latestToken: "secret-revalidated-token",
+      methods: ["AUTHENTICATION_METHOD_TYPE_PASSWORD", "UNKNOWN_METHOD"],
+    })
+
+    const result = await mfaV2EmailOtpVerify({
+      state,
+      code: "12345678",
+      now,
+      client: native.client,
+    })
+
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.data.transition.kind).toBe("fallback")
+    expect(result.data.state.sessionToken).toBe("secret-revalidated-token")
   })
 
   test("handles stale native session gracefully after check", async () => {

@@ -227,18 +227,18 @@ describe("mfaOptionsGet", () => {
     if (!result.success) return
     expect(result.data.options).toEqual({
       mode: "enroll",
-      methods: [{ type: "totp" }, { type: "email_otp" }, { type: "sms_otp" }, { type: "u2f" }, { type: "passkey" }],
+      methods: [{ type: "totp" }, { type: "email_otp" }, { type: "u2f" }, { type: "passkey" }],
     })
   })
 
-  test("offers a policy-allowed optional setup as skippable", async () => {
+  test("omits un-enrolled SMS from optional setup while retaining other allowed methods", async () => {
     const result = await optionsGet({ secondFactors: ["SECOND_FACTOR_TYPE_OTP", "SECOND_FACTOR_TYPE_OTP_SMS"] })
     expect(result.success).toBe(true)
     if (!result.success) return
     expect(result.data.options).toEqual({
       mode: "skip",
       reason: "optional_setup",
-      methods: [{ type: "totp" }, { type: "sms_otp" }],
+      methods: [{ type: "totp" }],
     })
   })
 
