@@ -35,7 +35,6 @@ export type AppInitializationData =
       emailStep: "email" | "code"
       loginHint?: string
       passkeyOptions?: unknown
-      preferredSelection?: LoginMethodSelection
       routeSelection?: LoginMethodSelection
       storedIdentifier?: string
       notice?: string
@@ -103,12 +102,10 @@ export async function appInitializationStart(
     return resultCreate({ status: "fatal", errorMessage: "The sign-in service returned an invalid response." })
   }
 
-  if (!flowHandle) {
-    try {
-      const parsedUrl = new URL(transition.route, "https://login.local")
-      flowHandle = parsedUrl.searchParams.get("flow") ?? undefined
-    } catch {}
-  }
+  const parsedCanonicalUrl = new URL(transition.route, "https://login.local")
+  if (!flowHandle) flowHandle = parsedCanonicalUrl.searchParams.get("flow") ?? undefined
+  const canonicalRoute = loginRouteRead(parsedCanonicalUrl.pathname)
+  const canonicalRouteSelection = canonicalRoute.success ? canonicalRoute.data : undefined
   if (!flowHandle) {
     return resultCreate({ status: "fatal", errorMessage: "The sign-in service returned an invalid response." })
   }
@@ -118,14 +115,6 @@ export async function appInitializationStart(
     bootstrapResult && !bootstrapResult.success ? "Some sign-in methods are temporarily unavailable." : undefined
 
   const stored = preferenceInitialize(bootstrapData.organization.id)
-  const preferredSelection: LoginMethodSelection | undefined = stored
-    ? stored.selectedMethod === "identity_provider" && stored.identityProviderId
-      ? { method: "identity_provider", identityProviderId: stored.identityProviderId }
-      : stored.selectedMethod !== "identity_provider"
-        ? { method: stored.selectedMethod }
-        : undefined
-    : undefined
-
   const emailStep = transition.screen.name === "email_otp_code" ? "code" : "email"
   const loginHint = transition.screen.name === "email_otp_start" ? transition.screen.loginHint : undefined
   const passkeyOptions = transition.screen.name === "passkey" ? transition.screen.options : undefined
@@ -140,8 +129,7 @@ export async function appInitializationStart(
     emailStep,
     loginHint,
     passkeyOptions,
-    preferredSelection,
-    routeSelection: route.data,
+    routeSelection: ingress.data ? route.data : canonicalRouteSelection,
     storedIdentifier: stored?.identifier,
     notice: noticeMessage,
     recentAccounts,

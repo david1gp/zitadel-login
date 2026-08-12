@@ -82,7 +82,7 @@ describe("appInitializationStart", () => {
     }
   })
 
-  test("resumes flow from opaque handle in search params", async () => {
+  test("uses the canonical email route when resuming at the chooser route", async () => {
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
       if (url.includes("/api/v2/flow/resume")) {
@@ -99,13 +99,45 @@ describe("appInitializationStart", () => {
       throw new Error(`Unexpected request: ${url}`)
     })
 
-    const currentUrl = new URL(`https://login.example/login/email-otp?flow=${validFlow}`)
+    const currentUrl = new URL(`https://login.example/login?flow=${validFlow}`)
     const result = await appInitializationStart("https://worker.example", currentUrl, () => undefined)
 
     expect(result.success).toBe(true)
     if (result.success && result.data.status === "ready") {
       expect(result.data.flowHandle).toBe(validFlow)
       expect(result.data.loginHint).toBe("resumed@example.com")
+      expect(result.data.routeSelection).toEqual({ method: "email_otp" })
+    }
+  })
+
+  test("uses the canonical password route when resuming at the chooser route", async () => {
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes("/api/v2/bootstrap"))
+        return Response.json({ success: true, data: { ...bootstrap, primaryMethods: ["password"] } })
+      if (url.includes("/api/v2/flow/resume")) {
+        return Response.json({
+          success: true,
+          data: {
+            kind: "render",
+            route: `/login/password?flow=${validFlow}`,
+            screen: { name: "email_otp_start" },
+            csrfToken: validCsrf,
+          },
+        })
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    const result = await appInitializationStart(
+      "https://worker.example",
+      new URL(`https://login.example/login?flow=${validFlow}`),
+      () => undefined,
+    )
+
+    expect(result.success).toBe(true)
+    if (result.success && result.data.status === "ready") {
+      expect(result.data.routeSelection).toEqual({ method: "password" })
     }
   })
 
@@ -135,7 +167,7 @@ describe("appInitializationStart", () => {
 
     expect(result.success).toBe(true)
     if (result.success && result.data.status === "ready") {
-      expect(result.data.routeSelection).toEqual({ method: "mfa", factor: "totp" })
+      expect(result.data.routeSelection).toEqual({ method: "mfa" })
       expect(result.data.totpSetupUnavailable).toBe(true)
       expect(result.data.webAuthnSetupUnavailable).toBeUndefined()
     }

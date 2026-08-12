@@ -344,7 +344,7 @@ export function appStateCreate(
         ? ({ method: "password" } as const)
         : data.emailOtpCodePending
           ? ({ method: "mfa", factor: "email_otp" } as const)
-          : (data.routeSelection ?? data.preferredSelection)
+          : data.routeSelection
       const targetSelection = nextSelection && selectionIsAvailable(nextSelection) ? nextSelection : undefined
       selection.set(targetSelection)
       browserHistoryNavigate(browserWindow, loginRoutePathGet(targetSelection, `?flow=${data.flowHandle}`), true)

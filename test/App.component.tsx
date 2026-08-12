@@ -125,6 +125,69 @@ describe("application shell", () => {
     expect(requests).toHaveLength(2)
   })
 
+  test("shows only live policy methods for a fresh sign-in despite a stored preference", async () => {
+    const requests: string[] = []
+    const baseMock = apiMockCreate(requests)
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes("/api/v2/bootstrap")) {
+        return Response.json({
+          success: true,
+          data: { ...bootstrap, primaryMethods: ["email_otp", "password"], identityProviders: [] },
+        })
+      }
+      return baseMock(input, init)
+    }) as unknown as typeof fetch
+    localStorage.setItem(
+      "zitadel-login:preference:v1:org-1",
+      JSON.stringify({
+        version: 1,
+        selectedMethod: "email_otp",
+        rememberIdentifier: true,
+        identifier: "person@example.com",
+        updatedAt: Date.now(),
+      }),
+    )
+    history.replaceState(null, "", "/login?authRequest=request-1")
+
+    render(() => <App apiOrigin="https://worker.example" />)
+
+    expect(await screen.findByRole("heading", { name: "Choose a method" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: /Email code/ })).toBeTruthy()
+    expect(screen.getByRole("button", { name: /^Password/ })).toBeTruthy()
+    expect(screen.queryByRole("button", { name: /Passkey/ })).toBeNull()
+    expect(screen.queryByRole("button", { name: /GitHub/ })).toBeNull()
+    expect(screen.queryByRole("textbox", { name: "Email address" })).toBeNull()
+    expect(location.pathname).toBe("/login")
+    expect(location.search).toBe(`?flow=${validFlow}`)
+  })
+
+  test("resumes the server canonical method from the chooser route", async () => {
+    const requests: string[] = []
+    const baseMock = apiMockCreate(requests)
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes("/api/v2/flow/resume")) {
+        return Response.json({
+          success: true,
+          data: {
+            kind: "render",
+            route: `/login/password?flow=${validFlow}`,
+            screen: { name: "email_otp_start", loginHint: "hint@example.com" },
+            csrfToken: validCsrf,
+          },
+        })
+      }
+      return baseMock(input, init)
+    }) as unknown as typeof fetch
+    history.replaceState(null, "", `/login?flow=${validFlow}`)
+
+    render(() => <App apiOrigin="https://worker.example" />)
+
+    expect(await screen.findByRole("heading", { name: "Sign in with password" })).toBeTruthy()
+    expect(screen.queryByRole("heading", { name: "Choose a method" })).toBeNull()
+    expect(location.pathname).toBe("/login/password")
+    expect(location.search).toBe(`?flow=${validFlow}`)
+  })
+
   test("falls back for unowned methods before rendering or submitting credentials", async () => {
     const requests: string[] = []
     globalThis.fetch = apiMockCreate(requests)
