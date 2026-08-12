@@ -22,8 +22,10 @@ Use ZITADEL’s native Session/Login APIs and existing SMTP path wherever they s
 10. **Completed** — Create the public GitHub repository and push without environment files or secrets.
 11. **Completed** — Deploy Worker and Pages, configure ZITADEL, and run E2E against the designated test user.
 12. **Completed** — Run final verification and push the deployed/configured state to GitHub.
+13. **Completed** — Change fresh sign-ins to show a method chooser instead of auto-selecting preferred email OTP, listing only methods enabled by live ZITADEL policy and including email OTP.
+14. **In progress** — Deploy the completed method-chooser UI to production, verify the deployment, and generate a fresh valid PKCE authorization link for manual testing.
 
-## Active paths
+## Paths
 
 - Plan: `/home/david/adaptive/zitadel-login/docs/20260810_zitadel-login.md`
 - Target: `/home/david/adaptive/zitadel-login`
@@ -35,8 +37,9 @@ Use ZITADEL’s native Session/Login APIs and existing SMTP path wherever they s
 - Cloudflare Pages: `https://zitadel-login.pages.dev`
 - Production login: `https://login.contentoren.de`
 
-## Durable decisions
+## Decisions
 
+- Fresh sign-ins show only live-policy-enabled methods in a chooser, including email OTP; preserve explicit routes and continuations when the chooser is absent.
 - Package: `@adaptive-ds/zitadel-login`; public GitHub repository `david1gp/zitadel-login`.
 - Product flow: email OTP is a primary passwordless login option for users who cannot remember passwords, not a second-factor screen.
 - Keep existing ZITADEL Login V2 as fallback; provide a specialized native ZITADEL Login App rather than replacing every login flow.
