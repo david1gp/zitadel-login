@@ -14,6 +14,9 @@ const themeSchema = v.strictObject({
 })
 
 export const bootstrapViewSchema = v.strictObject({
+  capabilities: v.strictObject({
+    passwordRecovery: v.boolean(),
+  }),
   branding: v.strictObject({
     dark: themeSchema,
     disableWatermark: v.boolean(),

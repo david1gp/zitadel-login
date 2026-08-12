@@ -69,6 +69,7 @@ export const workerBindingsSchema = v.strictObject({
   ZITADEL_LOGIN_V2_ENABLED: booleanBindingSchema,
   ZITADEL_EMAIL_OTP_V2_ENABLED: booleanBindingSchema,
   ZITADEL_PASSWORD_V2_ENABLED: booleanBindingSchema,
+  ZITADEL_PASSWORD_RESET_V2_ENABLED: booleanBindingSchema,
   ZITADEL_PASSKEY_V2_ENABLED: booleanBindingSchema,
   ZITADEL_IDP_V2_ENABLED: booleanBindingSchema,
   ZITADEL_MFA_V2_ENABLED: booleanBindingSchema,

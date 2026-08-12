@@ -49,6 +49,9 @@ import { passkeyV2Verify } from "../../passkey/domain/passkeyV2Verify"
 import { passkeyChallengeRequestSchema } from "../../passkey/model/passkeyChallengeRequestSchema"
 import { passkeyVerifyRequestSchema } from "../../passkey/model/passkeyVerifyRequestSchema"
 import { passwordV2Verify } from "../../password/domain/passwordV2Verify"
+import { passwordChangeRequiredExecute } from "../../password/domain/passwordChangeRequiredExecute"
+import { passwordChangeRequiredRequestSchema } from "../../password/model/passwordChangeRequiredRequestSchema"
+import { passwordChangeRequiredResponseSchema } from "../../password/model/passwordChangeRequiredResponseSchema"
 import { passwordVerifyRequestSchema } from "../../password/model/passwordVerifyRequestSchema"
 import { resultCreate } from "../../result/resultCreate"
 import { resultErrorCreate } from "../../result/resultErrorCreate"
@@ -376,6 +379,17 @@ function stateTransitionGet(
       screen: { name: "mfa", factors: state.mfaMethods },
       csrfToken: state.csrfToken,
     }
+  }
+  if (state.stage === "password_change_required") {
+    return {
+      kind: "render",
+      route: `/login/password?flow=${state.flowHandle}`,
+      screen: { name: "password_change_required", expired: state.expired },
+      csrfToken: state.csrfToken,
+    }
+  }
+  if (state.stage === "password_changed") {
+    return { kind: "fallback", path: `/api/v2/flow/fallback?flow=${state.flowHandle}` }
   }
   if (state.stage === "mfa_email_otp_code") {
     return {
@@ -1515,7 +1529,11 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!handle.success) return resultErrorResponse(c, op, handle.errorMessage)
     const state = await stateGet(c, bindings.data, handle.data)
     if (!state.success) return resultErrorResponse(c, op, state.errorMessage)
-    if (state.data.stage === "verified" || state.data.stage === "mfa") {
+    if (
+      state.data.stage === "verified" ||
+      state.data.stage === "mfa" ||
+      state.data.stage === "password_change_required"
+    ) {
       return resultErrorResponse(c, op, "flow_replayed")
     }
     if (state.data.stage !== "ready") return resultErrorResponse(c, op, "flow_stage_invalid")
@@ -1718,7 +1736,11 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!handle.success) return resultErrorResponse(c, op, handle.errorMessage)
     const state = await stateGet(c, bindings.data, handle.data)
     if (!state.success) return resultErrorResponse(c, op, state.errorMessage)
-    if (state.data.stage === "verified" || state.data.stage === "mfa") {
+    if (
+      state.data.stage === "verified" ||
+      state.data.stage === "mfa" ||
+      state.data.stage === "password_change_required"
+    ) {
       return resultErrorResponse(c, op, "flow_replayed")
     }
     if (state.data.stage !== "ready") return resultErrorResponse(c, op, "flow_stage_invalid")
@@ -1762,6 +1784,109 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     } finally {
       password = ""
       payload.data.password = ""
+    }
+  })
+
+  app.post("/api/v2/password/change-required", async (c) => {
+    const op = "passwordChangeRequired"
+    const bindings = bindingsGet(c)
+    if (!bindings.success) return resultErrorResponse(c, op, "service_unavailable")
+    const boundary = requestBoundaryCheck(c, bindings.data, true)
+    if (!boundary.success) return resultErrorResponse(c, op, boundary.errorMessage)
+    if (c.req.header("content-type")?.split(";", 1)[0]?.trim().toLowerCase() !== "application/json") {
+      return resultErrorResponse(c, op, "unsupported_media_type")
+    }
+    const payload = await payloadParse(c, passwordChangeRequiredRequestSchema)
+    if (!payload.success) return resultErrorResponse(c, op, payload.errorMessage)
+    const handle = flowHandleQueryGet(c)
+    if (!handle.success) return resultErrorResponse(c, op, handle.errorMessage)
+    const stored = await stateGet(c, bindings.data, handle.data)
+    if (!stored.success) return resultErrorResponse(c, op, stored.errorMessage)
+    if (
+      stored.data.stage === "password_changed" ||
+      stored.data.stage === "verified" ||
+      stored.data.stage === "silent" ||
+      stored.data.stage === "mfa"
+    ) {
+      return resultErrorResponse(c, op, "flow_replayed")
+    }
+    if (stored.data.stage !== "password_change_required") {
+      return resultErrorResponse(c, op, "flow_stage_invalid")
+    }
+    if (!csrfTokenMatches(payload.data.csrfToken, stored.data.csrfToken)) {
+      return resultErrorResponse(c, op, "csrf_rejected")
+    }
+    const limited = await abuseLimitCheck(
+      bindings.data.RATE_LIMITER,
+      bindings.data.FLOW_COOKIE_KEY,
+      "v2-password-change-required",
+      [
+        ["flow", stored.data.flowHandle],
+        ["session", stored.data.sessionId],
+        ["ip", c.req.header("cf-connecting-ip") ?? "unknown"],
+      ],
+    )
+    if (!limited.success) return resultErrorResponse(c, op, limited.errorMessage)
+    const request = await authRequestRevalidate(bindings.data, stored.data)
+    if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
+    if (!bindings.data.ZITADEL_LOGIN_V2_ENABLED || !bindings.data.ZITADEL_PASSWORD_V2_ENABLED) {
+      return resultErrorResponse(c, op, "password_unavailable")
+    }
+
+    const csrfToken = base64UrlEncode(dependencies.randomBytes(32))
+    let currentPassword = payload.data.currentPassword
+    let newPassword = payload.data.newPassword
+    try {
+      const result = await passwordChangeRequiredExecute({
+        state: stored.data,
+        currentPassword,
+        newPassword,
+        csrfToken,
+        mfaV2Enabled: bindings.data.ZITADEL_MFA_V2_ENABLED,
+        now: dependencies.now(),
+        consume: (state) => stateSet(c, bindings.data, state),
+        client: zitadelClientCreate(bindings.data, dependencies.fetch),
+      })
+      if (!result.success) {
+        if (result.errorMessage === "password_policy_invalid" || result.errorMessage === "credentials_invalid") {
+          const retryState = {
+            ...stored.data,
+            csrfToken,
+            transitionCounter: stored.data.transitionCounter + 1,
+          }
+          const set = await stateSet(c, bindings.data, retryState)
+          if (!set.success) return resultErrorResponse(c, op, "service_unavailable")
+          const response = v.safeParse(passwordChangeRequiredResponseSchema, {
+            success: false,
+            op,
+            errorMessage: result.errorMessage,
+            csrfToken,
+            expiresAt: retryState.expiresAt,
+          })
+          if (!response.success) return resultErrorResponse(c, op, "service_unavailable")
+          return c.json(response.output, result.errorMessage === "credentials_invalid" ? 401 : 400)
+        }
+        dependencies.logger.error("v2_password_change_required_failed", {
+          status: resultStatusGet(result) ?? 0,
+        })
+        return resultErrorResponse(c, op, result.errorMessage)
+      }
+
+      const set = await stateSet(c, bindings.data, result.data.state)
+      if (!set.success) {
+        return transitionResponse(c, {
+          kind: "fallback",
+          path: `/api/v2/flow/fallback?flow=${stored.data.flowHandle}`,
+        })
+      }
+      const response = v.safeParse(passwordChangeRequiredResponseSchema, resultCreate(result.data.transition))
+      if (!response.success) return resultErrorResponse(c, op, "service_unavailable")
+      return c.json(response.output, 200)
+    } finally {
+      currentPassword = ""
+      newPassword = ""
+      payload.data.currentPassword = ""
+      payload.data.newPassword = ""
     }
   })
 
@@ -2136,8 +2261,11 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!state.success) return resultErrorResponse(c, op, state.errorMessage)
     const emailEnrollmentFallback =
       state.data.stage === "mfa_email_otp_code" && state.data.enrollmentActivationConsumedAt !== undefined
+    const passwordChangedFallback = state.data.stage === "password_changed"
     if (
-      (!emailEnrollmentFallback && (state.data.stage !== "ready" || !state.data.delegable)) ||
+      (!emailEnrollmentFallback &&
+        !passwordChangedFallback &&
+        (state.data.stage !== "ready" || !state.data.delegable)) ||
       state.data.prompt.includes("PROMPT_NONE")
     ) {
       return resultErrorResponse(c, op, "fallback_forbidden")

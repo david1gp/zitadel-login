@@ -1,6 +1,7 @@
 import type { BootstrapView } from "./bootstrapViewSchema"
 
 export const fallbackBootstrap: BootstrapView = {
+  capabilities: { passwordRecovery: false },
   branding: {
     dark: { colors: { background: "#17191c", font: "#f4f5f5", primary: "#d7f06c", warn: "#ff756f" } },
     disableWatermark: true,

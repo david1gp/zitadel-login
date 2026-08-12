@@ -537,3 +537,8 @@ input:focus-visible {
     height: 34px;
   }
 }
+
+.forgot-password-button {
+  display: block;
+  margin-top: 12px;
+}

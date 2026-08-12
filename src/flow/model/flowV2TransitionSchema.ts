@@ -30,6 +30,7 @@ const renderSchema = v.strictObject({
       options: passkeyOptionsSchema,
     }),
     v.strictObject({ name: v.literal("idp_account_not_found") }),
+    v.strictObject({ name: v.literal("password_change_required"), expired: v.boolean() }),
   ]),
   csrfToken: v.pipe(v.string(), v.regex(/^[A-Za-z0-9_-]{43}$/)),
 })

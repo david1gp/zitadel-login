@@ -55,6 +55,13 @@ function mfaTransitionCreate(state: Extract<FlowV2Cookie, { stage: "mfa" }>): Fl
   }
 }
 
+function passwordExpiredGet(passwordChanged: string | undefined, maxAgeDays: number | undefined, now: number) {
+  if (!maxAgeDays || !passwordChanged) return resultCreate(false)
+  const changedAt = Date.parse(passwordChanged)
+  if (!Number.isFinite(changedAt)) return resultErrorCreate("passwordExpiredGet", "password_lifecycle_unsupported")
+  return resultCreate(changedAt + maxAgeDays * 24 * 60 * 60 * 1000 <= now * 1000)
+}
+
 export async function passwordV2Verify(input: Input) {
   const op = "passwordV2Verify"
   const settings = await input.client.loginSettingsGet(input.state.organizationId)
@@ -122,13 +129,59 @@ export async function passwordV2Verify(input: Input) {
     return resultErrorCreate(op, "authorization_unavailable")
   }
 
+  const refreshedUser = await input.client.userGet(user.userId)
+  if (!refreshedUser.success) {
+    return resultErrorCreate(op, "password_unavailable", { status: resultStatusGet(refreshedUser) })
+  }
+  const refreshedExpiry = await input.client.passwordExpirySettingsGet(input.state.organizationId)
+  if (!refreshedExpiry.success) {
+    return resultErrorCreate(op, "password_unavailable", { status: resultStatusGet(refreshedExpiry) })
+  }
+  const authoritativeUser = refreshedUser.data.user
+  if (
+    authoritativeUser.userId !== user.userId ||
+    authoritativeUser.state !== "USER_STATE_ACTIVE" ||
+    authoritativeUser.details?.resourceOwner !== input.state.organizationId ||
+    !authoritativeUser.human
+  ) {
+    return resultErrorCreate(op, "authorization_unavailable")
+  }
+  const expired = passwordExpiredGet(
+    authoritativeUser.human.passwordChanged,
+    refreshedExpiry.data.settings?.maxAgeDays,
+    input.now,
+  )
+  if (!expired.success) return resultErrorCreate(op, "authorization_unavailable")
+
+  const sessionToken = session.data.session.sessionToken ?? created.data.sessionToken
+  const stateBase = (({ owned: _owned, ...rest }) => rest)(input.state)
+  if (authoritativeUser.human.passwordChangeRequired === true || expired.data) {
+    const state: Extract<FlowV2Cookie, { stage: "password_change_required" }> = {
+      ...stateBase,
+      stage: "password_change_required",
+      delegable: false,
+      transitionCounter: input.state.transitionCounter + 1,
+      userId: user.userId,
+      sessionId: created.data.sessionId,
+      sessionToken,
+      expired: expired.data,
+    }
+    return resultCreate({
+      state,
+      transition: {
+        kind: "render",
+        route: `/login/password?flow=${state.flowHandle}`,
+        screen: { name: "password_change_required", expired: state.expired },
+        csrfToken: state.csrfToken,
+      } satisfies FlowV2Transition,
+    })
+  }
+
   const availableMfaMethods = methods.data.authMethodTypes.filter((method) => mfaMethods.has(method))
   const requiresMfa =
     availableMfaMethods.length > 0 ||
     settings.data.settings?.forceMfa === true ||
     settings.data.settings?.forceMfaLocalOnly === true
-  const stateBase = (({ owned: _owned, ...rest }) => rest)(input.state)
-
   if (requiresMfa) {
     const state: Extract<FlowV2Cookie, { stage: "mfa" }> = {
       ...stateBase,
@@ -137,7 +190,7 @@ export async function passwordV2Verify(input: Input) {
       transitionCounter: input.state.transitionCounter + 1,
       userId: user.userId,
       sessionId: created.data.sessionId,
-      sessionToken: created.data.sessionToken,
+      sessionToken,
       mfaMethods: availableMfaMethods,
     }
     return resultCreate({ state, transition: mfaTransitionCreate(state) })
@@ -150,7 +203,7 @@ export async function passwordV2Verify(input: Input) {
     transitionCounter: input.state.transitionCounter + 1,
     userId: user.userId,
     sessionId: created.data.sessionId,
-    sessionToken: created.data.sessionToken,
+    sessionToken,
   }
   return resultCreate({
     state,

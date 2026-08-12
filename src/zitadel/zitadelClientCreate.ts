@@ -115,6 +115,29 @@ const totpEnrollmentCreateResponseSchema = v.object({
 const totpEnrollmentVerifyResponseSchema = v.object({
   details: v.optional(totpDetailsSchema),
 })
+const passwordSecretSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(200))
+const passwordVerificationCodeSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(20))
+const passwordSetVerificationSchema = v.variant("mode", [
+  v.strictObject({ mode: v.literal("current_password"), currentPassword: passwordSecretSchema }),
+  v.strictObject({ mode: v.literal("verification_code"), verificationCode: passwordVerificationCodeSchema }),
+])
+const passwordDetailsSchema = v.strictObject({
+  sequence: v.optional(v.pipe(v.string(), v.maxLength(32))),
+  changeDate: v.optional(v.pipe(v.string(), v.maxLength(100))),
+  resourceOwner: v.optional(v.pipe(v.string(), v.minLength(1), v.maxLength(200))),
+  creationDate: v.optional(v.pipe(v.string(), v.maxLength(100))),
+})
+const passwordResetResponseSchema = v.strictObject({ details: v.optional(passwordDetailsSchema) })
+const passwordSetResponseSchema = v.strictObject({ details: v.optional(passwordDetailsSchema) })
+const passwordPolicyErrorIds = new Set(["DOMAIN-HuJf6", "DOMAIN-co3Xw", "DOMAIN-VoaRj", "DOMAIN-ZBv4H", "DOMAIN-ZDLwA"])
+const currentPasswordErrorIds = new Set(["COMMAND-3M0fs", "COMMAND-JLK35", "COMMAND-SFA3t"])
+const passwordResetTerminalErrorIds = new Set([
+  "CODE-QvUQ4P",
+  "CODE-woT0xc",
+  "CRYPT-aqrFV",
+  "COMMAND-G8dh3",
+  "COMMAND-M9dse",
+])
 const otpEmailEnrollmentResponseSchema = v.strictObject({
   details: v.optional(
     v.strictObject({
@@ -181,6 +204,7 @@ const loginSettingsSchema = v.object({
   allowLocalAuthentication: v.optional(v.boolean()),
   forceMfa: v.optional(v.boolean()),
   forceMfaLocalOnly: v.optional(v.boolean()),
+  hidePasswordReset: v.optional(v.boolean()),
   ignoreUnknownUsernames: v.optional(v.boolean()),
   passkeysType: v.optional(v.string()),
   secondFactors: v.optional(v.array(v.string()), []),
@@ -297,6 +321,10 @@ function errorIdGet(value: unknown, depth = 0): string | undefined {
     if (id) return id
   }
   return undefined
+}
+
+function passwordResetTemplateValid(template: string, pagesOrigin: string): boolean {
+  return template === `${pagesOrigin}/api/v2/password/reset/ingress?userId={{.UserID}}&orgId={{.OrgID}}&code={{.Code}}`
 }
 
 export function zitadelClientCreate(bindings: WorkerBindings, fetchImplementation: Fetch) {
@@ -485,6 +513,89 @@ export function zitadelClientCreate(bindings: WorkerBindings, fetchImplementatio
         totpEnrollmentVerifyResponseSchema,
         { method: "POST", body: JSON.stringify({ code: parsedCode.output }) },
       )
+    },
+    passwordResetRequest(userId: string, urlTemplate: string) {
+      const op = "passwordResetRequest"
+      const parsedUserId = v.safeParse(totpUserIdSchema, userId)
+      if (!parsedUserId.success) return resultErrorCreate(op, v.summarize(parsedUserId.issues))
+      const parsedTemplate = v.safeParse(v.pipe(v.string(), v.minLength(1), v.maxLength(2048)), urlTemplate)
+      if (!parsedTemplate.success) return resultErrorCreate(op, v.summarize(parsedTemplate.issues))
+      if (!passwordResetTemplateValid(parsedTemplate.output, bindings.PAGES_ORIGIN)) {
+        return resultErrorCreate(op, "Invalid password reset URL template")
+      }
+      return request(
+        op,
+        `/v2/users/${encodeURIComponent(parsedUserId.output)}/password_reset`,
+        passwordResetResponseSchema,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            sendLink: {
+              notificationType: "NOTIFICATION_TYPE_EMAIL",
+              urlTemplate: parsedTemplate.output,
+            },
+          }),
+        },
+      ).then((result) => {
+        if (result.success) return result
+        const status =
+          typeof result.rawData === "object" &&
+          result.rawData !== null &&
+          "status" in result.rawData &&
+          typeof result.rawData.status === "number"
+            ? result.rawData.status
+            : undefined
+        const id =
+          typeof result.rawData === "object" &&
+          result.rawData !== null &&
+          "id" in result.rawData &&
+          typeof result.rawData.id === "string"
+            ? result.rawData.id
+            : undefined
+        if (id === "COMMAND-SAF4f" || id === "COMMAND-Sfe4g") {
+          return resultErrorCreate(op, "password_reset_account_failure")
+        }
+        return resultErrorCreate(op, "password_reset_unavailable")
+      })
+    },
+    passwordSet(
+      userId: string,
+      password: string,
+      verification: v.InferInput<typeof passwordSetVerificationSchema>,
+      changeRequired = false,
+    ) {
+      const op = "passwordSet"
+      const parsedUserId = v.safeParse(totpUserIdSchema, userId)
+      if (!parsedUserId.success) return resultErrorCreate(op, v.summarize(parsedUserId.issues))
+      const parsedPassword = v.safeParse(passwordSecretSchema, password)
+      if (!parsedPassword.success) return resultErrorCreate(op, v.summarize(parsedPassword.issues))
+      const parsedVerification = v.safeParse(passwordSetVerificationSchema, verification)
+      if (!parsedVerification.success) return resultErrorCreate(op, v.summarize(parsedVerification.issues))
+      if (typeof changeRequired !== "boolean") return resultErrorCreate(op, "Invalid password change requirement")
+      return request(op, `/v2/users/${encodeURIComponent(parsedUserId.output)}/password`, passwordSetResponseSchema, {
+        method: "POST",
+        body: JSON.stringify({
+          newPassword: { password: parsedPassword.output, changeRequired },
+          ...(parsedVerification.output.mode === "current_password"
+            ? { currentPassword: parsedVerification.output.currentPassword }
+            : { verificationCode: parsedVerification.output.verificationCode }),
+        }),
+      }).then((result) => {
+        if (result.success) return result
+        const id =
+          typeof result.rawData === "object" &&
+          result.rawData !== null &&
+          "id" in result.rawData &&
+          typeof result.rawData.id === "string"
+            ? result.rawData.id
+            : undefined
+        if (id && passwordPolicyErrorIds.has(id)) return resultErrorCreate(op, "password_policy_invalid")
+        if (parsedVerification.output.mode === "current_password" && id && currentPasswordErrorIds.has(id)) {
+          return resultErrorCreate(op, "password_current_invalid")
+        }
+        if (id && passwordResetTerminalErrorIds.has(id)) return resultErrorCreate(op, "password_reset_link_invalid")
+        return resultErrorCreate(op, "password_set_unavailable")
+      })
     },
     addOTPEmail(userId: string) {
       const op = "addOTPEmail"

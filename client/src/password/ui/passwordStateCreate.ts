@@ -16,6 +16,7 @@ export function passwordStateCreate(input: {
   notice: SignalObject<string>
   preferenceSave: (identifier: string) => void
   statusContinue: (url: string) => void
+  changeRequiredSet?: (value: { expired: boolean }) => void
 }) {
   const identifier = createSignalObject("")
   const password = createSignalObject("")
@@ -80,6 +81,10 @@ export function passwordStateCreate(input: {
     }
     if (transition.kind === "render") {
       input.csrfToken.set(transition.csrfToken)
+      if (transition.screen.name === "password_change_required") {
+        input.changeRequiredSet?.({ expired: transition.screen.expired })
+        return
+      }
       if (transition.screen.name === "mfa" || transition.route.startsWith("/login/mfa")) {
         mfaRequired.set(true)
       }

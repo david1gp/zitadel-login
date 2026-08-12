@@ -17,6 +17,8 @@ type PasswordPanelProps = {
   rememberIdentifierChange: (event: Event & { currentTarget: HTMLInputElement }) => void
   submit: (event: SubmitEvent) => void
   showChooser: () => void
+  passwordRecoveryAvailable: () => boolean
+  passwordRecoveryStart: () => void
 }
 
 export function PasswordPanel(props: PasswordPanelProps) {
@@ -86,6 +88,16 @@ export function PasswordPanel(props: PasswordPanelProps) {
               {props.showPassword() ? "Hide" : "Show"}
             </button>
           </div>
+          <Show when={props.passwordRecoveryAvailable()}>
+            <button
+              class="text-button forgot-password-button"
+              type="button"
+              onClick={props.passwordRecoveryStart}
+              disabled={props.busy()}
+            >
+              Forgot password?
+            </button>
+          </Show>
           <label class="remember-field">
             <input
               type="checkbox"

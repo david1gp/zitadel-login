@@ -10,6 +10,7 @@ import { flowCookieOpen } from "../flow/flowCookieOpen"
 import type { FlowCookie } from "../flow/flowCookieSchema"
 import { flowCookieSeal } from "../flow/flowCookieSeal"
 import { flowV2RouterCreate } from "../flow/http/flowV2RouterCreate"
+import { passwordRecoveryRouterCreate } from "../password-recovery/http/passwordRecoveryRouterCreate"
 import type { Result } from "../result/Result"
 import { resultCreate } from "../result/resultCreate"
 import { resultErrorCreate } from "../result/resultErrorCreate"
@@ -43,7 +44,9 @@ type Logger = {
 
 type Dependencies = {
   bootstrapCache: ReturnType<typeof bootstrapCacheCreate>
+  delay: (milliseconds: number) => Promise<void>
   fetch: Fetch
+  monotonicNow: () => number
   now: () => number
   randomBytes: (length: number) => Uint8Array
   logger: Logger
@@ -215,7 +218,9 @@ async function payloadParse<T>(c: AppContext, schema: v.GenericSchema<unknown, T
 export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
   const dependencies: Dependencies = {
     bootstrapCache: bootstrapCacheCreate(),
+    delay: (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
     fetch,
+    monotonicNow: () => performance.now(),
     now: () => Math.floor(Date.now() / 1000),
     randomBytes: (length) => crypto.getRandomValues(new Uint8Array(length)),
     logger: {
@@ -377,6 +382,17 @@ export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
       logger: dependencies.logger,
     }),
   )
+  app.route(
+    "/",
+    passwordRecoveryRouterCreate({
+      delay: dependencies.delay,
+      fetch: dependencies.fetch,
+      monotonicNow: dependencies.monotonicNow,
+      now: dependencies.now,
+      randomBytes: dependencies.randomBytes,
+      logger: dependencies.logger,
+    }),
+  )
 
   app.get("/api/auth-request", async (c) => {
     const bindings = bindingsGet(c)
@@ -450,12 +466,13 @@ export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
     }
 
     const cacheKey = [
-      "v1",
+      "v2",
       bindings.data.ZITADEL_ORIGIN,
       bindings.data.ZITADEL_ORGANIZATION_ID,
       Number(bindings.data.ZITADEL_LOGIN_V2_ENABLED),
       Number(bindings.data.ZITADEL_EMAIL_OTP_V2_ENABLED),
       Number(bindings.data.ZITADEL_PASSWORD_V2_ENABLED),
+      Number(bindings.data.ZITADEL_PASSWORD_RESET_V2_ENABLED),
       Number(bindings.data.ZITADEL_PASSKEY_V2_ENABLED),
       Number(bindings.data.ZITADEL_IDP_V2_ENABLED),
       Number(bindings.data.ZITADEL_MFA_V2_ENABLED),
@@ -486,6 +503,7 @@ export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
         loginV2: bindings.data.ZITADEL_LOGIN_V2_ENABLED,
         emailOtpV2: bindings.data.ZITADEL_EMAIL_OTP_V2_ENABLED,
         passwordV2: bindings.data.ZITADEL_PASSWORD_V2_ENABLED,
+        passwordResetV2: bindings.data.ZITADEL_PASSWORD_RESET_V2_ENABLED,
         passkeyV2: bindings.data.ZITADEL_PASSKEY_V2_ENABLED,
         idpV2: bindings.data.ZITADEL_IDP_V2_ENABLED,
         mfaV2: bindings.data.ZITADEL_MFA_V2_ENABLED,

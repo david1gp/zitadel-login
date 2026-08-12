@@ -1,5 +1,6 @@
 import { createMemo, onCleanup, onMount } from "solid-js"
 
+import { bootstrapApiRequest } from "../../branding/api/bootstrapApiRequest"
 import { fallbackBootstrap } from "../../branding/model/fallbackBootstrap"
 import { brandingStateCreate } from "../../branding/ui/brandingStateCreate"
 import { emailOtpStateCreate } from "../../email-otp/ui/emailOtpStateCreate"
@@ -12,6 +13,8 @@ import type { LoginMethodSelection } from "../../flow/model/loginMethodSelection
 import { loginMethodsGet } from "../../flow/model/loginMethodsGet"
 import { loginRoutePathGet } from "../../flow/model/loginRoutePathGet"
 import { loginRouteRead } from "../../flow/model/loginRouteRead"
+
+import { passwordRecoveryRouteRead } from "../../password-recovery/model/passwordRecoveryRouteRead"
 
 import { passkeyOptionsParse } from "../../passkey/model/passkeyOptionsParse"
 import { passkeyStateCreate, type PasskeyCredentialsGet } from "../../passkey/ui/passkeyStateCreate"
@@ -27,7 +30,7 @@ import { createSignalObject } from "../../ui/createSignalObject"
 import { appFocusStateCreate } from "../model/appFocusStateCreate"
 import { appInitializationStart } from "../model/appInitializationStart"
 
-type AppStatus = "loading" | "ready" | "continuing" | "fatal"
+type AppStatus = "loading" | "ready" | "continuing" | "fatal" | "password_recovery"
 
 export function appStateCreate(
   apiOrigin: () => string,
@@ -46,6 +49,9 @@ export function appStateCreate(
   const totpSetupUnavailable = createSignalObject(false)
   const emailOtpCodePending = createSignalObject(false)
   const webAuthnSetupUnavailable = createSignalObject<"u2f" | "passkey" | undefined>(undefined)
+  const passwordChangeRequired = createSignalObject<{ expired: boolean } | undefined>(undefined)
+
+  const recoveryRoute = createSignalObject<"request" | "reset" | undefined>(undefined)
 
   const storageResult = browserStorageGet(browserWindow)
   const storage = storageResult.success ? storageResult.data : undefined
@@ -99,6 +105,7 @@ export function appStateCreate(
   }
 
   const routeSet = (next: LoginMethodSelection | undefined, replace = false) => {
+    if (passwordChangeRequired.get()) return
     selection.set(next)
     emailOtp.reset()
     password.reset()
@@ -193,6 +200,7 @@ export function appStateCreate(
       if (selected) preference.save(selected, identifier)
     },
     statusContinue,
+    changeRequiredSet: (value) => passwordChangeRequired.set(value),
   })
 
   const passkey = passkeyStateCreate({
@@ -233,6 +241,14 @@ export function appStateCreate(
 
   onMount(() => {
     const popstate = () => {
+      if (passwordChangeRequired.get()) {
+        browserHistoryNavigate(browserWindow, loginRoutePathGet(selection.get(), `?flow=${flowHandle.get()}`), true)
+        return
+      }
+      if (passwordRecoveryRouteRead(browserWindow.location.pathname)) {
+        browserLocationAssign(browserWindow, browserWindow.location.pathname)
+        return
+      }
       const route = loginRouteRead(browserWindow.location.pathname)
       const routeAvailable = route.success && (!route.data || selectionIsAvailable(route.data)) ? route.data : undefined
       selection.set(routeAvailable)
@@ -257,6 +273,15 @@ export function appStateCreate(
 
   onMount(() => {
     void (async () => {
+      const recovery = passwordRecoveryRouteRead(browserWindow.location.pathname)
+      if (recovery) {
+        recoveryRoute.set(recovery)
+        status.set("password_recovery")
+        const brandingResult = await bootstrapApiRequest(apiOrigin())
+        if (brandingResult.success) bootstrap.set(brandingResult.data)
+        return
+      }
+
       const urlResult = browserUrlRead(browserWindow)
       if (!urlResult.success) {
         browserHistoryNavigate(browserWindow, "/login", true)
@@ -293,6 +318,7 @@ export function appStateCreate(
       flowHandle.set(data.flowHandle)
       bootstrap.set(data.bootstrap)
       if (data.recentAccounts) recentAccounts.set(data.recentAccounts)
+      passwordChangeRequired.set(data.passwordChangeRequired)
       totpSetupUnavailable.set(data.totpSetupUnavailable)
       emailOtpCodePending.set(data.emailOtpCodePending)
       webAuthnSetupUnavailable.set(data.webAuthnSetupUnavailable)
@@ -314,9 +340,11 @@ export function appStateCreate(
         passkey.identifierSet(data.loginHint)
       }
 
-      const nextSelection = data.emailOtpCodePending
-        ? ({ method: "mfa", factor: "email_otp" } as const)
-        : (data.routeSelection ?? data.preferredSelection)
+      const nextSelection = data.passwordChangeRequired
+        ? ({ method: "password" } as const)
+        : data.emailOtpCodePending
+          ? ({ method: "mfa", factor: "email_otp" } as const)
+          : (data.routeSelection ?? data.preferredSelection)
       const targetSelection = nextSelection && selectionIsAvailable(nextSelection) ? nextSelection : undefined
       selection.set(targetSelection)
       browserHistoryNavigate(browserWindow, loginRoutePathGet(targetSelection, `?flow=${data.flowHandle}`), true)
@@ -326,6 +354,15 @@ export function appStateCreate(
 
   return {
     status: status.get,
+    recoveryRoute: recoveryRoute.get,
+    passwordRecoveryAvailable: createMemo(() => bootstrap.get().capabilities.passwordRecovery),
+    passwordRecoveryStart: () => {
+      browserLocationAssign(browserWindow, "/password/forgot")
+    },
+    loginReturn: () => {
+      browserLocationAssign(browserWindow, "/login")
+    },
+    focusHeading: focusState.focusHeading,
     bootstrap: bootstrap.get,
     selection: selection.get,
     error: error.get,
@@ -344,6 +381,12 @@ export function appStateCreate(
     totpSetupUnavailable: totpSetupUnavailable.get,
     emailOtpCodePending: emailOtpCodePending.get,
     webAuthnSetupUnavailable: webAuthnSetupUnavailable.get,
+    passwordChangeRequired: passwordChangeRequired.get,
+    passwordChangeTransitionApply: (route: string) => {
+      passwordChangeRequired.set(undefined)
+      const routeRes = loginRouteRead(new URL(route, browserWindow.location.origin).pathname)
+      routeSet(routeRes.success ? routeRes.data : undefined, true)
+    },
     selectAccount,
     methods,
     selectedIdentityProvider,

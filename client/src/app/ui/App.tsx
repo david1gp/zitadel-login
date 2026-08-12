@@ -7,7 +7,10 @@ import { UnsupportedMethodPanel } from "../../flow/ui/UnsupportedMethodPanel"
 import { IdentityProviderPanel } from "../../identity-provider/ui/IdentityProviderPanel"
 import { MfaPanel } from "../../mfa/ui/MfaPanel"
 import { PasskeyPanel } from "../../passkey/ui/PasskeyPanel"
+import { PasswordChangeRequiredPanel } from "../../password/ui/PasswordChangeRequiredPanel"
 import { PasswordPanel } from "../../password/ui/PasswordPanel"
+import { PasswordRecoveryRequestPanel } from "../../password-recovery/ui/PasswordRecoveryRequestPanel"
+import { PasswordResetPanel } from "../../password-recovery/ui/PasswordResetPanel"
 import { ThemeToggle } from "../../preferences/ui/ThemeToggle"
 import { appStateCreate } from "./appStateCreate"
 
@@ -33,6 +36,26 @@ export function App(props: AppProps) {
         </div>
         <div class="content">
           <Switch>
+            <Match when={state.status() === "password_recovery" && state.recoveryRoute() === "request"}>
+              <PasswordRecoveryRequestPanel
+                apiOrigin={() => props.apiOrigin}
+                errorClear={state.errorClear}
+                failureSet={state.failureSet}
+                focusHeading={state.focusHeading}
+                headingRegister={state.headingRegister}
+                showLogin={state.loginReturn}
+              />
+            </Match>
+            <Match when={state.status() === "password_recovery" && state.recoveryRoute() === "reset"}>
+              <PasswordResetPanel
+                apiOrigin={() => props.apiOrigin}
+                errorClear={state.errorClear}
+                failureSet={state.failureSet}
+                focusHeading={state.focusHeading}
+                headingRegister={state.headingRegister}
+                showLogin={state.loginReturn}
+              />
+            </Match>
             <Match when={state.status() === "loading" || state.status() === "continuing"}>
               <div class="loading-state" role="status">
                 <span class="spinner" aria-hidden="true" />
@@ -46,6 +69,25 @@ export function App(props: AppProps) {
                   Start sign-in again
                 </h1>
               </div>
+            </Match>
+            <Match when={state.status() === "ready" && state.passwordChangeRequired()}>
+              {(change) => (
+                <PasswordChangeRequiredPanel
+                  apiOrigin={() => props.apiOrigin}
+                  flowHandle={state.flowHandle}
+                  csrfToken={state.csrfToken}
+                  csrfTokenSet={state.csrfTokenSet}
+                  expired={() => change().expired}
+                  busy={state.busy}
+                  busySet={state.busySet}
+                  headingRegister={state.headingRegister}
+                  errorClear={state.errorClear}
+                  failureSet={state.failureSet}
+                  fallbackContinue={state.fallbackContinue}
+                  statusContinue={state.statusContinue}
+                  transitionApply={state.passwordChangeTransitionApply}
+                />
+              )}
             </Match>
             <Match when={state.status() === "ready" && !state.selection()}>
               <MethodChooser
@@ -98,6 +140,8 @@ export function App(props: AppProps) {
                 rememberIdentifierChange={state.rememberIdentifierChange}
                 submit={state.passwordSubmit}
                 showChooser={state.showChooser}
+                passwordRecoveryAvailable={state.passwordRecoveryAvailable}
+                passwordRecoveryStart={state.passwordRecoveryStart}
               />
             </Match>
             <Match when={state.status() === "ready" && state.selection()?.method === "passkey"}>

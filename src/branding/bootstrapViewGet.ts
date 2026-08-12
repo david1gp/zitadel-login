@@ -20,6 +20,7 @@ type BootstrapViewGetInput = {
     loginV2?: boolean
     emailOtpV2?: boolean
     passwordV2?: boolean
+    passwordResetV2?: boolean
     passkeyV2?: boolean
     idpV2?: boolean
     mfaV2?: boolean
@@ -117,6 +118,7 @@ export async function bootstrapViewGet(input: BootstrapViewGetInput): Promise<Re
     loginV2: input.capabilities?.loginV2 ?? true,
     emailOtpV2: input.capabilities?.emailOtpV2 ?? true,
     passwordV2: input.capabilities?.passwordV2 ?? true,
+    passwordResetV2: input.capabilities?.passwordResetV2 ?? false,
     passkeyV2: input.capabilities?.passkeyV2 ?? true,
     idpV2: input.capabilities?.idpV2 ?? true,
     mfaV2: input.capabilities?.mfaV2 ?? false,
@@ -150,6 +152,10 @@ export async function bootstrapViewGet(input: BootstrapViewGetInput): Promise<Re
   const light = themeGet(brandingSettings?.lightTheme, fallbackColors.light, input.origin)
   const dark = themeGet(brandingSettings?.darkTheme, fallbackColors.dark, input.origin)
   const view = {
+    capabilities: {
+      passwordRecovery:
+        caps.passwordResetV2 && login?.allowLocalAuthentication === true && login.hidePasswordReset !== true,
+    },
     branding: {
       dark,
       disableWatermark: brandingSettings?.disableWatermark === true,

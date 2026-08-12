@@ -58,13 +58,10 @@ function loginHintMatches(input: Input): boolean {
   return candidates.some((value) => value.trim().toLowerCase() === expected)
 }
 
-function passwordContinuationIsRequired(input: Input): boolean {
-  if (input.method !== "password") return false
-  if (input.user.human?.passwordChangeRequired === true) return true
-  if (!input.passwordMaxAgeDays || !input.user.human?.passwordChanged) return false
+function passwordLifecycleIsSupported(input: Input): boolean {
+  if (input.method !== "password" || !input.passwordMaxAgeDays || !input.user.human?.passwordChanged) return true
   const changedAt = Date.parse(input.user.human.passwordChanged)
-  if (!Number.isFinite(changedAt)) return true
-  return changedAt + input.passwordMaxAgeDays * 24 * 60 * 60 * 1000 <= input.now * 1000
+  return Number.isFinite(changedAt)
 }
 
 export function primaryFlowOwnershipPreflight(input: Input): boolean {
@@ -87,7 +84,7 @@ export function primaryFlowOwnershipPreflight(input: Input): boolean {
   }[input.method]
   if (!input.methods.includes(primaryMethod)) return false
   if (input.method === "email_otp" && input.user.human.email?.isVerified !== true) return false
-  if (passwordContinuationIsRequired(input)) return false
+  if (!passwordLifecycleIsSupported(input)) return false
 
   const enrolledMfa = input.methods.some(
     (method) => mfaMethods.has(method) && !(input.method === "email_otp" && method === primaryMethod),

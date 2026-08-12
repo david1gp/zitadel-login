@@ -72,6 +72,23 @@ const verifiedSchema = v.strictObject({
   sessionId: boundedIdSchema,
   sessionToken: v.pipe(v.string(), v.minLength(1), v.maxLength(500)),
 })
+const passwordChangeRequiredSchema = v.strictObject({
+  ...baseSchema,
+  stage: v.literal("password_change_required"),
+  delegable: v.literal(false),
+  userId: boundedIdSchema,
+  sessionId: boundedIdSchema,
+  sessionToken: v.pipe(v.string(), v.minLength(1), v.maxLength(500)),
+  expired: v.boolean(),
+})
+const passwordChangedSchema = v.strictObject({
+  ...baseSchema,
+  stage: v.literal("password_changed"),
+  delegable: v.literal(false),
+  userId: boundedIdSchema,
+  sessionId: boundedIdSchema,
+  sessionToken: v.pipe(v.string(), v.minLength(1), v.maxLength(500)),
+})
 const mfaSchema = v.strictObject({
   ...baseSchema,
   stage: v.literal("mfa"),
@@ -160,6 +177,8 @@ export const flowV2CookieSchema = v.variant("stage", [
   mfaEmailOtpCodeSchema,
   mfaSmsOtpCodeSchema,
   mfaWebAuthnSetupSchema,
+  passwordChangeRequiredSchema,
+  passwordChangedSchema,
   verifiedSchema,
   idpIntentSchema,
   idpUnlinkedSchema,

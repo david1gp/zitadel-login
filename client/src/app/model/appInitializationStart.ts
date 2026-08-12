@@ -43,6 +43,7 @@ export type AppInitializationData =
       totpSetupUnavailable: boolean
       emailOtpCodePending: boolean
       webAuthnSetupUnavailable?: "u2f" | "passkey"
+      passwordChangeRequired?: { expired: boolean }
     }
 
 export async function appInitializationStart(
@@ -147,5 +148,7 @@ export async function appInitializationStart(
     totpSetupUnavailable: transition.screen.name === "mfa_totp_setup",
     emailOtpCodePending: transition.screen.name === "mfa_email_otp_code",
     webAuthnSetupUnavailable: transition.screen.name === "mfa_webauthn_setup" ? transition.screen.method : undefined,
+    passwordChangeRequired:
+      transition.screen.name === "password_change_required" ? { expired: transition.screen.expired } : undefined,
   })
 }
