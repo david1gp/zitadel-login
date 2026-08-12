@@ -1,6 +1,8 @@
 import { render } from "solid-js/web"
 
 import { App } from "./app/ui/App"
+import { demoPathIsActive } from "./demo/model/demoPathIsActive"
+import { DemoApp } from "./demo/ui/DemoApp"
 import "./styles.css"
 
 declare global {
@@ -11,4 +13,8 @@ const root = document.getElementById("app")
 
 if (!root) throw new Error("Missing application root")
 
-render(() => <App apiOrigin={globalThis.ZITADEL_LOGIN_CONFIG?.apiOrigin ?? ""} />, root)
+if (demoPathIsActive(window.location.pathname)) {
+  render(() => <DemoApp />, root)
+} else {
+  render(() => <App apiOrigin={globalThis.ZITADEL_LOGIN_CONFIG?.apiOrigin ?? ""} />, root)
+}
