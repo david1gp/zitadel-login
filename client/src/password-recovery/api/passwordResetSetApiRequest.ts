@@ -22,12 +22,13 @@ const errorSchema = v.strictObject({ success: v.literal(false), op: v.string(), 
 export async function passwordResetSetApiRequest(
   apiOrigin: string,
   input: { password: string; csrfToken: string },
+  fetchFn: typeof fetch = fetch,
 ): Promise<Result<PasswordResetSetOutcome>> {
   const op = "passwordResetSetApiRequest"
   const url = new URL("/api/v2/password/reset/set", apiOrigin || window.location.origin)
   let response: Response
   try {
-    response = await fetch(url, {
+    response = await fetchFn(url, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },

@@ -9,6 +9,8 @@ type PasswordResetPanelProps = {
   focusHeading: () => void
   headingRegister: (element: HTMLHeadingElement) => void
   showLogin: () => void
+  fetchFn?: typeof fetch
+  initialStep?: "loading" | "ready" | "invalid_link" | "complete"
 }
 
 export function PasswordResetPanel(props: PasswordResetPanelProps) {
@@ -17,6 +19,8 @@ export function PasswordResetPanel(props: PasswordResetPanelProps) {
     errorClear: () => props.errorClear(),
     failureSet: (message) => props.failureSet(message),
     focusHeading: () => props.focusHeading(),
+    fetchFn: props.fetchFn,
+    initialStep: props.initialStep,
   })
 
   return (

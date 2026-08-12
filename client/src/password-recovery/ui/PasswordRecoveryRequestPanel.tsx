@@ -9,6 +9,8 @@ type PasswordRecoveryRequestPanelProps = {
   focusHeading: () => void
   headingRegister: (element: HTMLHeadingElement) => void
   showLogin: () => void
+  fetchFn?: typeof fetch
+  initialStep?: "loading" | "email" | "sent" | "fatal"
 }
 
 export function PasswordRecoveryRequestPanel(props: PasswordRecoveryRequestPanelProps) {
@@ -17,6 +19,8 @@ export function PasswordRecoveryRequestPanel(props: PasswordRecoveryRequestPanel
     errorClear: () => props.errorClear(),
     failureSet: (message) => props.failureSet(message),
     focusHeading: () => props.focusHeading(),
+    fetchFn: props.fetchFn,
+    initialStep: props.initialStep,
   })
 
   return (

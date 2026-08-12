@@ -11,8 +11,10 @@ export function passwordResetStateCreate(input: {
   errorClear: () => void
   failureSet: (message: string) => void
   focusHeading: () => void
+  fetchFn?: typeof fetch
+  initialStep?: ResetStep
 }) {
-  const step = createSignalObject<ResetStep>("loading")
+  const step = createSignalObject<ResetStep>(input.initialStep ?? "loading")
   const password = createSignalObject("")
   const confirmation = createSignalObject("")
   const showPassword = createSignalObject(false)
@@ -32,7 +34,7 @@ export function passwordResetStateCreate(input: {
 
   const bootstrapStart = async () => {
     const request = ++requestSequence
-    const result = await passwordResetSetBootstrapApiRequest(input.apiOrigin())
+    const result = await passwordResetSetBootstrapApiRequest(input.apiOrigin(), input.fetchFn)
     if (!active || request !== requestSequence) return
     if (!result.success) {
       secretsClear()
@@ -46,6 +48,7 @@ export function passwordResetStateCreate(input: {
   }
 
   onMount(() => {
+    if (input.initialStep) return
     void bootstrapStart()
   })
 
@@ -74,10 +77,14 @@ export function passwordResetStateCreate(input: {
     const submittedPassword = password.get()
     busy.set(true)
     const request = ++requestSequence
-    const result = await passwordResetSetApiRequest(input.apiOrigin(), {
-      password: submittedPassword,
-      csrfToken,
-    })
+    const result = await passwordResetSetApiRequest(
+      input.apiOrigin(),
+      {
+        password: submittedPassword,
+        csrfToken,
+      },
+      input.fetchFn,
+    )
     if (!active || request !== requestSequence) return
     busy.set(false)
 

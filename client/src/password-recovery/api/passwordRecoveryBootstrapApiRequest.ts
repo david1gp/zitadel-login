@@ -14,12 +14,13 @@ const errorSchema = v.strictObject({ success: v.literal(false), op: v.string(), 
 
 export async function passwordRecoveryBootstrapApiRequest(
   apiOrigin: string,
+  fetchFn: typeof fetch = fetch,
 ): Promise<Result<PasswordRecoveryBootstrapView>> {
   const op = "passwordRecoveryBootstrapApiRequest"
   const url = new URL("/api/v2/password/reset/bootstrap", apiOrigin || window.location.origin)
   let response: Response
   try {
-    response = await fetch(url, {
+    response = await fetchFn(url, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },

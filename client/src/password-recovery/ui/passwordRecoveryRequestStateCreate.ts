@@ -12,8 +12,10 @@ export function passwordRecoveryRequestStateCreate(input: {
   errorClear: () => void
   failureSet: (message: string) => void
   focusHeading: () => void
+  fetchFn?: typeof fetch
+  initialStep?: RequestStep
 }) {
-  const step = createSignalObject<RequestStep>("loading")
+  const step = createSignalObject<RequestStep>(input.initialStep ?? "loading")
   const email = createSignalObject("")
   const busy = createSignalObject(false)
   let csrfToken = ""
@@ -25,7 +27,7 @@ export function passwordRecoveryRequestStateCreate(input: {
 
   const bootstrapStart = async () => {
     const request = ++requestSequence
-    const result = await passwordRecoveryBootstrapApiRequest(input.apiOrigin())
+    const result = await passwordRecoveryBootstrapApiRequest(input.apiOrigin(), input.fetchFn)
     if (!active || request !== requestSequence) return
     if (!result.success) {
       csrfToken = ""
@@ -39,6 +41,7 @@ export function passwordRecoveryRequestStateCreate(input: {
   }
 
   onMount(() => {
+    if (input.initialStep) return
     void bootstrapStart()
   })
 
@@ -64,7 +67,11 @@ export function passwordRecoveryRequestStateCreate(input: {
 
     busy.set(true)
     const request = ++requestSequence
-    const result = await passwordResetRequestApiRequest(input.apiOrigin(), { email: normalized, csrfToken })
+    const result = await passwordResetRequestApiRequest(
+      input.apiOrigin(),
+      { email: normalized, csrfToken },
+      input.fetchFn,
+    )
     if (!active || request !== requestSequence) return
     busy.set(false)
 
