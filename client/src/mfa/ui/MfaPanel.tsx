@@ -5,10 +5,13 @@ import { mfaFactorLabelGet } from "../model/mfaFactorLabelGet"
 import type { MfaOptions } from "../model/mfaOptionsSchema"
 import { MfaEmailOtpPanel } from "./MfaEmailOtpPanel"
 import { MfaSmsOtpPanel } from "./MfaSmsOtpPanel"
+import { MfaTotpEnrollPanel } from "./MfaTotpEnrollPanel"
 import { MfaTotpPanel } from "./MfaTotpPanel"
 import { MfaU2fPanel } from "./MfaU2fPanel"
-import type { PasskeyCredentialsGet } from "./mfaU2fStateCreate"
+import { MfaWebAuthnEnrollPanel } from "./MfaWebAuthnEnrollPanel"
 import { mfaStateCreate } from "./mfaStateCreate"
+import type { PasskeyCredentialsGet } from "./mfaU2fStateCreate"
+import type { PasskeyCredentialsCreate } from "./mfaWebAuthnEnrollStateCreate"
 
 type MfaPanelProps = {
   apiOrigin: () => string
@@ -25,8 +28,13 @@ type MfaPanelProps = {
   statusContinue?: (url: string) => void
   routeSet: (next: LoginMethodSelection | undefined, replace?: boolean) => void
   credentialsGet?: PasskeyCredentialsGet
+  credentialsCreate?: PasskeyCredentialsCreate
   isSupported?: boolean
+  registrationIsSupported?: boolean
   fetchFn?: typeof fetch
+  totpSetupUnavailable?: () => boolean
+  emailOtpCodePending?: () => boolean
+  webAuthnSetupUnavailable?: () => "u2f" | "passkey" | undefined
 }
 
 export function MfaPanel(props: MfaPanelProps) {
@@ -50,6 +58,8 @@ export function MfaPanel(props: MfaPanelProps) {
     statusContinue: props.statusContinue,
     routeSet: props.routeSet,
     fetchFn: props.fetchFn,
+    optionsDisabled: () =>
+      Boolean(props.totpSetupUnavailable?.() || props.emailOtpCodePending?.() || props.webAuthnSetupUnavailable?.()),
   })
 
   const checkOptions = () => {
@@ -68,6 +78,22 @@ export function MfaPanel(props: MfaPanelProps) {
     const opt = state.options()
     return opt?.mode === "skip" ? (opt as Extract<MfaOptions, { mode: "skip" }>) : undefined
   }
+  const totpIsEnrollment = () => {
+    const opt = state.options()
+    if (opt?.mode !== "enroll" && opt?.mode !== "skip") return false
+    return opt.methods.some((method) => method.type === "totp")
+  }
+  const emailOtpIsEnrollment = () => {
+    const opt = state.options()
+    if (opt?.mode !== "enroll" && opt?.mode !== "skip") return false
+    return opt.methods.some((method) => method.type === "email_otp")
+  }
+  const webAuthnIsEnrollment = (type: "u2f" | "passkey") => {
+    if (state.assertionOptions()) return false
+    const opt = state.options()
+    if (opt?.mode !== "enroll" && opt?.mode !== "skip") return false
+    return opt.methods.some((method) => method.type === type)
+  }
   const fallbackOptions = () => {
     const opt = state.options()
     return opt?.mode === "fallback" ? (opt as Extract<MfaOptions, { mode: "fallback" }>) : undefined
@@ -76,6 +102,65 @@ export function MfaPanel(props: MfaPanelProps) {
   return (
     <section aria-labelledby="login-title">
       <Switch>
+        <Match when={props.emailOtpCodePending?.()}>
+          <MfaEmailOtpPanel
+            apiOrigin={props.apiOrigin}
+            flowHandle={props.flowHandle}
+            csrfToken={props.csrfToken ?? (() => "")}
+            csrfTokenSet={props.csrfTokenSet ?? (() => undefined)}
+            busy={props.busy}
+            busySet={props.busySet ?? (() => undefined)}
+            headingRegister={props.headingRegister}
+            errorClear={props.errorClear}
+            failureSet={props.failureSet}
+            fallbackContinue={props.fallbackContinue}
+            statusContinue={props.statusContinue ?? (() => undefined)}
+            showRootChooser={state.showRootChooser}
+            fetchFn={props.fetchFn}
+            codePending
+          />
+        </Match>
+        <Match when={props.totpSetupUnavailable?.()}>
+          <MfaTotpEnrollPanel
+            apiOrigin={props.apiOrigin}
+            flowHandle={props.flowHandle}
+            csrfToken={props.csrfToken ?? (() => "")}
+            csrfTokenSet={props.csrfTokenSet ?? (() => undefined)}
+            busy={props.busy}
+            busySet={props.busySet ?? (() => undefined)}
+            headingRegister={props.headingRegister}
+            errorClear={props.errorClear}
+            failureSet={props.failureSet}
+            fallbackContinue={props.fallbackContinue}
+            statusContinue={props.statusContinue ?? (() => undefined)}
+            showRootChooser={state.showRootChooser}
+            fetchFn={props.fetchFn}
+            setupUnavailable
+          />
+        </Match>
+        <Match when={props.webAuthnSetupUnavailable?.()}>
+          {(method) => (
+            <MfaWebAuthnEnrollPanel
+              apiOrigin={props.apiOrigin}
+              flowHandle={props.flowHandle}
+              method={method}
+              csrfToken={props.csrfToken ?? (() => "")}
+              csrfTokenSet={props.csrfTokenSet ?? (() => undefined)}
+              busy={props.busy}
+              busySet={props.busySet ?? (() => undefined)}
+              headingRegister={props.headingRegister}
+              errorClear={props.errorClear}
+              failureSet={props.failureSet}
+              fallbackContinue={props.fallbackContinue}
+              statusContinue={props.statusContinue ?? (() => undefined)}
+              showRootChooser={state.showRootChooser}
+              credentialsCreate={props.credentialsCreate}
+              isSupported={props.registrationIsSupported}
+              fetchFn={props.fetchFn}
+              setupUnavailable
+            />
+          )}
+        </Match>
         <Match when={state.loading()}>
           <div class="loading-state" role="status">
             <span class="spinner" aria-hidden="true" />
@@ -101,7 +186,26 @@ export function MfaPanel(props: MfaPanelProps) {
             <Match when={selectedFactor()}>
               {(factorType) => (
                 <Switch>
-                  <Match when={factorType() === "totp"}>
+                  <Match when={factorType() === "totp" && totpIsEnrollment()}>
+                    <MfaTotpEnrollPanel
+                      apiOrigin={props.apiOrigin}
+                      flowHandle={props.flowHandle}
+                      csrfToken={props.csrfToken ?? (() => "")}
+                      csrfTokenSet={props.csrfTokenSet ?? (() => undefined)}
+                      busy={props.busy}
+                      busySet={props.busySet ?? (() => undefined)}
+                      headingRegister={props.headingRegister}
+                      errorClear={props.errorClear}
+                      failureSet={props.failureSet}
+                      fallbackContinue={props.fallbackContinue}
+                      statusContinue={props.statusContinue ?? (() => undefined)}
+                      optionsReload={state.reload}
+                      showChooser={selectOptions() || enrollOptions() || skipOptions() ? state.showChooser : undefined}
+                      showRootChooser={state.showRootChooser}
+                      fetchFn={props.fetchFn}
+                    />
+                  </Match>
+                  <Match when={factorType() === "totp" && !totpIsEnrollment()}>
                     <MfaTotpPanel
                       apiOrigin={props.apiOrigin}
                       flowHandle={props.flowHandle}
@@ -122,6 +226,7 @@ export function MfaPanel(props: MfaPanelProps) {
                   </Match>
                   <Match when={factorType() === "email_otp"}>
                     <MfaEmailOtpPanel
+                      isEnrollment={emailOtpIsEnrollment()}
                       apiOrigin={props.apiOrigin}
                       flowHandle={props.flowHandle}
                       csrfToken={props.csrfToken ?? (() => "")}
@@ -158,8 +263,37 @@ export function MfaPanel(props: MfaPanelProps) {
                       fetchFn={props.fetchFn}
                     />
                   </Match>
+                  <Match
+                    when={
+                      (factorType() === "u2f" || factorType() === "passkey") &&
+                      webAuthnIsEnrollment(factorType() as "u2f" | "passkey")
+                    }
+                  >
+                    <MfaWebAuthnEnrollPanel
+                      apiOrigin={props.apiOrigin}
+                      flowHandle={props.flowHandle}
+                      method={() => factorType() as "u2f" | "passkey"}
+                      csrfToken={props.csrfToken ?? (() => "")}
+                      csrfTokenSet={props.csrfTokenSet ?? (() => undefined)}
+                      busy={props.busy}
+                      busySet={props.busySet ?? (() => undefined)}
+                      headingRegister={props.headingRegister}
+                      errorClear={props.errorClear}
+                      failureSet={props.failureSet}
+                      fallbackContinue={props.fallbackContinue}
+                      statusContinue={props.statusContinue ?? (() => undefined)}
+                      assertionStart={state.assertionStart}
+                      optionsReload={state.reload}
+                      showChooser={selectOptions() || enrollOptions() || skipOptions() ? state.showChooser : undefined}
+                      showRootChooser={state.showRootChooser}
+                      credentialsCreate={props.credentialsCreate}
+                      isSupported={props.registrationIsSupported}
+                      fetchFn={props.fetchFn}
+                    />
+                  </Match>
                   <Match when={factorType() === "u2f" || factorType() === "passkey"}>
                     <MfaU2fPanel
+                      initialOptions={state.assertionOptions}
                       apiOrigin={props.apiOrigin}
                       flowHandle={props.flowHandle}
                       factorType={() => factorType() as "u2f" | "passkey"}

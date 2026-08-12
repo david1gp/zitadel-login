@@ -43,6 +43,9 @@ export function appStateCreate(
   const notice = createSignalObject("")
   const busy = createSignalObject(false)
   const recentAccounts = createSignalObject<RecentAccountSummary[]>([])
+  const totpSetupUnavailable = createSignalObject(false)
+  const emailOtpCodePending = createSignalObject(false)
+  const webAuthnSetupUnavailable = createSignalObject<"u2f" | "passkey" | undefined>(undefined)
 
   const storageResult = browserStorageGet(browserWindow)
   const storage = storageResult.success ? storageResult.data : undefined
@@ -290,6 +293,9 @@ export function appStateCreate(
       flowHandle.set(data.flowHandle)
       bootstrap.set(data.bootstrap)
       if (data.recentAccounts) recentAccounts.set(data.recentAccounts)
+      totpSetupUnavailable.set(data.totpSetupUnavailable)
+      emailOtpCodePending.set(data.emailOtpCodePending)
+      webAuthnSetupUnavailable.set(data.webAuthnSetupUnavailable)
       if (data.notice) notice.set(data.notice)
       emailOtp.stepSet(data.emailStep)
       if (data.passkeyOptions) {
@@ -308,7 +314,9 @@ export function appStateCreate(
         passkey.identifierSet(data.loginHint)
       }
 
-      const nextSelection = data.routeSelection ?? data.preferredSelection
+      const nextSelection = data.emailOtpCodePending
+        ? ({ method: "mfa", factor: "email_otp" } as const)
+        : (data.routeSelection ?? data.preferredSelection)
       const targetSelection = nextSelection && selectionIsAvailable(nextSelection) ? nextSelection : undefined
       selection.set(targetSelection)
       browserHistoryNavigate(browserWindow, loginRoutePathGet(targetSelection, `?flow=${data.flowHandle}`), true)
@@ -333,6 +341,9 @@ export function appStateCreate(
     fallbackContinue,
     routeSet: (next: LoginMethodSelection | undefined, replace?: boolean) => routeSet(next, replace),
     recentAccounts: recentAccounts.get,
+    totpSetupUnavailable: totpSetupUnavailable.get,
+    emailOtpCodePending: emailOtpCodePending.get,
+    webAuthnSetupUnavailable: webAuthnSetupUnavailable.get,
     selectAccount,
     methods,
     selectedIdentityProvider,

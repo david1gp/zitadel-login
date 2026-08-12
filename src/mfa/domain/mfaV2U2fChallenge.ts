@@ -41,6 +41,9 @@ export async function mfaV2U2fChallenge(input: Input) {
   ) {
     return resultErrorCreate(op, "method_not_enrolled")
   }
+  if (input.state.webAuthnCheckMethod && input.method !== input.state.webAuthnCheckMethod) {
+    return resultErrorCreate(op, "method_not_enrolled")
+  }
 
   const optionsResult = await mfaOptionsGet({
     state: input.state,
@@ -54,7 +57,8 @@ export async function mfaV2U2fChallenge(input: Input) {
   const { options, state: currentState } = optionsResult.data
 
   const targetFactor =
-    input.method === "passkey"
+    input.state.webAuthnCheckMethod ??
+    (input.method === "passkey"
       ? "passkey"
       : input.method === "u2f" || input.method === "AUTHENTICATION_METHOD_TYPE_U2F"
         ? "u2f"
@@ -66,7 +70,7 @@ export async function mfaV2U2fChallenge(input: Input) {
             ? "u2f"
             : options.mode === "select" && options.methods.some((m) => m.type === "passkey")
               ? "passkey"
-              : "u2f"
+              : "u2f")
 
   const isEnrolled =
     (options.mode === "check" && options.method.type === targetFactor) ||

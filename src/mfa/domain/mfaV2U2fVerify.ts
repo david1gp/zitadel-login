@@ -76,8 +76,11 @@ export async function mfaV2U2fVerify(input: Input) {
   ) {
     return resultErrorCreate(op, "method_not_enrolled")
   }
+  if (input.state.webAuthnCheckMethod && input.method !== input.state.webAuthnCheckMethod) {
+    return resultErrorCreate(op, "method_not_enrolled")
+  }
 
-  if (!input.state.options || !input.state.options.publicKey) {
+  if (!input.state.options?.publicKey) {
     return resultErrorCreate(op, "challenge_unavailable")
   }
 
@@ -93,7 +96,8 @@ export async function mfaV2U2fVerify(input: Input) {
   const { options, state: currentState } = optionsResult.data
 
   const targetFactor =
-    input.method === "passkey"
+    input.state.webAuthnCheckMethod ??
+    (input.method === "passkey"
       ? "passkey"
       : input.method === "u2f" || input.method === "AUTHENTICATION_METHOD_TYPE_U2F"
         ? "u2f"
@@ -105,7 +109,7 @@ export async function mfaV2U2fVerify(input: Input) {
             ? "u2f"
             : options.mode === "select" && options.methods.some((m) => m.type === "passkey")
               ? "passkey"
-              : "u2f"
+              : "u2f")
 
   const isEnrolled =
     (options.mode === "check" && options.method.type === targetFactor) ||
@@ -173,9 +177,9 @@ export async function mfaV2U2fVerify(input: Input) {
     return resultErrorCreate(op, "passkey_unavailable", { status })
   }
 
-  const latestToken = verified.data.sessionToken ?? currentState.sessionToken
+  const checkedToken = verified.data.sessionToken ?? currentState.sessionToken
 
-  const session = await input.client.sessionGet(currentState.sessionId, latestToken)
+  const session = await input.client.sessionGet(currentState.sessionId, checkedToken)
   if (!session.success) {
     const status = resultStatusGet(session)
     if (status === 401 || status === 404) {
@@ -198,7 +202,7 @@ export async function mfaV2U2fVerify(input: Input) {
 
   const updatedMfaState: Extract<FlowV2Cookie, { stage: "mfa" }> = {
     ...currentState,
-    sessionToken: latestToken,
+    sessionToken: checkedToken,
   }
 
   const postOptionsResult = await mfaOptionsGet({
@@ -211,7 +215,13 @@ export async function mfaV2U2fVerify(input: Input) {
   }
 
   const { options: postOptions } = postOptionsResult.data
-  const { options: _opts, mfaMethods: _mfaMethods, ...stateBase } = currentState
+  const latestToken = postOptionsResult.data.state.sessionToken
+  const {
+    options: _opts,
+    mfaMethods: _mfaMethods,
+    webAuthnCheckMethod: _webAuthnCheckMethod,
+    ...stateBase
+  } = currentState
 
   if (postOptions.mode === "skip") {
     const state: Extract<FlowV2Cookie, { stage: "verified" }> = {
@@ -233,7 +243,14 @@ export async function mfaV2U2fVerify(input: Input) {
       kind: "fallback",
       path: `/api/v2/flow/fallback?flow=${currentState.flowHandle}`,
     }
-    return resultCreate({ state: currentState, transition })
+    const state: Extract<FlowV2Cookie, { stage: "mfa" }> = {
+      ...currentState,
+      sessionToken: latestToken,
+      options: undefined,
+      webAuthnCheckMethod: undefined,
+      transitionCounter: currentState.transitionCounter + 1,
+    }
+    return resultCreate({ state, transition })
   }
 
   const state: Extract<FlowV2Cookie, { stage: "mfa" }> = {
@@ -241,6 +258,7 @@ export async function mfaV2U2fVerify(input: Input) {
     sessionToken: latestToken,
     transitionCounter: currentState.transitionCounter + 1,
     options: undefined,
+    webAuthnCheckMethod: undefined,
   }
   const transition: FlowV2Transition = {
     kind: "render",

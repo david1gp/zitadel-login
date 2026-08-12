@@ -142,6 +142,9 @@ export function App(props: AppProps) {
                 fallbackContinue={state.fallbackContinue}
                 statusContinue={state.statusContinue}
                 routeSet={state.routeSet}
+                totpSetupUnavailable={state.totpSetupUnavailable}
+                emailOtpCodePending={state.emailOtpCodePending}
+                webAuthnSetupUnavailable={state.webAuthnSetupUnavailable}
               />
             </Match>
           </Switch>

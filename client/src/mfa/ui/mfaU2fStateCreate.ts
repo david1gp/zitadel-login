@@ -30,10 +30,11 @@ type Inputs = {
   credentialsGet?: PasskeyCredentialsGet
   isSupported?: boolean
   fetchFn?: typeof fetch
+  initialOptions?: () => PasskeyOptions | undefined
 }
 
 export function mfaU2fStateCreate(inputs: Inputs) {
-  const options = createSignalObject<PasskeyOptions | undefined>(undefined)
+  const options = createSignalObject<PasskeyOptions | undefined>(inputs.initialOptions?.())
 
   const isBrowserSupported = (): boolean =>
     inputs.isSupported ??
@@ -189,7 +190,7 @@ export function mfaU2fStateCreate(inputs: Inputs) {
   }
 
   onMount(() => {
-    if (isBrowserSupported()) {
+    if (isBrowserSupported() && !options.get()) {
       void fetchChallenge()
     }
   })

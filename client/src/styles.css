@@ -456,6 +456,50 @@ input:focus-visible {
 .secondary-button:hover:not(:disabled) {
   background: color-mix(in srgb, var(--brand-primary) 10%, transparent);
 }
+.totp-qr {
+  display: block;
+  width: 100%;
+  max-width: 232px;
+  height: auto;
+  margin: 0 auto 20px;
+  border: 1px solid color-mix(in srgb, var(--brand-font) 18%, transparent);
+  border-radius: 12px;
+}
+.totp-qr-background {
+  fill: #ffffff;
+}
+.totp-qr-modules {
+  fill: #000000;
+}
+.totp-secret {
+  margin-bottom: 20px;
+}
+.totp-secret-label {
+  margin-bottom: 8px;
+  color: color-mix(in srgb, var(--brand-font) 80%, transparent);
+  font-size: 14px;
+}
+.totp-secret-value {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  border: 1px solid color-mix(in srgb, var(--brand-font) 18%, transparent);
+  border-radius: 9px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--brand-font) 4%, transparent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 16px;
+  letter-spacing: 0.14em;
+  overflow-wrap: anywhere;
+}
+@media (forced-colors: active) {
+  .totp-qr-background {
+    fill: Canvas;
+  }
+  .totp-qr-modules {
+    fill: CanvasText;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

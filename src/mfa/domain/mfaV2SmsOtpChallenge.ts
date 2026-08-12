@@ -6,7 +6,7 @@ import type { zitadelClientCreate } from "../../zitadel/zitadelClientCreate"
 import { mfaOptionsGet } from "./mfaOptionsGet"
 
 type Input = {
-  state: Extract<FlowV2Cookie, { stage: "mfa" }>
+  state: Extract<FlowV2Cookie, { stage: "mfa" | "mfa_sms_otp_code" }>
   method?: string
   now: number
   client: ReturnType<typeof zitadelClientCreate>
@@ -30,8 +30,17 @@ export async function mfaV2SmsOtpChallenge(input: Input) {
     return resultErrorCreate(op, "method_not_enrolled")
   }
 
+  if (input.state.expiresAt <= input.now) return resultErrorCreate(op, "flow_expired")
+
+  const pendingState: Extract<FlowV2Cookie, { stage: "mfa" }> =
+    input.state.stage === "mfa"
+      ? input.state
+      : (({ enrollmentActivationConsumedAt: _consumed, challengeIssuedAt: _issued, ...stateBase }) => ({
+          ...stateBase,
+          stage: "mfa" as const,
+        }))(input.state)
   const optionsResult = await mfaOptionsGet({
-    state: input.state,
+    state: pendingState,
     now: input.now,
     client: input.client,
   })
@@ -59,8 +68,15 @@ export async function mfaV2SmsOtpChallenge(input: Input) {
   }
 
   const latestToken = challenged.data.sessionToken ?? currentState.sessionToken
-  const state: Extract<FlowV2Cookie, { stage: "mfa" }> = {
+  const state: Extract<FlowV2Cookie, { stage: "mfa" | "mfa_sms_otp_code" }> = {
     ...currentState,
+    ...(input.state.stage === "mfa_sms_otp_code"
+      ? {
+          stage: "mfa_sms_otp_code" as const,
+          enrollmentActivationConsumedAt: input.state.enrollmentActivationConsumedAt,
+          challengeIssuedAt: input.now,
+        }
+      : { stage: "mfa" as const }),
     sessionToken: latestToken,
     transitionCounter: currentState.transitionCounter + 1,
   }
@@ -68,7 +84,10 @@ export async function mfaV2SmsOtpChallenge(input: Input) {
   const transition: FlowV2Transition = {
     kind: "render",
     route: `/login/mfa?flow=${state.flowHandle}`,
-    screen: { name: "mfa", factors: state.mfaMethods },
+    screen:
+      state.stage === "mfa_sms_otp_code"
+        ? { name: "mfa_sms_otp_code", challengeIssued: true }
+        : { name: "mfa", factors: state.mfaMethods },
     csrfToken: state.csrfToken,
   }
 

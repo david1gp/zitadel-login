@@ -3,7 +3,7 @@ import type { zitadelClientCreate } from "../../zitadel/zitadelClientCreate"
 import { mfaV2EmailOtpChallenge } from "./mfaV2EmailOtpChallenge"
 
 type Input = {
-  state: Extract<FlowV2Cookie, { stage: "mfa" }>
+  state: Extract<FlowV2Cookie, { stage: "mfa" | "mfa_email_otp_code" }>
   method?: string
   now: number
   client: ReturnType<typeof zitadelClientCreate>

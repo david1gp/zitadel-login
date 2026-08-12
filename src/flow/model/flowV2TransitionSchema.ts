@@ -13,10 +13,17 @@ const renderSchema = v.strictObject({
       recentAccounts: v.optional(v.array(recentAccountSummarySchema)),
     }),
     v.strictObject({ name: v.literal("email_otp_code") }),
+    v.strictObject({ name: v.literal("mfa_email_otp_code"), challengeIssued: v.boolean() }),
+    v.strictObject({ name: v.literal("mfa_sms_otp_code"), challengeIssued: v.boolean() }),
     v.strictObject({
       name: v.literal("mfa"),
       factors: v.array(v.pipe(v.string(), v.minLength(1), v.maxLength(100))),
       options: v.optional(passkeyOptionsSchema),
+    }),
+    v.strictObject({ name: v.literal("mfa_totp_setup") }),
+    v.strictObject({
+      name: v.literal("mfa_webauthn_setup"),
+      method: v.picklist(["u2f", "passkey"]),
     }),
     v.strictObject({
       name: v.literal("passkey"),

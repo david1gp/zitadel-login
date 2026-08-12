@@ -13,20 +13,37 @@ import { identityProviderCallbackPayloadSchema } from "../../identity-provider/m
 import { identityProviderStartPayloadSchema } from "../../identity-provider/model/identityProviderStartPayloadSchema"
 import { mfaEnrollmentSkip } from "../../mfa/domain/mfaEnrollmentSkip"
 import { mfaOptionsGet } from "../../mfa/domain/mfaOptionsGet"
+import { mfaV2EmailOtpEnrollmentActivate } from "../../mfa/domain/mfaV2EmailOtpEnrollmentActivate"
+import { mfaV2EmailOtpEnrollmentPrepare } from "../../mfa/domain/mfaV2EmailOtpEnrollmentPrepare"
 import { mfaV2EmailOtpChallenge } from "../../mfa/domain/mfaV2EmailOtpChallenge"
 import { mfaV2EmailOtpResend } from "../../mfa/domain/mfaV2EmailOtpResend"
 import { mfaV2EmailOtpVerify } from "../../mfa/domain/mfaV2EmailOtpVerify"
 import { mfaV2SmsOtpChallenge } from "../../mfa/domain/mfaV2SmsOtpChallenge"
 import { mfaV2SmsOtpResend } from "../../mfa/domain/mfaV2SmsOtpResend"
 import { mfaV2SmsOtpVerify } from "../../mfa/domain/mfaV2SmsOtpVerify"
+import { mfaV2TotpEnrollmentStart } from "../../mfa/domain/mfaV2TotpEnrollmentStart"
+import { mfaV2TotpEnrollmentVerify } from "../../mfa/domain/mfaV2TotpEnrollmentVerify"
 import { mfaV2TotpVerify } from "../../mfa/domain/mfaV2TotpVerify"
 import { mfaV2U2fChallenge } from "../../mfa/domain/mfaV2U2fChallenge"
 import { mfaV2U2fVerify } from "../../mfa/domain/mfaV2U2fVerify"
+import { mfaV2WebAuthnEnrollmentStart } from "../../mfa/domain/mfaV2WebAuthnEnrollmentStart"
+import { mfaV2WebAuthnEnrollmentVerify } from "../../mfa/domain/mfaV2WebAuthnEnrollmentVerify"
+import { mfaOptionsSchema } from "../../mfa/model/mfaOptionsSchema"
+import { mfaEmailOtpEnrollmentRequestSchema } from "../../mfa/model/mfaEmailOtpEnrollmentRequestSchema"
+import { mfaEmailOtpEnrollmentResponseSchema } from "../../mfa/model/mfaEmailOtpEnrollmentResponseSchema"
 import { mfaOtpChallengeRequestSchema } from "../../mfa/model/mfaOtpChallengeRequestSchema"
 import { mfaOtpVerifyRequestSchema } from "../../mfa/model/mfaOtpVerifyRequestSchema"
-import { mfaOptionsSchema } from "../../mfa/model/mfaOptionsSchema"
+import { mfaPasskeyEnrollmentStartRequestSchema } from "../../mfa/model/mfaPasskeyEnrollmentStartRequestSchema"
+import { mfaTotpEnrollmentStartRequestSchema } from "../../mfa/model/mfaTotpEnrollmentStartRequestSchema"
+import { mfaTotpEnrollmentStartResponseSchema } from "../../mfa/model/mfaTotpEnrollmentStartResponseSchema"
+import { mfaTotpEnrollmentVerifyRequestSchema } from "../../mfa/model/mfaTotpEnrollmentVerifyRequestSchema"
+import { mfaTotpEnrollmentVerifyResponseSchema } from "../../mfa/model/mfaTotpEnrollmentVerifyResponseSchema"
 import { mfaU2fChallengeRequestSchema } from "../../mfa/model/mfaU2fChallengeRequestSchema"
+import { mfaU2fEnrollmentStartRequestSchema } from "../../mfa/model/mfaU2fEnrollmentStartRequestSchema"
 import { mfaU2fVerifyRequestSchema } from "../../mfa/model/mfaU2fVerifyRequestSchema"
+import { mfaWebAuthnEnrollmentStartResponseSchema } from "../../mfa/model/mfaWebAuthnEnrollmentStartResponseSchema"
+import { mfaWebAuthnEnrollmentVerifyRequestSchema } from "../../mfa/model/mfaWebAuthnEnrollmentVerifyRequestSchema"
+import { mfaWebAuthnEnrollmentVerifyResponseSchema } from "../../mfa/model/mfaWebAuthnEnrollmentVerifyResponseSchema"
 import { passkeyV2ChallengeCreate } from "../../passkey/domain/passkeyV2ChallengeCreate"
 import { passkeyV2Verify } from "../../passkey/domain/passkeyV2Verify"
 import { passkeyChallengeRequestSchema } from "../../passkey/model/passkeyChallengeRequestSchema"
@@ -119,8 +136,10 @@ function errorStatusGet(code: string): 400 | 401 | 403 | 404 | 409 | 415 | 429 |
     code === "request_rejected" ||
     code === "provider_mismatch" ||
     code === "method_not_enrolled" ||
+    code === "method_already_enrolled" ||
     code === "mfa_setup_forbidden" ||
-    code === "mfa_skip_forbidden"
+    code === "mfa_skip_forbidden" ||
+    code === "mfa_enrollment_not_allowed"
   )
     return 403
   if (code === "flow_unknown" || code === "idp_not_found") return 404
@@ -146,7 +165,8 @@ function errorStatusGet(code: string): 400 | 401 | 403 | 404 | 409 | 415 | 429 |
     code === "passkey_unavailable" ||
     code === "challenge_unavailable" ||
     code === "authorization_unavailable" ||
-    code === "mfa_unavailable"
+    code === "mfa_unavailable" ||
+    code === "enrollment_unavailable"
   ) {
     return 503
   }
@@ -268,16 +288,16 @@ function callbackFlowHandleGet(c: AppContext) {
   return resultCreate(parsed.output)
 }
 
-async function payloadParse<T>(c: AppContext, schema: v.GenericSchema<unknown, T>) {
+async function payloadParse<T>(c: AppContext, schema: v.GenericSchema<unknown, T>, maximumLength = 4096) {
   const op = "payloadParse"
   if (!c.req.header("content-type")?.toLowerCase().startsWith("application/json")) {
     return resultErrorCreate(op, "unsupported_media_type")
   }
   const length = Number(c.req.header("content-length") ?? "0")
-  if (!Number.isFinite(length) || length > 4096) return resultErrorCreate(op, "invalid_payload")
+  if (!Number.isFinite(length) || length > maximumLength) return resultErrorCreate(op, "invalid_payload")
   try {
     const text = await c.req.text()
-    if (text.length > 4096) return resultErrorCreate(op, "invalid_payload")
+    if (text.length > maximumLength) return resultErrorCreate(op, "invalid_payload")
     const parsed = v.safeParse(schema, JSON.parse(text))
     if (!parsed.success) return resultErrorCreate(op, "invalid_payload")
     return resultCreate(parsed.output)
@@ -354,6 +374,30 @@ function stateTransitionGet(
       kind: "render",
       route: `/login/mfa?flow=${state.flowHandle}`,
       screen: { name: "mfa", factors: state.mfaMethods },
+      csrfToken: state.csrfToken,
+    }
+  }
+  if (state.stage === "mfa_email_otp_code") {
+    return {
+      kind: "render",
+      route: `/login/mfa?flow=${state.flowHandle}`,
+      screen: { name: "mfa_email_otp_code", challengeIssued: state.challengeIssuedAt !== undefined },
+      csrfToken: state.csrfToken,
+    }
+  }
+  if (state.stage === "mfa_totp_setup") {
+    return {
+      kind: "render",
+      route: `/login/mfa?flow=${state.flowHandle}`,
+      screen: { name: "mfa_totp_setup" },
+      csrfToken: state.csrfToken,
+    }
+  }
+  if (state.stage === "mfa_webauthn_setup") {
+    return {
+      kind: "render",
+      route: `/login/mfa?flow=${state.flowHandle}`,
+      screen: { name: "mfa_webauthn_setup", method: state.registrationMethod },
       csrfToken: state.csrfToken,
     }
   }
@@ -670,7 +714,9 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!handle.success) return resultErrorResponse(c, op, handle.errorMessage)
     const state = await stateGet(c, bindings.data, handle.data)
     if (!state.success) return resultErrorResponse(c, op, state.errorMessage)
-    if (state.data.stage !== "mfa") return resultErrorResponse(c, op, "flow_stage_invalid")
+    if (state.data.stage !== "mfa" && state.data.stage !== "mfa_email_otp_code") {
+      return resultErrorResponse(c, op, "flow_stage_invalid")
+    }
     const request = await authRequestRevalidate(bindings.data, state.data)
     if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
     if (!bindings.data.ZITADEL_LOGIN_V2_ENABLED || !bindings.data.ZITADEL_MFA_V2_ENABLED) {
@@ -679,16 +725,24 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
       return c.json(resultCreate(options.output), 200)
     }
 
+    const mfaState: Extract<FlowV2Cookie, { stage: "mfa" }> =
+      state.data.stage === "mfa"
+        ? state.data
+        : (({ enrollmentActivationConsumedAt: _consumed, challengeIssuedAt: _issued, ...stateBase }) => ({
+            ...stateBase,
+            stage: "mfa" as const,
+          }))(state.data)
     const result = await mfaOptionsGet({
-      state: state.data,
+      state: mfaState,
       now: dependencies.now(),
       client: zitadelClientCreate(bindings.data, dependencies.fetch),
     })
     if (!result.success) return resultErrorResponse(c, op, result.errorMessage)
     const options = v.safeParse(mfaOptionsSchema, result.data.options)
     if (!options.success) return resultErrorResponse(c, op, "service_unavailable")
-    if (result.data.state !== state.data) {
-      const set = await stateSet(c, bindings.data, result.data.state)
+    if (result.data.state.sessionToken !== state.data.sessionToken) {
+      const updatedState = { ...state.data, sessionToken: result.data.state.sessionToken }
+      const set = await stateSet(c, bindings.data, updatedState)
       if (!set.success) return resultErrorResponse(c, op, "service_unavailable")
     }
     return c.json(resultCreate(options.output), 200)
@@ -739,6 +793,338 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     return transitionResponse(c, result.data.transition)
   })
 
+  app.post("/api/v2/mfa/email-otp/enroll", async (c) => {
+    const op = "mfaEmailOtpEnrollment"
+    const bindings = bindingsGet(c)
+    if (!bindings.success) return resultErrorResponse(c, op, "service_unavailable")
+    const boundary = requestBoundaryCheck(c, bindings.data, true)
+    if (!boundary.success) return resultErrorResponse(c, op, boundary.errorMessage)
+    const payload = await payloadParse(c, mfaEmailOtpEnrollmentRequestSchema)
+    if (!payload.success) return resultErrorResponse(c, op, payload.errorMessage)
+    const handle = flowHandleQueryGet(c)
+    if (!handle.success) return resultErrorResponse(c, op, handle.errorMessage)
+    const stored = await stateGet(c, bindings.data, handle.data)
+    if (!stored.success) return resultErrorResponse(c, op, stored.errorMessage)
+    if (
+      stored.data.stage === "mfa_email_otp_code" ||
+      stored.data.stage === "verified" ||
+      stored.data.stage === "silent"
+    ) {
+      return resultErrorResponse(c, op, "flow_replayed")
+    }
+    if (stored.data.stage !== "mfa") return resultErrorResponse(c, op, "flow_stage_invalid")
+    if (!csrfTokenMatches(payload.data.csrfToken, stored.data.csrfToken)) {
+      return resultErrorResponse(c, op, "csrf_rejected")
+    }
+    const limited = await abuseLimitCheck(
+      bindings.data.RATE_LIMITER,
+      bindings.data.FLOW_COOKIE_KEY,
+      "v2-mfa-email-otp-enroll",
+      [
+        ["flow", stored.data.flowHandle],
+        ["session", stored.data.sessionId],
+        ["ip", c.req.header("cf-connecting-ip") ?? "unknown"],
+      ],
+    )
+    if (!limited.success) return resultErrorResponse(c, op, limited.errorMessage)
+    const request = await authRequestRevalidate(bindings.data, stored.data)
+    if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
+    if (!bindings.data.ZITADEL_LOGIN_V2_ENABLED || !bindings.data.ZITADEL_MFA_V2_ENABLED) {
+      return resultErrorResponse(c, op, "mfa_enrollment_not_allowed")
+    }
+
+    const client = zitadelClientCreate(bindings.data, dependencies.fetch)
+    const prepared = await mfaV2EmailOtpEnrollmentPrepare({
+      state: stored.data,
+      now: dependencies.now(),
+      client,
+    })
+    if (!prepared.success) {
+      dependencies.logger.error("v2_mfa_email_otp_enrollment_prepare_failed", {
+        status: resultStatusGet(prepared) ?? 0,
+      })
+      return resultErrorResponse(c, op, prepared.errorMessage)
+    }
+
+    // Seal the consumed activation state before the first non-idempotent native call.
+    const consumed = await stateSet(c, bindings.data, prepared.data.state)
+    if (!consumed.success) return resultErrorResponse(c, op, "service_unavailable")
+
+    const activated = await mfaV2EmailOtpEnrollmentActivate({
+      state: prepared.data.state,
+      now: dependencies.now(),
+      client,
+    })
+    if (!activated.success) return resultErrorResponse(c, op, "enrollment_unavailable")
+    const response = v.safeParse(mfaEmailOtpEnrollmentResponseSchema, {
+      transition: activated.data.transition,
+    })
+    if (!response.success) return resultErrorResponse(c, op, "service_unavailable")
+    const set = await stateSet(c, bindings.data, activated.data.state)
+    if (!set.success) return resultErrorResponse(c, op, "service_unavailable")
+    return c.json(resultCreate(response.output), 201)
+  })
+
+  app.post("/api/v2/mfa/otp/enroll", async (c) => {
+    const op = "mfaTotpEnrollmentStart"
+    const bindings = bindingsGet(c)
+    if (!bindings.success) return resultErrorResponse(c, op, "service_unavailable")
+    const boundary = requestBoundaryCheck(c, bindings.data, true)
+    if (!boundary.success) return resultErrorResponse(c, op, boundary.errorMessage)
+    const payload = await payloadParse(c, mfaTotpEnrollmentStartRequestSchema)
+    if (!payload.success) return resultErrorResponse(c, op, payload.errorMessage)
+    const handle = flowHandleQueryGet(c)
+    if (!handle.success) return resultErrorResponse(c, op, handle.errorMessage)
+    const state = await stateGet(c, bindings.data, handle.data)
+    if (!state.success) return resultErrorResponse(c, op, state.errorMessage)
+    if (state.data.stage === "mfa_totp_setup" || state.data.stage === "verified" || state.data.stage === "silent") {
+      return resultErrorResponse(c, op, "flow_replayed")
+    }
+    if (state.data.stage !== "mfa") return resultErrorResponse(c, op, "flow_stage_invalid")
+    if (!csrfTokenMatches(payload.data.csrfToken, state.data.csrfToken)) {
+      return resultErrorResponse(c, op, "csrf_rejected")
+    }
+    const limited = await abuseLimitCheck(
+      bindings.data.RATE_LIMITER,
+      bindings.data.FLOW_COOKIE_KEY,
+      "v2-mfa-totp-enroll",
+      [
+        ["flow", state.data.flowHandle],
+        ["session", state.data.sessionId],
+        ["ip", c.req.header("cf-connecting-ip") ?? "unknown"],
+      ],
+    )
+    if (!limited.success) return resultErrorResponse(c, op, limited.errorMessage)
+    const request = await authRequestRevalidate(bindings.data, state.data)
+    if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
+    if (!bindings.data.ZITADEL_LOGIN_V2_ENABLED || !bindings.data.ZITADEL_MFA_V2_ENABLED) {
+      return resultErrorResponse(c, op, "mfa_enrollment_not_allowed")
+    }
+
+    const result = await mfaV2TotpEnrollmentStart({
+      state: state.data,
+      now: dependencies.now(),
+      client: zitadelClientCreate(bindings.data, dependencies.fetch),
+    })
+    if (!result.success) {
+      dependencies.logger.error("v2_mfa_totp_enrollment_start_failed", {
+        status: resultStatusGet(result) ?? 0,
+      })
+      return resultErrorResponse(c, op, result.errorMessage)
+    }
+    const set = await stateSet(c, bindings.data, result.data.state)
+    if (!set.success) return resultErrorResponse(c, op, "service_unavailable")
+    const response = v.safeParse(mfaTotpEnrollmentStartResponseSchema, {
+      provisioningUri: result.data.provisioningUri,
+      secret: result.data.secret,
+      transition: result.data.transition,
+    })
+    if (!response.success) return resultErrorResponse(c, op, "service_unavailable")
+    return c.json(resultCreate(response.output), 201)
+  })
+
+  const mfaWebAuthnEnrollmentStartHandler = async (c: AppContext) => {
+    const path = c.req.path
+    const method = path.includes("/passkey/") ? ("passkey" as const) : ("u2f" as const)
+    const op = method === "passkey" ? "mfaPasskeyEnrollmentStart" : "mfaU2fEnrollmentStart"
+    const bindings = bindingsGet(c)
+    if (!bindings.success) return resultErrorResponse(c, op, "service_unavailable")
+    const boundary = requestBoundaryCheck(c, bindings.data, true)
+    if (!boundary.success) return resultErrorResponse(c, op, boundary.errorMessage)
+    const payload =
+      method === "passkey"
+        ? await payloadParse(c, mfaPasskeyEnrollmentStartRequestSchema)
+        : await payloadParse(c, mfaU2fEnrollmentStartRequestSchema)
+    if (!payload.success) return resultErrorResponse(c, op, payload.errorMessage)
+    const handle = flowHandleQueryGet(c)
+    if (!handle.success) return resultErrorResponse(c, op, handle.errorMessage)
+    const state = await stateGet(c, bindings.data, handle.data)
+    if (!state.success) return resultErrorResponse(c, op, state.errorMessage)
+    if (
+      state.data.stage === "mfa_webauthn_setup" ||
+      state.data.stage === "mfa_totp_setup" ||
+      state.data.stage === "verified" ||
+      state.data.stage === "silent"
+    ) {
+      return resultErrorResponse(c, op, "flow_replayed")
+    }
+    if (state.data.stage !== "mfa") return resultErrorResponse(c, op, "flow_stage_invalid")
+    if (!csrfTokenMatches(payload.data.csrfToken, state.data.csrfToken)) {
+      return resultErrorResponse(c, op, "csrf_rejected")
+    }
+    const limited = await abuseLimitCheck(
+      bindings.data.RATE_LIMITER,
+      bindings.data.FLOW_COOKIE_KEY,
+      `v2-mfa-${method}-enroll`,
+      [
+        ["flow", state.data.flowHandle],
+        ["session", state.data.sessionId],
+        ["ip", c.req.header("cf-connecting-ip") ?? "unknown"],
+      ],
+    )
+    if (!limited.success) return resultErrorResponse(c, op, limited.errorMessage)
+    const request = await authRequestRevalidate(bindings.data, state.data)
+    if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
+    if (!bindings.data.ZITADEL_LOGIN_V2_ENABLED || !bindings.data.ZITADEL_MFA_V2_ENABLED) {
+      return resultErrorResponse(c, op, "mfa_enrollment_not_allowed")
+    }
+
+    const result = await mfaV2WebAuthnEnrollmentStart({
+      state: state.data,
+      method,
+      rpId: new URL(bindings.data.PAGES_ORIGIN).hostname,
+      origin: bindings.data.PAGES_ORIGIN,
+      now: dependencies.now(),
+      client: zitadelClientCreate(bindings.data, dependencies.fetch),
+    })
+    if (!result.success) {
+      dependencies.logger.error(`v2_mfa_${method}_enrollment_start_failed`, {
+        status: resultStatusGet(result) ?? 0,
+      })
+      return resultErrorResponse(c, op, result.errorMessage)
+    }
+    const response = v.safeParse(mfaWebAuthnEnrollmentStartResponseSchema, {
+      options: result.data.options,
+      transition: result.data.transition,
+    })
+    if (!response.success) return resultErrorResponse(c, op, "service_unavailable")
+    const set = await stateSet(c, bindings.data, result.data.state)
+    if (!set.success) return resultErrorResponse(c, op, "service_unavailable")
+    return c.json(resultCreate(response.output), 201)
+  }
+
+  app.post("/api/v2/mfa/u2f/enroll", mfaWebAuthnEnrollmentStartHandler)
+  app.post("/api/v2/mfa/passkey/enroll", mfaWebAuthnEnrollmentStartHandler)
+
+  const mfaWebAuthnEnrollmentVerifyHandler = async (c: AppContext) => {
+    const method = c.req.path.includes("/passkey/") ? ("passkey" as const) : ("u2f" as const)
+    const op = method === "passkey" ? "mfaPasskeyEnrollmentVerify" : "mfaU2fEnrollmentVerify"
+    const bindings = bindingsGet(c)
+    if (!bindings.success) return resultErrorResponse(c, op, "service_unavailable")
+    const boundary = requestBoundaryCheck(c, bindings.data, true)
+    if (!boundary.success) return resultErrorResponse(c, op, boundary.errorMessage)
+    const payload = await payloadParse(c, mfaWebAuthnEnrollmentVerifyRequestSchema, 1_060_000)
+    if (!payload.success) return resultErrorResponse(c, op, payload.errorMessage)
+    if (payload.data.method !== method) return resultErrorResponse(c, op, "request_rejected")
+    const handle = flowHandleQueryGet(c)
+    if (!handle.success) return resultErrorResponse(c, op, handle.errorMessage)
+    const state = await stateGet(c, bindings.data, handle.data)
+    if (!state.success) return resultErrorResponse(c, op, state.errorMessage)
+    if (state.data.stage === "verified" || state.data.stage === "mfa" || state.data.stage === "silent") {
+      return resultErrorResponse(c, op, "flow_replayed")
+    }
+    if (state.data.stage !== "mfa_webauthn_setup") return resultErrorResponse(c, op, "flow_stage_invalid")
+    if (!csrfTokenMatches(payload.data.csrfToken, state.data.csrfToken)) {
+      return resultErrorResponse(c, op, "csrf_rejected")
+    }
+    const limited = await abuseLimitCheck(
+      bindings.data.RATE_LIMITER,
+      bindings.data.FLOW_COOKIE_KEY,
+      `v2-mfa-${method}-enrollment-verify`,
+      [
+        ["flow", state.data.flowHandle],
+        ["session", state.data.sessionId],
+        ["ip", c.req.header("cf-connecting-ip") ?? "unknown"],
+      ],
+    )
+    if (!limited.success) return resultErrorResponse(c, op, limited.errorMessage)
+    const request = await authRequestRevalidate(bindings.data, state.data)
+    if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
+    if (!bindings.data.ZITADEL_LOGIN_V2_ENABLED || !bindings.data.ZITADEL_MFA_V2_ENABLED) {
+      return resultErrorResponse(c, op, "mfa_enrollment_not_allowed")
+    }
+
+    const result = await mfaV2WebAuthnEnrollmentVerify({
+      state: state.data,
+      method,
+      credential: payload.data.credential,
+      ...(payload.data.displayName ? { displayName: payload.data.displayName } : {}),
+      expectedRpId: new URL(bindings.data.PAGES_ORIGIN).hostname,
+      expectedOrigin: bindings.data.PAGES_ORIGIN,
+      now: dependencies.now(),
+      client: zitadelClientCreate(bindings.data, dependencies.fetch),
+    })
+    if (!result.success) {
+      dependencies.logger.error(`v2_mfa_${method}_enrollment_verify_failed`, {
+        status: resultStatusGet(result) ?? 0,
+      })
+      return resultErrorResponse(c, op, result.errorMessage)
+    }
+    const response = v.safeParse(mfaWebAuthnEnrollmentVerifyResponseSchema, {
+      transition: result.data.transition,
+    })
+    if (!response.success) return resultErrorResponse(c, op, "service_unavailable")
+    const set = await stateSet(c, bindings.data, result.data.state)
+    if (!set.success) return resultErrorResponse(c, op, "service_unavailable")
+    return c.json(resultCreate(response.output), 200)
+  }
+
+  app.post("/api/v2/mfa/u2f/enroll/verify", mfaWebAuthnEnrollmentVerifyHandler)
+  app.post("/api/v2/mfa/passkey/enroll/verify", mfaWebAuthnEnrollmentVerifyHandler)
+
+  app.post("/api/v2/mfa/otp/enroll/verify", async (c) => {
+    const op = "mfaTotpEnrollmentVerify"
+    const bindings = bindingsGet(c)
+    if (!bindings.success) return resultErrorResponse(c, op, "service_unavailable")
+    const boundary = requestBoundaryCheck(c, bindings.data, true)
+    if (!boundary.success) return resultErrorResponse(c, op, boundary.errorMessage)
+    const payload = await payloadParse(c, mfaTotpEnrollmentVerifyRequestSchema)
+    if (!payload.success) return resultErrorResponse(c, op, payload.errorMessage)
+    const handle = flowHandleQueryGet(c)
+    if (!handle.success) return resultErrorResponse(c, op, handle.errorMessage)
+    const state = await stateGet(c, bindings.data, handle.data)
+    if (!state.success) return resultErrorResponse(c, op, state.errorMessage)
+    if (state.data.stage === "verified" || state.data.stage === "mfa" || state.data.stage === "silent") {
+      return resultErrorResponse(c, op, "flow_replayed")
+    }
+    if (state.data.stage !== "mfa_totp_setup") return resultErrorResponse(c, op, "flow_stage_invalid")
+    if (!csrfTokenMatches(payload.data.csrfToken, state.data.csrfToken)) {
+      return resultErrorResponse(c, op, "csrf_rejected")
+    }
+    const limited = await abuseLimitCheck(
+      bindings.data.RATE_LIMITER,
+      bindings.data.FLOW_COOKIE_KEY,
+      "v2-mfa-totp-enrollment-verify",
+      [
+        ["flow", state.data.flowHandle],
+        ["session", state.data.sessionId],
+        ["ip", c.req.header("cf-connecting-ip") ?? "unknown"],
+      ],
+    )
+    if (!limited.success) return resultErrorResponse(c, op, limited.errorMessage)
+    const request = await authRequestRevalidate(bindings.data, state.data)
+    if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
+    if (!bindings.data.ZITADEL_LOGIN_V2_ENABLED || !bindings.data.ZITADEL_MFA_V2_ENABLED) {
+      return resultErrorResponse(c, op, "mfa_enrollment_not_allowed")
+    }
+
+    let code = payload.data.code
+    try {
+      const result = await mfaV2TotpEnrollmentVerify({
+        state: state.data,
+        code,
+        now: dependencies.now(),
+        client: zitadelClientCreate(bindings.data, dependencies.fetch),
+      })
+      if (!result.success) {
+        dependencies.logger.error("v2_mfa_totp_enrollment_verify_failed", {
+          status: resultStatusGet(result) ?? 0,
+        })
+        return resultErrorResponse(c, op, result.errorMessage)
+      }
+      const response = v.safeParse(mfaTotpEnrollmentVerifyResponseSchema, {
+        transition: result.data.transition,
+      })
+      if (!response.success) return resultErrorResponse(c, op, "service_unavailable")
+      const set = await stateSet(c, bindings.data, result.data.state)
+      if (!set.success) return resultErrorResponse(c, op, "service_unavailable")
+      return c.json(resultCreate(response.output), 200)
+    } finally {
+      code = ""
+      payload.data.code = ""
+    }
+  })
+
   const mfaOtpVerifyHandler = async (c: AppContext) => {
     const op = "mfaOtpVerify"
     const bindings = bindingsGet(c)
@@ -754,7 +1140,14 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (state.data.stage === "verified" || state.data.stage === "silent") {
       return resultErrorResponse(c, op, "flow_replayed")
     }
-    if (state.data.stage !== "mfa") return resultErrorResponse(c, op, "flow_stage_invalid")
+    const isEmailOtp =
+      c.req.path.includes("/email-otp/") ||
+      payload.data.method === "email_otp" ||
+      payload.data.method === "otp_email" ||
+      payload.data.method === "AUTHENTICATION_METHOD_TYPE_OTP_EMAIL"
+    if (state.data.stage !== "mfa" && !(isEmailOtp && state.data.stage === "mfa_email_otp_code")) {
+      return resultErrorResponse(c, op, "flow_stage_invalid")
+    }
     if (!csrfTokenMatches(payload.data.csrfToken, state.data.csrfToken)) {
       return resultErrorResponse(c, op, "csrf_rejected")
     }
@@ -764,12 +1157,6 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
       payload.data.method === "sms_otp" ||
       payload.data.method === "otp_sms" ||
       payload.data.method === "AUTHENTICATION_METHOD_TYPE_OTP_SMS"
-
-    const isEmailOtp =
-      path.includes("/email-otp/") ||
-      payload.data.method === "email_otp" ||
-      payload.data.method === "otp_email" ||
-      payload.data.method === "AUTHENTICATION_METHOD_TYPE_OTP_EMAIL"
 
     const rateLimitScope = isSmsOtp
       ? "v2-mfa-sms-otp-verify"
@@ -791,29 +1178,32 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
 
     let code = payload.data.code
     try {
-      const result = isSmsOtp
-        ? await mfaV2SmsOtpVerify({
-            state: state.data,
-            code,
-            ...(payload.data.method ? { method: payload.data.method } : {}),
-            now: dependencies.now(),
-            client: zitadelClientCreate(bindings.data, dependencies.fetch),
-          })
-        : isEmailOtp
-          ? await mfaV2EmailOtpVerify({
+      const result =
+        isSmsOtp && state.data.stage === "mfa"
+          ? await mfaV2SmsOtpVerify({
               state: state.data,
               code,
               ...(payload.data.method ? { method: payload.data.method } : {}),
               now: dependencies.now(),
               client: zitadelClientCreate(bindings.data, dependencies.fetch),
             })
-          : await mfaV2TotpVerify({
-              state: state.data,
-              code,
-              ...(payload.data.method ? { method: payload.data.method } : {}),
-              now: dependencies.now(),
-              client: zitadelClientCreate(bindings.data, dependencies.fetch),
-            })
+          : isEmailOtp
+            ? await mfaV2EmailOtpVerify({
+                state: state.data,
+                code,
+                ...(payload.data.method ? { method: payload.data.method } : {}),
+                now: dependencies.now(),
+                client: zitadelClientCreate(bindings.data, dependencies.fetch),
+              })
+            : state.data.stage === "mfa"
+              ? await mfaV2TotpVerify({
+                  state: state.data,
+                  code,
+                  ...(payload.data.method ? { method: payload.data.method } : {}),
+                  now: dependencies.now(),
+                  client: zitadelClientCreate(bindings.data, dependencies.fetch),
+                })
+              : resultErrorCreate(op, "flow_stage_invalid")
       if (!result.success) {
         dependencies.logger.error(
           isSmsOtp
@@ -921,17 +1311,23 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (state.data.stage === "verified" || state.data.stage === "silent") {
       return resultErrorResponse(c, op, "flow_replayed")
     }
-    if (state.data.stage !== "mfa") return resultErrorResponse(c, op, "flow_stage_invalid")
-    if (!csrfTokenMatches(payload.data.csrfToken, state.data.csrfToken)) {
-      return resultErrorResponse(c, op, "csrf_rejected")
-    }
     const path = c.req.path
     const isSmsOtp =
       path.includes("/sms-otp/") ||
       payload.data.method === "sms_otp" ||
       payload.data.method === "otp_sms" ||
       payload.data.method === "AUTHENTICATION_METHOD_TYPE_OTP_SMS"
-
+    const isEmailOtp = !isSmsOtp
+    const emailChallengeState = state.data.stage === "mfa_email_otp_code"
+    if ((isSmsOtp && state.data.stage !== "mfa") || (isEmailOtp && !emailChallengeState)) {
+      return resultErrorResponse(c, op, "flow_stage_invalid")
+    }
+    if (state.data.stage !== "mfa" && state.data.stage !== "mfa_email_otp_code") {
+      return resultErrorResponse(c, op, "flow_stage_invalid")
+    }
+    if (!csrfTokenMatches(payload.data.csrfToken, state.data.csrfToken)) {
+      return resultErrorResponse(c, op, "csrf_rejected")
+    }
     const limited = await abuseLimitCheck(
       bindings.data.RATE_LIMITER,
       bindings.data.FLOW_COOKIE_KEY,
@@ -949,19 +1345,22 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
       return transitionResponse(c, { kind: "fallback", path: `/api/v2/flow/fallback?flow=${state.data.flowHandle}` })
     }
 
-    const result = isSmsOtp
-      ? await mfaV2SmsOtpResend({
-          state: state.data,
-          ...(payload.data.method ? { method: payload.data.method } : {}),
-          now: dependencies.now(),
-          client: zitadelClientCreate(bindings.data, dependencies.fetch),
-        })
-      : await mfaV2EmailOtpResend({
-          state: state.data,
-          ...(payload.data.method ? { method: payload.data.method } : {}),
-          now: dependencies.now(),
-          client: zitadelClientCreate(bindings.data, dependencies.fetch),
-        })
+    const result =
+      isSmsOtp && state.data.stage === "mfa"
+        ? await mfaV2SmsOtpResend({
+            state: state.data,
+            ...(payload.data.method ? { method: payload.data.method } : {}),
+            now: dependencies.now(),
+            client: zitadelClientCreate(bindings.data, dependencies.fetch),
+          })
+        : !isSmsOtp && state.data.stage === "mfa_email_otp_code"
+          ? await mfaV2EmailOtpResend({
+              state: state.data,
+              ...(payload.data.method ? { method: payload.data.method } : {}),
+              now: dependencies.now(),
+              client: zitadelClientCreate(bindings.data, dependencies.fetch),
+            })
+          : resultErrorCreate(op, "flow_stage_invalid")
     if (!result.success) {
       dependencies.logger.error(isSmsOtp ? "v2_mfa_sms_otp_resend_failed" : "v2_mfa_email_otp_resend_failed", {
         status: resultStatusGet(result) ?? 0,
@@ -1735,7 +2134,12 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!handle.success) return resultErrorResponse(c, op, handle.errorMessage)
     const state = await stateGet(c, bindings.data, handle.data)
     if (!state.success) return resultErrorResponse(c, op, state.errorMessage)
-    if (state.data.stage !== "ready" || !state.data.delegable || state.data.prompt.includes("PROMPT_NONE")) {
+    const emailEnrollmentFallback =
+      state.data.stage === "mfa_email_otp_code" && state.data.enrollmentActivationConsumedAt !== undefined
+    if (
+      (!emailEnrollmentFallback && (state.data.stage !== "ready" || !state.data.delegable)) ||
+      state.data.prompt.includes("PROMPT_NONE")
+    ) {
       return resultErrorResponse(c, op, "fallback_forbidden")
     }
     const request = await authRequestRevalidate(bindings.data, state.data)

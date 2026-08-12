@@ -18,6 +18,8 @@ type MfaEmailOtpPanelProps = {
   showChooser?: () => void
   showRootChooser: () => void
   fetchFn?: typeof fetch
+  isEnrollment?: boolean
+  codePending?: boolean
 }
 
 export function MfaEmailOtpPanel(props: MfaEmailOtpPanelProps) {
@@ -36,6 +38,8 @@ export function MfaEmailOtpPanel(props: MfaEmailOtpPanelProps) {
     showChooser: props.showChooser,
     showRootChooser: props.showRootChooser,
     fetchFn: props.fetchFn,
+    isEnrollment: props.isEnrollment,
+    codePending: props.codePending,
   })
 
   return (
@@ -51,6 +55,27 @@ export function MfaEmailOtpPanel(props: MfaEmailOtpPanelProps) {
           </div>
           <button class="primary" type="button" onClick={state.sendCode} disabled={props.busy()}>
             {props.busy() ? "Sending code..." : "Send code"}
+          </button>
+          <Show when={props.showChooser}>
+            <button class="back-button" type="button" onClick={props.showChooser} disabled={props.busy()}>
+              Back to 2-step choices
+            </button>
+          </Show>
+          <button class="back-button" type="button" onClick={props.showRootChooser} disabled={props.busy()}>
+            Back to methods
+          </button>
+        </Match>
+
+        <Match when={state.stage() === "enroll"}>
+          <div class="intro">
+            <p class="step">2-Step Verification</p>
+            <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+              Set up email codes
+            </h1>
+            <p>Verification codes will be sent to your account email address.</p>
+          </div>
+          <button class="primary" type="button" onClick={() => void state.enroll()} disabled={props.busy()}>
+            {props.busy() ? "Setting up..." : "Set up email codes"}
           </button>
           <Show when={props.showChooser}>
             <button class="back-button" type="button" onClick={props.showChooser} disabled={props.busy()}>

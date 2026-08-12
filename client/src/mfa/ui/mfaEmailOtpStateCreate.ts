@@ -1,7 +1,8 @@
-import { createMemo, onCleanup, onMount } from "solid-js"
+import { onCleanup } from "solid-js"
 
 import { createSignalObject } from "../../ui/createSignalObject"
 import { mfaV2EmailOtpChallengeApiRequest } from "../api/mfaV2EmailOtpChallengeApiRequest"
+import { mfaV2EmailOtpEnrollApiRequest } from "../api/mfaV2EmailOtpEnrollApiRequest"
 import { mfaV2EmailOtpResendApiRequest } from "../api/mfaV2EmailOtpResendApiRequest"
 import { mfaV2EmailOtpVerifyApiRequest } from "../api/mfaV2EmailOtpVerifyApiRequest"
 
@@ -20,16 +21,21 @@ type Inputs = {
   showChooser?: () => void
   showRootChooser: () => void
   fetchFn?: typeof fetch
+  isEnrollment?: boolean
+  codePending?: boolean
 }
 
 export function mfaEmailOtpStateCreate(inputs: Inputs) {
-  const stage = createSignalObject<"send" | "code">("send")
+  const initialStage = inputs.codePending ? "code" : inputs.isEnrollment ? "enroll" : "send"
+  const stage = createSignalObject<"send" | "enroll" | "code">(initialStage)
   const code = createSignalObject("")
   const notice = createSignalObject("")
   const countdown = createSignalObject(0)
 
   let codeInputElement: HTMLInputElement | undefined
   let timerId: ReturnType<typeof setInterval> | undefined
+  let inFlight = false
+  let disposed = false
 
   const focusSchedule = () => queueMicrotask(() => codeInputElement?.focus())
 
@@ -54,14 +60,54 @@ export function mfaEmailOtpStateCreate(inputs: Inputs) {
     }, 1000)
   }
 
-  onMount(() => {
-    // Stage 1 initially
-  })
-
   onCleanup(() => {
+    disposed = true
     countdownStop()
     code.set("")
   })
+
+  const enroll = async () => {
+    if (inFlight || inputs.busy()) return
+    inFlight = true
+    inputs.errorClear()
+    inputs.busySet(true)
+
+    const res = await mfaV2EmailOtpEnrollApiRequest(
+      inputs.apiOrigin(),
+      inputs.flowHandle(),
+      { csrfToken: inputs.csrfToken() },
+      inputs.fetchFn,
+    )
+    inputs.busySet(false)
+    inFlight = false
+    if (disposed) return
+
+    if (!res.success) {
+      inputs.failureSet(res.errorMessage)
+      return
+    }
+
+    const transition = res.data
+    if (transition.kind === "fallback") {
+      inputs.fallbackContinue(transition.path)
+      return
+    }
+    if (transition.kind === "complete") {
+      inputs.statusContinue(transition.path)
+      return
+    }
+
+    inputs.csrfTokenSet(transition.csrfToken)
+    stage.set("code")
+    const challengeIssued = transition.screen.name === "mfa_email_otp_code" && transition.screen.challengeIssued
+    notice.set(
+      challengeIssued
+        ? "Email codes are set up. Enter the code sent to your email address, or resend it."
+        : "Email codes are set up. Resend a code to continue.",
+    )
+    if (challengeIssued) countdownStart(30)
+    focusSchedule()
+  }
 
   const sendCode = async () => {
     if (inputs.busy()) return
@@ -198,6 +244,7 @@ export function mfaEmailOtpStateCreate(inputs: Inputs) {
       const len = code.get().length
       return len >= 6 && len <= 20
     },
+    enroll,
     sendCode,
     resendCode,
     codeInput: (value: string) => {
@@ -214,7 +261,7 @@ export function mfaEmailOtpStateCreate(inputs: Inputs) {
       code.set("")
       notice.set("")
       countdown.set(0)
-      stage.set("send")
+      stage.set(initialStage)
     },
     codeFocus: focusSchedule,
   }

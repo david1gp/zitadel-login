@@ -1,6 +1,8 @@
 import * as v from "valibot"
 
 import type { WorkerBindings } from "../config/workerBindingsSchema"
+import { passkeyAttestationSchema } from "../passkey/model/passkeyAttestationSchema"
+import { passkeyCreationOptionsSchema } from "../passkey/model/passkeyCreationOptionsSchema"
 import { resultCreate } from "../result/resultCreate"
 import { resultErrorCreate } from "../result/resultErrorCreate"
 
@@ -98,6 +100,58 @@ const sessionSetResponseSchema = v.object({
   sessionToken: v.pipe(v.string(), v.minLength(1), v.maxLength(500)),
 })
 const humanMfaInitSkippedResponseSchema = v.object({ details: v.optional(v.unknown()) })
+const totpUserIdSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(200))
+const totpCodeSchema = v.pipe(v.string(), v.regex(/^\d{6}$/))
+const totpDetailsSchema = v.object({
+  sequence: v.optional(v.pipe(v.string(), v.maxLength(32))),
+  changeDate: v.optional(v.pipe(v.string(), v.maxLength(100))),
+  resourceOwner: v.optional(v.pipe(v.string(), v.minLength(1), v.maxLength(200))),
+  creationDate: v.optional(v.pipe(v.string(), v.maxLength(100))),
+})
+const totpEnrollmentCreateResponseSchema = v.object({
+  uri: v.pipe(v.string(), v.regex(/^otpauth:\/\/totp\//), v.maxLength(2048)),
+  secret: v.pipe(v.string(), v.regex(/^[A-Z2-7]+$/), v.minLength(1), v.maxLength(256)),
+})
+const totpEnrollmentVerifyResponseSchema = v.object({
+  details: v.optional(totpDetailsSchema),
+})
+const otpEmailEnrollmentResponseSchema = v.strictObject({
+  details: v.optional(
+    v.strictObject({
+      sequence: v.optional(v.pipe(v.string(), v.maxLength(32))),
+      changeDate: v.optional(v.pipe(v.string(), v.maxLength(100))),
+      resourceOwner: v.optional(v.pipe(v.string(), v.minLength(1), v.maxLength(200))),
+      creationDate: v.optional(v.pipe(v.string(), v.maxLength(100))),
+    }),
+  ),
+})
+const webAuthnRegistrationDetailsSchema = v.optional(totpDetailsSchema)
+const webAuthnDomainSchema = v.pipe(
+  v.string(),
+  v.minLength(1),
+  v.maxLength(253),
+  v.regex(/^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)*[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/),
+)
+const webAuthnFactorIdSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(200))
+const webAuthnNameSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(200))
+const passkeyAuthenticatorSchema = v.picklist([
+  "PASSKEY_AUTHENTICATOR_UNSPECIFIED",
+  "PASSKEY_AUTHENTICATOR_PLATFORM",
+  "PASSKEY_AUTHENTICATOR_CROSS_PLATFORM",
+])
+const u2fRegistrationResponseSchema = v.strictObject({
+  details: webAuthnRegistrationDetailsSchema,
+  u2fId: webAuthnFactorIdSchema,
+  publicKeyCredentialCreationOptions: passkeyCreationOptionsSchema,
+})
+const passkeyRegistrationResponseSchema = v.strictObject({
+  details: webAuthnRegistrationDetailsSchema,
+  passkeyId: webAuthnFactorIdSchema,
+  publicKeyCredentialCreationOptions: passkeyCreationOptionsSchema,
+})
+const webAuthnRegistrationVerifyResponseSchema = v.strictObject({
+  details: v.optional(totpDetailsSchema),
+})
 const callbackResponseSchema = v.object({ callbackUrl: v.pipe(v.string(), v.minLength(1), v.maxLength(4096)) })
 const organizationSchema = v.object({
   id: v.pipe(v.string(), v.minLength(1), v.maxLength(200)),
@@ -408,6 +462,145 @@ export function zitadelClientCreate(bindings: WorkerBindings, fetchImplementatio
         `/v2/users/${encodeURIComponent(userId)}/mfa_init_skipped`,
         humanMfaInitSkippedResponseSchema,
         { method: "POST", body: JSON.stringify({}) },
+      )
+    },
+    totpEnrollmentCreate(userId: string) {
+      const parsedUserId = v.safeParse(totpUserIdSchema, userId)
+      if (!parsedUserId.success) return resultErrorCreate("totpEnrollmentCreate", v.summarize(parsedUserId.issues))
+      return request(
+        "totpEnrollmentCreate",
+        `/v2/users/${encodeURIComponent(parsedUserId.output)}/totp`,
+        totpEnrollmentCreateResponseSchema,
+        { method: "POST", body: JSON.stringify({}) },
+      )
+    },
+    totpEnrollmentVerify(userId: string, code: string) {
+      const parsedUserId = v.safeParse(totpUserIdSchema, userId)
+      if (!parsedUserId.success) return resultErrorCreate("totpEnrollmentVerify", v.summarize(parsedUserId.issues))
+      const parsedCode = v.safeParse(totpCodeSchema, code)
+      if (!parsedCode.success) return resultErrorCreate("totpEnrollmentVerify", v.summarize(parsedCode.issues))
+      return request(
+        "totpEnrollmentVerify",
+        `/v2/users/${encodeURIComponent(parsedUserId.output)}/totp/verify`,
+        totpEnrollmentVerifyResponseSchema,
+        { method: "POST", body: JSON.stringify({ code: parsedCode.output }) },
+      )
+    },
+    addOTPEmail(userId: string) {
+      const op = "addOTPEmail"
+      const parsedUserId = v.safeParse(totpUserIdSchema, userId)
+      if (!parsedUserId.success) return resultErrorCreate(op, v.summarize(parsedUserId.issues))
+      return request(
+        op,
+        `/v2/users/${encodeURIComponent(parsedUserId.output)}/otp_email`,
+        otpEmailEnrollmentResponseSchema,
+        { method: "POST", body: JSON.stringify({}) },
+      ).then((result) => {
+        if (result.success) return result
+        const status =
+          typeof result.rawData === "object" &&
+          result.rawData !== null &&
+          "status" in result.rawData &&
+          typeof result.rawData.status === "number"
+            ? result.rawData.status
+            : undefined
+        if (status === 409) return resultErrorCreate(op, "method_already_enrolled", { status })
+        if (status === 412) return resultErrorCreate(op, "email_not_verified", { status })
+        if (status === 403) return resultErrorCreate(op, "permission_denied", { status })
+        if (status !== undefined && status >= 500) return resultErrorCreate(op, "service_unavailable", { status })
+        if (result.errorMessage === "ZITADEL request failed") return resultErrorCreate(op, "service_unavailable")
+        return result
+      })
+    },
+    registerU2F(userId: string, domain: string) {
+      const op = "registerU2F"
+      const parsedUserId = v.safeParse(totpUserIdSchema, userId)
+      if (!parsedUserId.success) return resultErrorCreate(op, v.summarize(parsedUserId.issues))
+      const parsedDomain = v.safeParse(webAuthnDomainSchema, domain)
+      if (!parsedDomain.success) return resultErrorCreate(op, v.summarize(parsedDomain.issues))
+      return request(op, `/v2/users/${encodeURIComponent(parsedUserId.output)}/u2f`, u2fRegistrationResponseSchema, {
+        method: "POST",
+        body: JSON.stringify({ domain: parsedDomain.output }),
+      }).then((result) => {
+        if (!result.success) return result
+        if (result.data.publicKeyCredentialCreationOptions.publicKey.rp.id !== parsedDomain.output) {
+          return resultErrorCreate(op, "ZITADEL returned an invalid relying party")
+        }
+        return resultCreate(result.data)
+      })
+    },
+    verifyU2FRegistration(userId: string, u2fId: string, tokenName: string, publicKeyCredential: unknown) {
+      const op = "verifyU2FRegistration"
+      const parsedUserId = v.safeParse(totpUserIdSchema, userId)
+      if (!parsedUserId.success) return resultErrorCreate(op, v.summarize(parsedUserId.issues))
+      const parsedU2fId = v.safeParse(webAuthnFactorIdSchema, u2fId)
+      if (!parsedU2fId.success) return resultErrorCreate(op, v.summarize(parsedU2fId.issues))
+      const parsedTokenName = v.safeParse(webAuthnNameSchema, tokenName)
+      if (!parsedTokenName.success) return resultErrorCreate(op, v.summarize(parsedTokenName.issues))
+      const parsedCredential = v.safeParse(passkeyAttestationSchema, publicKeyCredential)
+      if (!parsedCredential.success) return resultErrorCreate(op, v.summarize(parsedCredential.issues))
+      return request(
+        op,
+        `/v2/users/${encodeURIComponent(parsedUserId.output)}/u2f/${encodeURIComponent(parsedU2fId.output)}`,
+        webAuthnRegistrationVerifyResponseSchema,
+        {
+          method: "POST",
+          body: JSON.stringify({ publicKeyCredential: parsedCredential.output, tokenName: parsedTokenName.output }),
+        },
+      )
+    },
+    registerPasskey(
+      userId: string,
+      domain: string,
+      authenticator: v.InferOutput<typeof passkeyAuthenticatorSchema> = "PASSKEY_AUTHENTICATOR_UNSPECIFIED",
+    ) {
+      const op = "registerPasskey"
+      const parsedUserId = v.safeParse(totpUserIdSchema, userId)
+      if (!parsedUserId.success) return resultErrorCreate(op, v.summarize(parsedUserId.issues))
+      const parsedDomain = v.safeParse(webAuthnDomainSchema, domain)
+      if (!parsedDomain.success) return resultErrorCreate(op, v.summarize(parsedDomain.issues))
+      const parsedAuthenticator = v.safeParse(passkeyAuthenticatorSchema, authenticator)
+      if (!parsedAuthenticator.success) return resultErrorCreate(op, v.summarize(parsedAuthenticator.issues))
+      return request(
+        op,
+        `/v2/users/${encodeURIComponent(parsedUserId.output)}/passkeys`,
+        passkeyRegistrationResponseSchema,
+        {
+          method: "POST",
+          body: JSON.stringify({ domain: parsedDomain.output, authenticator: parsedAuthenticator.output }),
+        },
+      ).then((result) => {
+        if (!result.success) return result
+        if (result.data.publicKeyCredentialCreationOptions.publicKey.rp.id !== parsedDomain.output) {
+          return resultErrorCreate(op, "ZITADEL returned an invalid relying party")
+        }
+        if (
+          result.data.publicKeyCredentialCreationOptions.publicKey.authenticatorSelection.userVerification !==
+          "required"
+        ) {
+          return resultErrorCreate(op, "ZITADEL returned invalid user verification requirements")
+        }
+        return resultCreate(result.data)
+      })
+    },
+    verifyPasskeyRegistration(userId: string, passkeyId: string, passkeyName: string, publicKeyCredential: unknown) {
+      const op = "verifyPasskeyRegistration"
+      const parsedUserId = v.safeParse(totpUserIdSchema, userId)
+      if (!parsedUserId.success) return resultErrorCreate(op, v.summarize(parsedUserId.issues))
+      const parsedPasskeyId = v.safeParse(webAuthnFactorIdSchema, passkeyId)
+      if (!parsedPasskeyId.success) return resultErrorCreate(op, v.summarize(parsedPasskeyId.issues))
+      const parsedPasskeyName = v.safeParse(webAuthnNameSchema, passkeyName)
+      if (!parsedPasskeyName.success) return resultErrorCreate(op, v.summarize(parsedPasskeyName.issues))
+      const parsedCredential = v.safeParse(passkeyAttestationSchema, publicKeyCredential)
+      if (!parsedCredential.success) return resultErrorCreate(op, v.summarize(parsedCredential.issues))
+      return request(
+        op,
+        `/v2/users/${encodeURIComponent(parsedUserId.output)}/passkeys/${encodeURIComponent(parsedPasskeyId.output)}`,
+        webAuthnRegistrationVerifyResponseSchema,
+        {
+          method: "POST",
+          body: JSON.stringify({ publicKeyCredential: parsedCredential.output, passkeyName: parsedPasskeyName.output }),
+        },
       )
     },
     loginSettingsGet(organizationId: string) {

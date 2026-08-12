@@ -40,6 +40,9 @@ export type AppInitializationData =
       storedIdentifier?: string
       notice?: string
       recentAccounts?: RecentAccountSummary[]
+      totpSetupUnavailable: boolean
+      emailOtpCodePending: boolean
+      webAuthnSetupUnavailable?: "u2f" | "passkey"
     }
 
 export async function appInitializationStart(
@@ -141,5 +144,8 @@ export async function appInitializationStart(
     storedIdentifier: stored?.identifier,
     notice: noticeMessage,
     recentAccounts,
+    totpSetupUnavailable: transition.screen.name === "mfa_totp_setup",
+    emailOtpCodePending: transition.screen.name === "mfa_email_otp_code",
+    webAuthnSetupUnavailable: transition.screen.name === "mfa_webauthn_setup" ? transition.screen.method : undefined,
   })
 }

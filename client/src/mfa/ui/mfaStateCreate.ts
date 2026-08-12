@@ -1,5 +1,6 @@
 import { createEffect, onMount } from "solid-js"
 import type { LoginMethodSelection } from "../../flow/model/loginMethodSelectionSchema"
+import type { PasskeyOptions } from "../../passkey/model/passkeyOptionsSchema"
 import { createSignalObject } from "../../ui/createSignalObject"
 import { mfaV2OptionsApiRequest } from "../api/mfaV2OptionsApiRequest"
 import { mfaV2SkipApiRequest } from "../api/mfaV2SkipApiRequest"
@@ -20,15 +21,18 @@ type Inputs = {
   statusContinue?: (url: string) => void
   routeSet: (next: LoginMethodSelection | undefined, replace?: boolean) => void
   fetchFn?: typeof fetch
+  optionsDisabled?: () => boolean
 }
 
 export function mfaStateCreate(inputs: Inputs) {
   const options = createSignalObject<MfaOptions | undefined>(undefined)
+  const assertionOptions = createSignalObject<PasskeyOptions | undefined>(undefined)
   const loading = createSignalObject(false)
   const error = createSignalObject("")
   let inFlight = false
 
   const loadOptions = async (preserveError = false) => {
+    if (inputs.optionsDisabled?.()) return
     const handle = inputs.flowHandle()
     if (!handle || loading.get() || inFlight) return
     inFlight = true
@@ -73,14 +77,14 @@ export function mfaStateCreate(inputs: Inputs) {
   }
 
   onMount(() => {
-    if (inputs.flowHandle() && !options.get()) {
+    if (!inputs.optionsDisabled?.() && inputs.flowHandle() && !options.get()) {
       void loadOptions()
     }
   })
 
   createEffect(() => {
     const handle = inputs.flowHandle()
-    if (handle && !options.get() && !loading.get()) {
+    if (!inputs.optionsDisabled?.() && handle && !options.get() && !loading.get()) {
       void loadOptions()
     }
   })
@@ -124,6 +128,10 @@ export function mfaStateCreate(inputs: Inputs) {
 
   return {
     options: options.get,
+    assertionOptions: assertionOptions.get,
+    assertionStart: (next: PasskeyOptions) => {
+      assertionOptions.set(next)
+    },
     loading: loading.get,
     error: error.get,
     reload: loadOptions,

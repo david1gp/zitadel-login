@@ -90,14 +90,17 @@ function policyMethodsGet(input: {
     }
   }
   if (input.secondFactors.includes("SECOND_FACTOR_TYPE_OTP_SMS") && input.phoneVerified) {
-    add("sms_otp", methodSet.has("AUTHENTICATION_METHOD_TYPE_OTP_SMS"))
+    if (methodSet.has("AUTHENTICATION_METHOD_TYPE_OTP_SMS")) add("sms_otp", true)
   }
   const webAuthNWasPrimary = timestampIsVerified(input.factors.webAuthN?.verifiedAt)
   if (input.secondFactors.includes("SECOND_FACTOR_TYPE_U2F") && !webAuthNWasPrimary) {
     add("u2f", methodSet.has("AUTHENTICATION_METHOD_TYPE_U2F"))
   }
   if (input.multiFactors.includes("MULTI_FACTOR_TYPE_U2F_WITH_VERIFICATION") && !webAuthNWasPrimary) {
-    add("passkey", methodSet.has("AUTHENTICATION_METHOD_TYPE_U2F"))
+    add(
+      "passkey",
+      methodSet.has("AUTHENTICATION_METHOD_TYPE_U2F") || methodSet.has("AUTHENTICATION_METHOD_TYPE_PASSKEY"),
+    )
   }
 
   return { allowed, enrolled }

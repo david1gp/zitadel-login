@@ -1,5 +1,6 @@
 import { Show } from "solid-js"
 
+import type { PasskeyOptions } from "../../passkey/model/passkeyOptionsSchema"
 import { mfaFactorDetailGet } from "../model/mfaFactorDetailGet"
 import { mfaFactorLabelGet } from "../model/mfaFactorLabelGet"
 import { type PasskeyCredentialsGet, mfaU2fStateCreate } from "./mfaU2fStateCreate"
@@ -23,6 +24,7 @@ type MfaU2fPanelProps = {
   credentialsGet?: PasskeyCredentialsGet
   isSupported?: boolean
   fetchFn?: typeof fetch
+  initialOptions?: () => PasskeyOptions | undefined
 }
 
 export function MfaU2fPanel(props: MfaU2fPanelProps) {
@@ -44,6 +46,7 @@ export function MfaU2fPanel(props: MfaU2fPanelProps) {
     credentialsGet: props.credentialsGet,
     isSupported: props.isSupported,
     fetchFn: props.fetchFn,
+    initialOptions: props.initialOptions,
   })
 
   const label = () => mfaFactorLabelGet(props.factorType())
