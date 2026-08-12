@@ -317,6 +317,294 @@ async function main() {
       throw new Error("Resumed WebAuthn setup did not offer fallback-only handling")
     }
 
+    console.log("=== Testing standalone password recovery ===")
+    const forgotUrl = "http://localhost:3001/password/forgot"
+
+    console.log("1. Password sign-in exposes the capability-gated recovery entry...")
+    await runCommand("agent-browser", ["set", "viewport", "1280", "800"])
+    await runCommand("agent-browser", ["set", "media", "light"])
+    await runCommand("agent-browser", ["open", "http://localhost:3001/login/password?authRequest=request-1"])
+    await new Promise((r) => setTimeout(r, 900))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot password sign-in:\n", snap)
+    if (!snap.includes("Forgot password?")) {
+      throw new Error("Password sign-in did not expose the permitted recovery entry")
+    }
+
+    console.log("2. Recovery entry navigates to the canonical standalone request route...")
+    const forgotRef = refGet(snap, /button "Forgot password\?".*ref=(e\d+)/)
+    await runCommand("agent-browser", ["click", forgotRef])
+    await new Promise((r) => setTimeout(r, 900))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot recovery request:\n", snap)
+    if (!snap.includes("Reset your password") || !snap.includes("Email address")) {
+      throw new Error("Standalone recovery request panel did not render")
+    }
+
+    console.log("3. Keyboard submission returns identical confirmation copy...")
+    let emailRef = refGet(snap, /textbox "Email address".*ref=(e\d+)/)
+    await runCommand("agent-browser", ["fill", emailRef, "known@example.com"])
+    await runCommand("agent-browser", ["press", "Enter"])
+    await new Promise((r) => setTimeout(r, 900))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot recovery accepted:\n", snap)
+    if (!snap.includes("Check your email") || !snap.includes("If an account matches that email address")) {
+      throw new Error("Recovery confirmation copy missing")
+    }
+
+    console.log("4. Unknown accounts return the same confirmation, on mobile and dark mode...")
+    await runCommand("agent-browser", ["set", "viewport", "375", "667"])
+    await runCommand("agent-browser", ["set", "media", "dark"])
+    await runCommand("agent-browser", ["open", forgotUrl])
+    await new Promise((r) => setTimeout(r, 900))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    emailRef = refGet(snap, /textbox "Email address".*ref=(e\d+)/)
+    await runCommand("agent-browser", ["fill", emailRef, "unknown@example.com"])
+    await runCommand("agent-browser", ["press", "Enter"])
+    await new Promise((r) => setTimeout(r, 900))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot recovery accepted (unknown, mobile dark):\n", snap)
+    if (!snap.includes("Check your email") || snap.includes("unknown@example.com")) {
+      throw new Error("Recovery outcome leaked account existence or submitted email")
+    }
+
+    console.log("5. Reloading the request route restarts a clean bootstrap...")
+    await runCommand("agent-browser", ["reload"])
+    await new Promise((r) => setTimeout(r, 900))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot recovery reload:\n", snap)
+    if (!snap.includes("Email address") || snap.includes("unknown@example.com")) {
+      throw new Error("Reloaded recovery request kept prior input or state")
+    }
+
+    console.log("6. Invalid reset link renders the terminal invalid state...")
+    await runCommand("agent-browser", ["set", "viewport", "1280", "800"])
+    await runCommand("agent-browser", ["set", "media", "light"])
+    await runCommand("agent-browser", [
+      "open",
+      "http://localhost:3001/api/v2/password/reset/ingress?userId=user-1&orgId=org-1&code=expired-code",
+    ])
+    await new Promise((r) => setTimeout(r, 1000))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot invalid reset link:\n", snap)
+    if (!snap.includes("This reset link is no longer valid") || snap.includes("New password")) {
+      throw new Error("Invalid reset link did not render the terminal state")
+    }
+
+    console.log("7. Valid reset link renders the reset panel and scrubs credentials from the URL...")
+    await runCommand("agent-browser", [
+      "open",
+      "http://localhost:3001/api/v2/password/reset/ingress?userId=user-1&orgId=org-1&code=valid-code",
+    ])
+    await new Promise((r) => setTimeout(r, 1000))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot reset panel:\n", snap)
+    if (!snap.includes("Choose a new password") || snap.includes("valid-code")) {
+      throw new Error("Reset panel did not render or leaked the verification code")
+    }
+
+    console.log("8. Local confirmation mismatch sends no request...")
+    let newPasswordRef = refGet(snap, /textbox "New password".*ref=(e\d+)/)
+    let confirmRef = refGet(snap, /textbox "Confirm new password".*ref=(e\d+)/)
+    await runCommand("agent-browser", ["fill", newPasswordRef, "Str0ng-password!"])
+    await runCommand("agent-browser", ["fill", confirmRef, "Different!"])
+    await runCommand("agent-browser", ["press", "Enter"])
+    await new Promise((r) => setTimeout(r, 600))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot mismatch:\n", snap)
+    if (!snap.includes("The passwords do not match.")) {
+      throw new Error("Confirmation mismatch was not checked locally")
+    }
+
+    console.log("9. Policy failure stays retryable with rotated CSRF and cleared fields...")
+    newPasswordRef = refGet(snap, /textbox "New password".*ref=(e\d+)/)
+    confirmRef = refGet(snap, /textbox "Confirm new password".*ref=(e\d+)/)
+    await runCommand("agent-browser", ["fill", newPasswordRef, "weak"])
+    await runCommand("agent-browser", ["fill", confirmRef, "weak"])
+    await runCommand("agent-browser", ["press", "Enter"])
+    await new Promise((r) => setTimeout(r, 900))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot policy retry:\n", snap)
+    if (!snap.includes("does not meet the password policy") || !snap.includes("Choose a new password")) {
+      throw new Error("Policy failure did not remain retryable")
+    }
+
+    console.log("10. Reload keeps the reset panel resumable without persisted secrets...")
+    await runCommand("agent-browser", ["reload"])
+    await new Promise((r) => setTimeout(r, 900))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot reset reload:\n", snap)
+    if (!snap.includes("Choose a new password") || snap.includes("weak")) {
+      throw new Error("Reloaded reset panel leaked or lost state")
+    }
+
+    console.log("11. Successful reset returns to sign-in without auto-authentication...")
+    newPasswordRef = refGet(snap, /textbox "New password".*ref=(e\d+)/)
+    confirmRef = refGet(snap, /textbox "Confirm new password".*ref=(e\d+)/)
+    await runCommand("agent-browser", ["fill", newPasswordRef, "Str0ng-password!"])
+    await runCommand("agent-browser", ["fill", confirmRef, "Str0ng-password!"])
+    await runCommand("agent-browser", ["press", "Enter"])
+    await new Promise((r) => setTimeout(r, 900))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot reset success:\n", snap)
+    if (!snap.includes("Your password was changed") || snap.includes("Authorized successfully!")) {
+      throw new Error("Successful reset did not stop before authentication")
+    }
+
+    const backRef = refGet(snap, /button "Back to sign-in".*ref=(e\d+)/)
+    await runCommand("agent-browser", ["click", backRef])
+    await new Promise((r) => setTimeout(r, 1000))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot back to sign-in:\n", snap)
+    if (snap.includes("Your password was changed")) {
+      throw new Error("Back to sign-in did not leave the reset screen")
+    }
+
+    console.log("=== Testing required password change ===")
+    const explicitChangeFlow = "HHHHHHHHHHHHHHHHHHHHHH"
+    const expiredChangeFlow = "IIIIIIIIIIIIIIIIIIIIII"
+    const partialChangeFlow = "JJJJJJJJJJJJJJJJJJJJJJ"
+    const explicitChangeUrl = `http://localhost:3001/login/password?flow=${explicitChangeFlow}`
+
+    console.log("1. Explicit required change renders all three mandatory fields without a bypass...")
+    await runCommand("agent-browser", ["set", "viewport", "1280", "800"])
+    await runCommand("agent-browser", ["set", "media", "light"])
+    await runCommand("agent-browser", ["open", explicitChangeUrl])
+    await new Promise((r) => setTimeout(r, 900))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot explicit required change:\n", snap)
+    if (
+      !snap.includes("Change your password") ||
+      !snap.includes("Your password must be changed before you continue.")
+    ) {
+      throw new Error("Explicit required password change did not render its concise copy")
+    }
+    if (
+      !snap.includes("Current password") ||
+      !snap.includes("New password") ||
+      !snap.includes("Confirm new password")
+    ) {
+      throw new Error("Required password change is missing mandatory fields")
+    }
+    if (snap.includes("Back to methods") || snap.includes("Choose a method") || snap.includes("Forgot password?")) {
+      throw new Error("Required password change exposed a chooser or recovery bypass")
+    }
+
+    console.log("2. Local confirmation mismatch sends no request...")
+    let currentRef = refGet(snap, /textbox "Current password".*ref=(e\d+)/)
+    let nextRef = refGet(snap, /textbox "New password".*ref=(e\d+)/)
+    let confirmChangeRef = refGet(snap, /textbox "Confirm new password".*ref=(e\d+)/)
+    await runCommand("agent-browser", ["fill", currentRef, "old-password"])
+    await runCommand("agent-browser", ["fill", nextRef, "Str0ng-password!"])
+    await runCommand("agent-browser", ["fill", confirmChangeRef, "Different!"])
+    await runCommand("agent-browser", ["press", "Enter"])
+    await new Promise((r) => setTimeout(r, 600))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot change mismatch:\n", snap)
+    if (!snap.includes("The passwords do not match.")) {
+      throw new Error("Required change confirmation mismatch was not checked locally")
+    }
+
+    console.log("3. Wrong current password stays retryable with rotated CSRF...")
+    currentRef = refGet(snap, /textbox "Current password".*ref=(e\d+)/)
+    nextRef = refGet(snap, /textbox "New password".*ref=(e\d+)/)
+    confirmChangeRef = refGet(snap, /textbox "Confirm new password".*ref=(e\d+)/)
+    await runCommand("agent-browser", ["fill", currentRef, "wrong-password"])
+    await runCommand("agent-browser", ["fill", nextRef, "Str0ng-password!"])
+    await runCommand("agent-browser", ["fill", confirmChangeRef, "Str0ng-password!"])
+    await runCommand("agent-browser", ["press", "Enter"])
+    await new Promise((r) => setTimeout(r, 900))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot wrong current password:\n", snap)
+    if (!snap.includes("Your current password is incorrect.") || !snap.includes("Change your password")) {
+      throw new Error("Wrong current password did not remain retryable")
+    }
+
+    console.log("4. Policy failure stays retryable on the rotated CSRF token...")
+    currentRef = refGet(snap, /textbox "Current password".*ref=(e\d+)/)
+    nextRef = refGet(snap, /textbox "New password".*ref=(e\d+)/)
+    confirmChangeRef = refGet(snap, /textbox "Confirm new password".*ref=(e\d+)/)
+    await runCommand("agent-browser", ["fill", currentRef, "old-password"])
+    await runCommand("agent-browser", ["fill", nextRef, "weak"])
+    await runCommand("agent-browser", ["fill", confirmChangeRef, "weak"])
+    await runCommand("agent-browser", ["press", "Enter"])
+    await new Promise((r) => setTimeout(r, 900))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot change policy retry:\n", snap)
+    if (!snap.includes("does not meet the password policy") || !snap.includes("Change your password")) {
+      throw new Error("Policy failure did not remain retryable on required change")
+    }
+
+    console.log("5. Mobile, dark mode and reload keep the screen blank and resumable...")
+    await runCommand("agent-browser", ["set", "viewport", "375", "667"])
+    await runCommand("agent-browser", ["set", "media", "dark"])
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot change mobile dark:\n", snap)
+    await runCommand("agent-browser", ["set", "viewport", "1280", "800"])
+    await runCommand("agent-browser", ["set", "media", "light"])
+    await runCommand("agent-browser", ["reload"])
+    await new Promise((r) => setTimeout(r, 900))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot change reload:\n", snap)
+    if (!snap.includes("Change your password") || snap.includes("old-password") || snap.includes("weak")) {
+      throw new Error("Reloaded required change leaked or lost state")
+    }
+
+    console.log("6. Keyboard completion finishes authorization...")
+    currentRef = refGet(snap, /textbox "Current password".*ref=(e\d+)/)
+    nextRef = refGet(snap, /textbox "New password".*ref=(e\d+)/)
+    confirmChangeRef = refGet(snap, /textbox "Confirm new password".*ref=(e\d+)/)
+    await runCommand("agent-browser", ["fill", currentRef, "old-password"])
+    await runCommand("agent-browser", ["fill", nextRef, "Str0ng-password!"])
+    await runCommand("agent-browser", ["fill", confirmChangeRef, "Str0ng-password!"])
+    await runCommand("agent-browser", ["press", "Enter"])
+    await new Promise((r) => setTimeout(r, 1000))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot change completion:\n", snap)
+    if (!snap.includes("Authorized successfully!")) {
+      throw new Error("Required password change did not complete authorization")
+    }
+
+    console.log("7. Expired required change hands off to MFA...")
+    await runCommand("agent-browser", ["open", `http://localhost:3001/login/password?flow=${expiredChangeFlow}`])
+    await new Promise((r) => setTimeout(r, 900))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot expired required change:\n", snap)
+    if (!snap.includes("Your password has expired. Set a new password to continue.")) {
+      throw new Error("Expired required change did not render the expiry copy")
+    }
+    currentRef = refGet(snap, /textbox "Current password".*ref=(e\d+)/)
+    nextRef = refGet(snap, /textbox "New password".*ref=(e\d+)/)
+    confirmChangeRef = refGet(snap, /textbox "Confirm new password".*ref=(e\d+)/)
+    await runCommand("agent-browser", ["fill", currentRef, "old-password"])
+    await runCommand("agent-browser", ["fill", nextRef, "Str0ng-password!"])
+    await runCommand("agent-browser", ["fill", confirmChangeRef, "Str0ng-password!"])
+    await runCommand("agent-browser", ["press", "Enter"])
+    await new Promise((r) => setTimeout(r, 1200))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot change to MFA:\n", snap)
+    if (!snap.includes("Authenticator code") && !snap.includes("2-Step Verification")) {
+      throw new Error("Required change did not hand off to MFA continuation")
+    }
+
+    console.log("8. Partial success offers only native fallback and never resubmits...")
+    await runCommand("agent-browser", ["open", `http://localhost:3001/login/password?flow=${partialChangeFlow}`])
+    await new Promise((r) => setTimeout(r, 900))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    currentRef = refGet(snap, /textbox "Current password".*ref=(e\d+)/)
+    nextRef = refGet(snap, /textbox "New password".*ref=(e\d+)/)
+    confirmChangeRef = refGet(snap, /textbox "Confirm new password".*ref=(e\d+)/)
+    await runCommand("agent-browser", ["fill", currentRef, "old-password"])
+    await runCommand("agent-browser", ["fill", nextRef, "Str0ng-password!"])
+    await runCommand("agent-browser", ["fill", confirmChangeRef, "Str0ng-password!"])
+    await runCommand("agent-browser", ["press", "Enter"])
+    await new Promise((r) => setTimeout(r, 1200))
+    snap = await runCommand("agent-browser", ["snapshot"])
+    console.log("Snapshot partial success fallback:\n", snap)
+    if (!snap.includes("Continue in ZITADEL fallback") || snap.includes("Change your password")) {
+      throw new Error("Partial-success required change did not hand off to native fallback")
+    }
+
     await runCommand("agent-browser", ["close"])
     console.log("Agent-browser verification completed successfully!")
   } finally {

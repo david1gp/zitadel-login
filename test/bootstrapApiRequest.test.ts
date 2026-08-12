@@ -16,6 +16,7 @@ describe("bootstrap browser API", () => {
       return Response.json({
         success: true,
         data: {
+          capabilities: { passwordRecovery: false },
           branding: {
             dark: { colors: { background: "#111111", font: "#ffffff", primary: "#eeeeee", warn: "#ff0000" } },
             disableWatermark: true,

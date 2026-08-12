@@ -40,9 +40,12 @@ type NativeOptions = {
   passwordStatus?: number
   passwordErrorId?: string
   mfa?: boolean
+  listedPasswordChangeRequired?: boolean
+  listedPasswordChanged?: string
   passwordChangeRequired?: boolean
   passwordChanged?: string
   passwordMaxAgeDays?: number
+  sessionToken?: string
 }
 
 function nativeCreate(options: NativeOptions = {}) {
@@ -72,8 +75,9 @@ function nativeCreate(options: NativeOptions = {}) {
             details: { resourceOwner: "org-1" },
             human: {
               email: { email: "person@example.com", isVerified: true },
-              passwordChangeRequired: options.passwordChangeRequired ?? false,
-              passwordChanged: options.passwordChanged ?? new Date(now * 1000).toISOString(),
+              passwordChangeRequired: options.listedPasswordChangeRequired ?? options.passwordChangeRequired ?? false,
+              passwordChanged:
+                options.listedPasswordChanged ?? options.passwordChanged ?? new Date(now * 1000).toISOString(),
             },
           },
         ],
@@ -100,9 +104,24 @@ function nativeCreate(options: NativeOptions = {}) {
       return Response.json({
         session: {
           id: "session-1",
+          ...(options.sessionToken ? { sessionToken: options.sessionToken } : {}),
           factors: {
             user: { id: "user-1", organizationId: "org-1" },
             password: { verifiedAt: new Date(now * 1000).toISOString() },
+          },
+        },
+      })
+    }
+    if (url === `${identityOrigin}/v2/users/user-1` && method === "GET") {
+      return Response.json({
+        user: {
+          userId: "user-1",
+          state: "USER_STATE_ACTIVE",
+          details: { resourceOwner: "org-1" },
+          human: {
+            email: { email: "person@example.com", isVerified: true },
+            passwordChangeRequired: options.passwordChangeRequired ?? false,
+            passwordChanged: options.passwordChanged ?? new Date(now * 1000).toISOString(),
           },
         },
       })
@@ -230,18 +249,14 @@ describe("Worker v2 password flow", () => {
     expect(native.calls.some((call) => call.url === `${identityOrigin}/v2/sessions`)).toBe(false)
   })
 
-  test("falls back before password Session mutation for unowned MFA and password-lifecycle branches", async () => {
+  test("falls back before password Session mutation for unowned MFA and malformed password lifecycle", async () => {
     const cases: Array<{ name: string; options: NativeOptions }> = [
       {
         name: "enrolled MFA",
         options: { methods: ["AUTHENTICATION_METHOD_TYPE_PASSWORD", "AUTHENTICATION_METHOD_TYPE_TOTP"] },
       },
       { name: "forced MFA", options: { mfa: true } },
-      { name: "required password change", options: { passwordChangeRequired: true } },
-      {
-        name: "expired password",
-        options: { passwordChanged: "2020-01-01T00:00:00Z", passwordMaxAgeDays: 30 },
-      },
+      { name: "malformed password timestamp", options: { passwordChanged: "not-a-timestamp" } },
     ]
 
     for (const item of cases) {
@@ -260,6 +275,164 @@ describe("Worker v2 password flow", () => {
         item.name,
       ).toBe(false)
     }
+  })
+
+  test("renders explicit and expired password change before MFA or completion without exposing bound state", async () => {
+    for (const item of [
+      {
+        name: "explicit",
+        options: {
+          methods: ["AUTHENTICATION_METHOD_TYPE_PASSWORD", "AUTHENTICATION_METHOD_TYPE_TOTP"],
+          listedPasswordChangeRequired: false,
+          passwordChangeRequired: true,
+          sessionToken: "rotated-password-token",
+        },
+        expired: false,
+      },
+      {
+        name: "expired",
+        options: {
+          listedPasswordChanged: new Date(now * 1000).toISOString(),
+          passwordChanged: "2020-01-01T00:00:00Z",
+          passwordMaxAgeDays: 30,
+        },
+        expired: true,
+      },
+    ]) {
+      const native = nativeCreate(item.options)
+      const app = workerAppCreate({ fetch: native.fetch, now: () => now })
+      const ownedBindings = { ...bindings, ZITADEL_MFA_V2_ENABLED: "true" }
+      const initialized = await initialize(app, ownedBindings)
+      const response = await passwordVerify(
+        app,
+        initialized.flow,
+        initialized.cookie,
+        initialized.csrfToken,
+        ownedBindings,
+      )
+
+      expect(response.status, item.name).toBe(200)
+      const body = await response.clone().json()
+      expect(body).toEqual({
+        success: true,
+        data: {
+          kind: "render",
+          route: `/login/password?flow=${initialized.flow}`,
+          screen: { name: "password_change_required", expired: item.expired },
+          csrfToken: initialized.csrfToken,
+        },
+      })
+      for (const secret of ["user-1", "session-1", "password-token", "rotated-password-token"]) {
+        expect(JSON.stringify(body), `${item.name}:${secret}`).not.toContain(secret)
+      }
+      const cookie = cookieGet(response)
+      const opened = await flowV2CookieOpen(cookie.split("=", 2)[1] ?? "", initialized.flow, [key], now)
+      expect(opened).toEqual(
+        expect.objectContaining({
+          success: true,
+          data: expect.objectContaining({
+            stage: "password_change_required",
+            delegable: false,
+            expired: item.expired,
+            transitionCounter: 1,
+            sessionToken: item.options.sessionToken ?? "password-token",
+          }),
+        }),
+      )
+      const sessionIndex = native.calls.findIndex((call) => call.url === `${identityOrigin}/v2/sessions`)
+      const refreshIndex = native.calls.findIndex((call) => call.url === `${identityOrigin}/v2/users/user-1`)
+      expect(sessionIndex).toBeGreaterThan(-1)
+      expect(refreshIndex).toBeGreaterThan(sessionIndex)
+
+      const resumed = await app.request(
+        `${origin}/api/v2/flow/resume?flow=${initialized.flow}`,
+        { headers: { cookie } },
+        ownedBindings,
+      )
+      expect(resumed.status).toBe(200)
+      expect(await resumed.json()).toEqual(body)
+
+      const mfaOptions = await app.request(
+        `${origin}/api/v2/mfa/options?flow=${initialized.flow}`,
+        { headers: { cookie } },
+        ownedBindings,
+      )
+      expect(mfaOptions.status).toBe(409)
+      expect(await mfaOptions.json()).toEqual({
+        success: false,
+        op: "mfaOptions",
+        errorMessage: "flow_stage_invalid",
+      })
+
+      const continued = await app.request(
+        `${origin}/api/v2/flow/continue?flow=${initialized.flow}`,
+        { headers: { cookie } },
+        ownedBindings,
+      )
+      expect(continued.status).toBe(409)
+      expect(await continued.json()).toEqual({
+        success: false,
+        op: "flowContinue",
+        errorMessage: "flow_stage_invalid",
+      })
+
+      const delegated = await app.request(
+        `${origin}/api/v2/flow/fallback?flow=${initialized.flow}`,
+        { headers: { cookie } },
+        ownedBindings,
+      )
+      expect(delegated.status).toBe(409)
+      expect(await delegated.json()).toEqual({
+        success: false,
+        op: "flowFallback",
+        errorMessage: "fallback_forbidden",
+      })
+
+      const replayed = await passwordVerify(app, initialized.flow, cookie, initialized.csrfToken, ownedBindings)
+      expect(replayed.status).toBe(409)
+      expect(await replayed.json()).toEqual({
+        success: false,
+        op: "passwordVerify",
+        errorMessage: "flow_replayed",
+      })
+
+      if (!opened.success || opened.data.stage !== "password_change_required") {
+        throw new Error("Expected password change state")
+      }
+      const expiredState: FlowV2Cookie = { ...opened.data, expiresAt: now - 1 }
+      const expiredCookie = await flowV2CookieSeal(expiredState, key, new Uint8Array(12).fill(31))
+      if (!expiredCookie.success) throw new Error("Expected expired password change state")
+      const expiredResume = await app.request(
+        `${origin}/api/v2/flow/resume?flow=${initialized.flow}`,
+        {
+          headers: {
+            cookie: `__Host-zitadel-login-flow-${initialized.flow}=${expiredCookie.data}`,
+          },
+        },
+        ownedBindings,
+      )
+      expect(expiredResume.status).toBe(409)
+      expect(await expiredResume.json()).toEqual({
+        success: false,
+        op: "flowResume",
+        errorMessage: "flow_expired",
+      })
+    }
+  })
+
+  test("rejects browser-supplied password lifecycle flags before native requests", async () => {
+    const native = nativeCreate()
+    const app = workerAppCreate({ fetch: native.fetch, now: () => now })
+    const initialized = await initialize(app)
+    const callsBefore = native.calls.length
+    const response = await passwordVerify(app, initialized.flow, initialized.cookie, initialized.csrfToken, bindings, {
+      identifier: "person@example.com",
+      password: "correct-password",
+      csrfToken: initialized.csrfToken,
+      passwordChangeRequired: true,
+    })
+    expect(response.status).toBe(400)
+    expect(native.calls).toHaveLength(callsBefore)
   })
 
   test("rate limits before native password mutation with opaque keys", async () => {

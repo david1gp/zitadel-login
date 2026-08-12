@@ -7,6 +7,7 @@ const validCsrf = "C".repeat(43)
 const validFlow = "A".repeat(22)
 
 const bootstrap = {
+  capabilities: { passwordRecovery: false },
   branding: {
     dark: { colors: { background: "#111111", font: "#fefefe", primary: "#ddeeff", warn: "#ff0000" } },
     disableWatermark: true,
@@ -200,6 +201,37 @@ describe("appInitializationStart", () => {
       expect(result.data.emailOtpCodePending).toBe(true)
       expect(result.data.totpSetupUnavailable).toBe(false)
       expect(result.data.webAuthnSetupUnavailable).toBeUndefined()
+    }
+  })
+  test("projects a resumed password_change_required render for the required-change screen", async () => {
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes("/api/v2/bootstrap")) return Response.json({ success: true, data: bootstrap })
+      if (url.includes("/api/v2/flow/resume")) {
+        return Response.json({
+          success: true,
+          data: {
+            kind: "render",
+            route: `/login/password?flow=${validFlow}`,
+            screen: { name: "password_change_required", expired: true },
+            csrfToken: validCsrf,
+          },
+        })
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    const result = await appInitializationStart(
+      "https://worker.example",
+      new URL(`https://login.example/login/password?flow=${validFlow}`),
+      () => undefined,
+    )
+
+    expect(result.success).toBe(true)
+    if (result.success && result.data.status === "ready") {
+      expect(result.data.passwordChangeRequired).toEqual({ expired: true })
+      expect(result.data.emailOtpCodePending).toBe(false)
+      expect(result.data.totpSetupUnavailable).toBe(false)
     }
   })
 })

@@ -22,39 +22,68 @@ const state: Extract<FlowV2Cookie, { stage: "ready" }> = {
   owned: true,
 }
 
-function clientCreate(options: { methods?: string[]; forceMfa?: boolean } = {}) {
+function clientCreate(
+  options: {
+    methods?: string[]
+    forceMfa?: boolean
+    listedPasswordChangeRequired?: boolean
+    listedPasswordChanged?: string
+    passwordChangeRequired?: boolean
+    passwordChanged?: string
+    maxAgeDays?: number
+    sessionToken?: string
+  } = {},
+) {
   const calls: Array<{ method: string; password?: string }> = []
+  const user = {
+    userId: "user-1",
+    state: "USER_STATE_ACTIVE",
+    details: { resourceOwner: "org-1" },
+    human: {
+      email: { email: "person@example.com", isVerified: true },
+      passwordChangeRequired: options.passwordChangeRequired ?? false,
+      passwordChanged: options.passwordChanged ?? "2027-01-01T00:00:00Z",
+    },
+  }
+  const listedUser = {
+    ...user,
+    human: {
+      ...user.human,
+      passwordChangeRequired: options.listedPasswordChangeRequired ?? user.human.passwordChangeRequired,
+      passwordChanged: options.listedPasswordChanged ?? user.human.passwordChanged,
+    },
+  }
   const client = {
     loginSettingsGet: async () =>
       resultCreate({ settings: { allowLocalAuthentication: true, forceMfa: options.forceMfa } }),
     usersByIdentifierList: async () =>
       resultCreate({
-        result: [
-          {
-            userId: "user-1",
-            state: "USER_STATE_ACTIVE",
-            details: { resourceOwner: "org-1" },
-            human: { email: { email: "person@example.com", isVerified: true } },
-          },
-        ],
+        result: [listedUser],
       }),
+    userGet: async () => {
+      calls.push({ method: "userGet" })
+      return resultCreate({ user })
+    },
     authenticationMethodsGet: async () =>
       resultCreate({ authMethodTypes: options.methods ?? ["AUTHENTICATION_METHOD_TYPE_PASSWORD"] }),
-    passwordExpirySettingsGet: async () => resultCreate({ settings: { maxAgeDays: 90 } }),
+    passwordExpirySettingsGet: async () => resultCreate({ settings: { maxAgeDays: options.maxAgeDays ?? 90 } }),
     passwordSessionCreate: async (_userId: string, password: string) => {
       calls.push({ method: "passwordSessionCreate", password })
       return resultCreate({ sessionId: "session-1", sessionToken: "latest-token" })
     },
-    sessionGet: async () =>
-      resultCreate({
+    sessionGet: async () => {
+      calls.push({ method: "sessionGet" })
+      return resultCreate({
         session: {
           id: "session-1",
+          ...(options.sessionToken ? { sessionToken: options.sessionToken } : {}),
           factors: {
             user: { id: "user-1", organizationId: "org-1" },
             password: { verifiedAt: "2026-08-11T00:00:00Z" },
           },
         },
-      }),
+      })
+    },
   } as unknown as ReturnType<typeof zitadelClientCreate>
   return { client, calls }
 }
@@ -77,7 +106,11 @@ describe("passwordV2Verify domain", () => {
         transition: { kind: "complete", path: "/api/v2/flow/continue?flow=AAAAAAAAAAAAAAAAAAAAAA" },
       },
     })
-    expect(native.calls).toEqual([{ method: "passwordSessionCreate", password: "correct-password" }])
+    expect(native.calls).toEqual([
+      { method: "passwordSessionCreate", password: "correct-password" },
+      { method: "sessionGet" },
+      { method: "userGet" },
+    ])
   })
 
   test("returns policy continuation when an MFA method or policy requires it", async () => {
@@ -99,6 +132,49 @@ describe("passwordV2Verify domain", () => {
         }),
       }),
     )
+  })
+
+  test("returns required password change before MFA or completion using refreshed lifecycle state", async () => {
+    for (const native of [
+      clientCreate({
+        methods: ["AUTHENTICATION_METHOD_TYPE_PASSWORD", "AUTHENTICATION_METHOD_TYPE_TOTP"],
+        listedPasswordChangeRequired: false,
+        passwordChangeRequired: true,
+        sessionToken: "rotated-token",
+      }),
+      clientCreate({
+        listedPasswordChanged: "2027-01-01T00:00:00Z",
+        passwordChanged: "2020-01-01T00:00:00Z",
+        maxAgeDays: 30,
+      }),
+    ]) {
+      const result = await passwordV2Verify({
+        state,
+        identifier: "person@example.com",
+        password: "password",
+        mfaV2Enabled: true,
+        now: 1_800_000_000,
+        client: native.client,
+      })
+      expect(result).toEqual(
+        expect.objectContaining({
+          success: true,
+          data: {
+            state: expect.objectContaining({
+              stage: "password_change_required",
+              delegable: false,
+              sessionToken: expect.stringMatching(/^(latest|rotated)-token$/),
+              transitionCounter: 1,
+            }),
+            transition: expect.objectContaining({
+              kind: "render",
+              screen: expect.objectContaining({ name: "password_change_required" }),
+            }),
+          },
+        }),
+      )
+      expect(native.calls.map((call) => call.method)).toEqual(["passwordSessionCreate", "sessionGet", "userGet"])
+    }
   })
 
   test("delegates when local authentication is disabled before session mutation", async () => {

@@ -7,7 +7,15 @@ const validFlow = "AAAAAAAAAAAAAAAAAAAAAA"
 const validCsrf = "B".repeat(43)
 const emailOtpEnrollmentActivated = new Set<string>()
 
+const passwordChangeRotatedCsrf = "P".repeat(43)
+const passwordChangePartial = new Set<string>()
+
+const passwordRecoveryCsrf = "R".repeat(43)
+const passwordResetRotatedCsrf = "S".repeat(43)
+const passwordResetLinkInvalidated = new Set<string>()
+
 const bootstrap = {
+  capabilities: { passwordRecovery: true },
   branding: {
     dark: {
       colors: { background: "#17191c", font: "#f4f5f5", primary: "#d7f06c", warn: "#ff4d4d" },
@@ -63,6 +71,154 @@ const server = Bun.serve({
       return new Response("PNG", { headers: { "content-type": "image/png" } })
     }
 
+    if (url.pathname === "/api/v2/password/reset/ingress") {
+      const code = url.searchParams.get("code") ?? ""
+      return new Response(null, {
+        status: 302,
+        headers: {
+          location: "/password/reset",
+          "set-cookie": `mock-password-reset=${code}; Path=/; Max-Age=600; HttpOnly; SameSite=Lax`,
+        },
+      })
+    }
+
+    if (url.pathname === "/api/v2/password/reset/bootstrap") {
+      return Response.json({
+        success: true,
+        data: { status: "ready", csrfToken: passwordRecoveryCsrf, expiresAt: 4102444800 },
+      })
+    }
+
+    if (url.pathname === "/api/v2/password/reset/request") {
+      const body = (await req.json()) as Record<string, unknown>
+      if (body.csrfToken !== passwordRecoveryCsrf || typeof body.email !== "string") {
+        return Response.json(
+          { success: false, op: "passwordResetRequest", errorMessage: "csrf_rejected" },
+          { status: 403 },
+        )
+      }
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      return Response.json({ success: true, data: { status: "accepted" } }, { status: 202 })
+    }
+
+    if (url.pathname === "/api/v2/password/reset/set-bootstrap") {
+      const cookie = req.headers.get("cookie") ?? ""
+      const code = cookie.match(/mock-password-reset=([^;]*)/)?.[1] ?? ""
+      if (code !== "valid-code" || passwordResetLinkInvalidated.has(code)) {
+        return Response.json(
+          { success: false, op: "passwordResetSetBootstrap", errorMessage: "invalid_link" },
+          { status: 409 },
+        )
+      }
+      return Response.json({
+        success: true,
+        data: {
+          status: "ready",
+          screen: "password_reset",
+          csrfToken: passwordRecoveryCsrf,
+          expiresAt: 4102444800,
+        },
+      })
+    }
+
+    if (url.pathname === "/api/v2/password/reset/set") {
+      const body = (await req.json()) as Record<string, unknown>
+      if (typeof body.password !== "string" || "confirmation" in body) {
+        return Response.json(
+          { success: false, op: "passwordResetSet", errorMessage: "invalid_payload" },
+          { status: 400 },
+        )
+      }
+      if (body.csrfToken !== passwordRecoveryCsrf && body.csrfToken !== passwordResetRotatedCsrf) {
+        return Response.json({ success: false, op: "passwordResetSet", errorMessage: "csrf_rejected" }, { status: 403 })
+      }
+      if (body.password === "weak") {
+        return Response.json(
+          {
+            success: false,
+            op: "passwordResetSet",
+            errorMessage: "password_policy_invalid",
+            csrfToken: passwordResetRotatedCsrf,
+            expiresAt: 4102444800,
+          },
+          { status: 400 },
+        )
+      }
+      return Response.json({ success: true, data: { status: "complete" } })
+    }
+
+    if (url.pathname === "/api/v2/password/change-required") {
+      const flow = url.searchParams.get("flow") ?? validFlow
+      const body = (await req.json()) as Record<string, unknown>
+      if (
+        typeof body.currentPassword !== "string" ||
+        typeof body.newPassword !== "string" ||
+        "confirmation" in body ||
+        Object.keys(body).length !== 3
+      ) {
+        return Response.json(
+          { success: false, op: "passwordChangeRequired", errorMessage: "invalid_payload" },
+          { status: 400 },
+        )
+      }
+      if (body.csrfToken !== validCsrf && body.csrfToken !== passwordChangeRotatedCsrf) {
+        return Response.json(
+          { success: false, op: "passwordChangeRequired", errorMessage: "csrf_rejected" },
+          { status: 403 },
+        )
+      }
+      if (body.currentPassword === "wrong-password") {
+        return Response.json(
+          {
+            success: false,
+            op: "passwordChangeRequired",
+            errorMessage: "credentials_invalid",
+            csrfToken: passwordChangeRotatedCsrf,
+            expiresAt: 4102444800,
+          },
+          { status: 401 },
+        )
+      }
+      if (body.newPassword === "weak") {
+        return Response.json(
+          {
+            success: false,
+            op: "passwordChangeRequired",
+            errorMessage: "password_policy_invalid",
+            csrfToken: passwordChangeRotatedCsrf,
+            expiresAt: 4102444800,
+          },
+          { status: 400 },
+        )
+      }
+      if (flow === "JJJJJJJJJJJJJJJJJJJJJJ") {
+        passwordChangePartial.add(flow)
+        return Response.json({
+          success: true,
+          data: { kind: "fallback", path: `/api/v2/flow/fallback?flow=${flow}` },
+        })
+      }
+      if (flow === "IIIIIIIIIIIIIIIIIIIIII") {
+        return Response.json({
+          success: true,
+          data: {
+            kind: "render",
+            route: `/login/mfa/totp?flow=${flow}`,
+            screen: { name: "mfa", factors: ["AUTHENTICATION_METHOD_TYPE_TOTP"] },
+            csrfToken: validCsrf,
+          },
+        })
+      }
+      return Response.json({
+        success: true,
+        data: { kind: "complete", path: `/api/v2/flow/continue?flow=${flow}` },
+      })
+    }
+
+    if (url.pathname === "/api/v2/flow/fallback") {
+      return new Response("Continue in ZITADEL fallback", { status: 200 })
+    }
+
     if (url.pathname === "/api/v2/bootstrap") {
       return Response.json({ success: true, data: bootstrap })
     }
@@ -70,6 +226,27 @@ const server = Bun.serve({
     if (url.pathname === "/api/v2/flow/initialize" || url.pathname === "/api/v2/flow/resume") {
       const requestedFlow = url.searchParams.get("flow")
       const isMfa = requestedFlow === "mfa-flow" || req.headers.get("referer")?.includes("/login/mfa")
+      if (
+        requestedFlow === "HHHHHHHHHHHHHHHHHHHHHH" ||
+        requestedFlow === "IIIIIIIIIIIIIIIIIIIIII" ||
+        requestedFlow === "JJJJJJJJJJJJJJJJJJJJJJ"
+      ) {
+        if (passwordChangePartial.has(requestedFlow)) {
+          return Response.json({
+            success: true,
+            data: { kind: "fallback", path: `/api/v2/flow/fallback?flow=${requestedFlow}` },
+          })
+        }
+        return Response.json({
+          success: true,
+          data: {
+            kind: "render",
+            route: `/login/password?flow=${requestedFlow}`,
+            screen: { name: "password_change_required", expired: requestedFlow === "IIIIIIIIIIIIIIIIIIIIII" },
+            csrfToken: validCsrf,
+          },
+        })
+      }
       const flow =
         requestedFlow === "CCCCCCCCCCCCCCCCCCCCCC" ||
         requestedFlow === "DDDDDDDDDDDDDDDDDDDDDD" ||

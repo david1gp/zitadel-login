@@ -8,6 +8,7 @@ const validCsrf = "C".repeat(43)
 const validFlow = "A".repeat(22)
 
 const bootstrap = {
+  capabilities: { passwordRecovery: false },
   branding: {
     dark: {
       colors: { background: "#111111", font: "#fefefe", primary: "#ddeeff", warn: "#ff0000" },
@@ -364,5 +365,164 @@ describe("application shell", () => {
     expect(await screen.findByRole("alert")).toBeTruthy()
     expect(screen.getByRole("alert").textContent).toBe("The selected account is no longer valid.")
     expect(screen.queryByRole("button", { name: /Stale User/ })).toBeNull()
+  })
+})
+
+describe("App standalone password recovery routing", () => {
+  test("renders the standalone request panel before any login ingress work", async () => {
+    const requests: string[] = []
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      requests.push(`${init?.method ?? "GET"} ${url}`)
+      if (url.includes("/api/v2/bootstrap")) {
+        return Response.json({ success: true, data: { ...bootstrap, capabilities: { passwordRecovery: true } } })
+      }
+      return Response.json({ success: true, data: { status: "ready", csrfToken: validCsrf, expiresAt: 1000 } })
+    }) as unknown as typeof fetch
+    history.replaceState(null, "", "/password/forgot?authRequest=request-1")
+
+    render(() => <App apiOrigin="https://worker.example" />)
+
+    expect(await screen.findByRole("heading", { name: "Reset your password" })).toBeTruthy()
+    expect(requests.some((request) => request.includes("/api/v2/flow/initialize"))).toBe(false)
+    expect(requests.some((request) => request.includes("/api/v2/flow/resume"))).toBe(false)
+    expect(location.pathname).toBe("/password/forgot")
+  })
+
+  test("renders the canonical reset panel on /password/reset without OIDC flow state", async () => {
+    const requests: string[] = []
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      requests.push(`${init?.method ?? "GET"} ${url}`)
+      if (url.includes("/api/v2/bootstrap")) return Response.json({ success: true, data: bootstrap })
+      return Response.json({
+        success: true,
+        data: { status: "ready", screen: "password_reset", csrfToken: validCsrf, expiresAt: 1000 },
+      })
+    }) as unknown as typeof fetch
+    history.replaceState(null, "", "/password/reset")
+
+    render(() => <App apiOrigin="https://worker.example" />)
+
+    expect(await screen.findByLabelText("New password")).toBeTruthy()
+    expect(requests.some((request) => request.includes("/api/v2/password/reset/set-bootstrap"))).toBe(true)
+    expect(requests.some((request) => request.includes("/api/v2/flow/"))).toBe(false)
+  })
+
+  test("offers password recovery from password sign-in only when the capability permits it", async () => {
+    const requests: string[] = []
+    globalThis.fetch = apiMockCreate(requests) as unknown as typeof fetch
+    history.replaceState(null, "", "/login/password?authRequest=request-1")
+
+    render(() => <App apiOrigin="https://worker.example" />)
+
+    expect(await screen.findByRole("heading", { name: "Sign in with password" })).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "Forgot password?" })).toBeNull()
+  })
+
+  test("shows the recovery entry when the bootstrap capability permits it", async () => {
+    const requests: string[] = []
+    const baseMock = apiMockCreate(requests)
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes("/api/v2/bootstrap")) {
+        return Response.json({ success: true, data: { ...bootstrap, capabilities: { passwordRecovery: true } } })
+      }
+      return baseMock(input, init)
+    }) as unknown as typeof fetch
+    history.replaceState(null, "", "/login/password?authRequest=request-1")
+
+    render(() => <App apiOrigin="https://worker.example" />)
+
+    expect(await screen.findByRole("button", { name: "Forgot password?" })).toBeTruthy()
+  })
+
+  test("renders required password change after password verification without a chooser bypass", async () => {
+    const requests: string[] = []
+    const baseMock = apiMockCreate(requests)
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes("/api/v2/password/verify")) {
+        requests.push(`POST ${String(input)}`)
+        return Response.json({
+          success: true,
+          data: {
+            kind: "render",
+            route: `/login/password?flow=${validFlow}`,
+            screen: { name: "password_change_required", expired: false },
+            csrfToken: validCsrf,
+          },
+        })
+      }
+      return baseMock(input, init)
+    }) as unknown as typeof fetch
+    history.replaceState(null, "", "/login/password?authRequest=request-1")
+
+    render(() => <App apiOrigin="https://worker.example" />)
+    const identifierInput = (await screen.findByRole("textbox", { name: "Username or email" })) as HTMLInputElement
+    fireEvent.input(identifierInput, { target: { value: "user@example.com" } })
+    fireEvent.input(screen.getByLabelText("Password"), { target: { value: "secret123" } })
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }))
+
+    expect(await screen.findByRole("heading", { name: "Change your password" })).toBeTruthy()
+    expect(screen.getByLabelText("Current password")).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "Back to methods" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Forgot password?" })).toBeNull()
+  })
+
+  test("resumes required password change after reload with blank fields", async () => {
+    const requests: string[] = []
+    const baseMock = apiMockCreate(requests)
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes("/api/v2/flow/resume")) {
+        requests.push(`POST ${String(input)}`)
+        return Response.json({
+          success: true,
+          data: {
+            kind: "render",
+            route: `/login/password?flow=${validFlow}`,
+            screen: { name: "password_change_required", expired: true },
+            csrfToken: validCsrf,
+          },
+        })
+      }
+      return baseMock(input, init)
+    }) as unknown as typeof fetch
+    history.replaceState(null, "", `/login/password?flow=${validFlow}`)
+
+    render(() => <App apiOrigin="https://worker.example" />)
+
+    expect(await screen.findByRole("heading", { name: "Change your password" })).toBeTruthy()
+    expect(screen.getByText("Your password has expired. Set a new password to continue.")).toBeTruthy()
+    expect((screen.getByLabelText("Current password") as HTMLInputElement).value).toBe("")
+    expect((screen.getByLabelText("New password") as HTMLInputElement).value).toBe("")
+    expect((screen.getByLabelText("Confirm new password") as HTMLInputElement).value).toBe("")
+  })
+
+  test("keeps the required-change screen after browser back navigation", async () => {
+    const requests: string[] = []
+    const baseMock = apiMockCreate(requests)
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes("/api/v2/flow/resume")) {
+        return Response.json({
+          success: true,
+          data: {
+            kind: "render",
+            route: `/login/password?flow=${validFlow}`,
+            screen: { name: "password_change_required", expired: false },
+            csrfToken: validCsrf,
+          },
+        })
+      }
+      return baseMock(input, init)
+    }) as unknown as typeof fetch
+    history.replaceState(null, "", `/login/password?flow=${validFlow}`)
+
+    render(() => <App apiOrigin="https://worker.example" />)
+    await screen.findByRole("heading", { name: "Change your password" })
+
+    history.replaceState(null, "", "/login")
+    window.dispatchEvent(new PopStateEvent("popstate"))
+
+    expect(await screen.findByRole("heading", { name: "Change your password" })).toBeTruthy()
+    expect(location.pathname).toBe("/login/password")
   })
 })

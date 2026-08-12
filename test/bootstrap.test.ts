@@ -15,6 +15,7 @@ const bindings: WorkerBindingsInput = {
   ZITADEL_LOGIN_V2_ENABLED: "true",
   ZITADEL_EMAIL_OTP_V2_ENABLED: "true",
   ZITADEL_PASSWORD_V2_ENABLED: "true",
+  ZITADEL_PASSWORD_RESET_V2_ENABLED: "true",
   ZITADEL_PASSKEY_V2_ENABLED: "true",
   ZITADEL_IDP_V2_ENABLED: "true",
   ZITADEL_MFA_V2_ENABLED: "true",
@@ -150,6 +151,7 @@ describe("v2 bootstrap contract", () => {
     expect(body).toEqual({
       success: true,
       data: {
+        capabilities: { passwordRecovery: true },
         branding: {
           dark: {
             colors: { background: "#111111", font: "#fefefe", primary: "#ddeeff", warn: "#ff0000" },
@@ -286,6 +288,7 @@ describe("v2 bootstrap contract", () => {
     expect(body).toEqual({
       success: true,
       data: {
+        capabilities: { passwordRecovery: true },
         branding: expect.any(Object),
         identityProviders: [
           { id: "google-1", name: "Google", type: "google" },
@@ -296,6 +299,76 @@ describe("v2 bootstrap contract", () => {
         updatedAt: 1_800_000_000,
       },
     })
+  })
+
+  test("hides password recovery when the independent reset gate is off", async () => {
+    const app = workerAppCreate({
+      fetch: async (input) => {
+        const url = requestUrl(input)
+        if (url.endsWith(`/v2/oidc/auth_requests/${authRequest.id}`)) return jsonResponse({ authRequest })
+        if (url.endsWith("/v2/organizations/_search")) return jsonResponse(defaultOrganization)
+        if (url.endsWith("/v2/settings/branding")) return jsonResponse(brandingSettings)
+        if (url.endsWith("/v2/settings/login")) return jsonResponse(loginSettings)
+        if (url.endsWith("/v2/settings/login/idps")) return jsonResponse(identityProviders)
+        throw new Error(`Unexpected native call: ${url}`)
+      },
+      now: () => 1_800_000_000,
+    })
+
+    const response = await app.fetch(bootstrapRequest(), {
+      ...bindings,
+      ZITADEL_PASSWORD_RESET_V2_ENABLED: "false",
+    })
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.data.capabilities).toEqual({ passwordRecovery: false })
+  })
+
+  test("hides password recovery when native login settings disable reset", async () => {
+    const app = workerAppCreate({
+      fetch: async (input) => {
+        const url = requestUrl(input)
+        if (url.endsWith(`/v2/oidc/auth_requests/${authRequest.id}`)) return jsonResponse({ authRequest })
+        if (url.endsWith("/v2/organizations/_search")) return jsonResponse(defaultOrganization)
+        if (url.endsWith("/v2/settings/branding")) return jsonResponse(brandingSettings)
+        if (url.endsWith("/v2/settings/login")) {
+          return jsonResponse({ settings: { ...loginSettings.settings, hidePasswordReset: true } })
+        }
+        if (url.endsWith("/v2/settings/login/idps")) return jsonResponse(identityProviders)
+        throw new Error(`Unexpected native call: ${url}`)
+      },
+      now: () => 1_800_000_000,
+    })
+
+    const response = await app.fetch(bootstrapRequest(), bindings)
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.data.capabilities).toEqual({ passwordRecovery: false })
+  })
+
+  test("hides password recovery when native local authentication is disabled", async () => {
+    const app = workerAppCreate({
+      fetch: async (input) => {
+        const url = requestUrl(input)
+        if (url.endsWith(`/v2/oidc/auth_requests/${authRequest.id}`)) return jsonResponse({ authRequest })
+        if (url.endsWith("/v2/organizations/_search")) return jsonResponse(defaultOrganization)
+        if (url.endsWith("/v2/settings/branding")) return jsonResponse(brandingSettings)
+        if (url.endsWith("/v2/settings/login")) {
+          return jsonResponse({ settings: { ...loginSettings.settings, allowLocalAuthentication: false } })
+        }
+        if (url.endsWith("/v2/settings/login/idps")) return jsonResponse(identityProviders)
+        throw new Error(`Unexpected native call: ${url}`)
+      },
+      now: () => 1_800_000_000,
+    })
+
+    const response = await app.fetch(bootstrapRequest(), bindings)
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.data.capabilities).toEqual({ passwordRecovery: false })
   })
 
   test("does not advertise IdPs or forced unowned MFA branches when the MFA gate is off", async () => {

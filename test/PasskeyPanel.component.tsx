@@ -24,6 +24,7 @@ const mockPublicKeyOptions = {
 }
 
 const bootstrap = {
+  capabilities: { passwordRecovery: false },
   branding: {
     dark: {
       colors: { background: "#111111", font: "#ffffff", primary: "#ddeeff", warn: "#ff0000" },

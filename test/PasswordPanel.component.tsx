@@ -29,6 +29,8 @@ describe("PasswordPanel view component", () => {
         rememberIdentifierChange={() => undefined}
         submit={(e) => e.preventDefault()}
         showChooser={() => undefined}
+        passwordRecoveryAvailable={() => false}
+        passwordRecoveryStart={() => undefined}
       />
     ))
 
@@ -66,6 +68,8 @@ describe("PasswordPanel view component", () => {
         rememberIdentifierChange={() => undefined}
         submit={(e) => e.preventDefault()}
         showChooser={() => undefined}
+        passwordRecoveryAvailable={() => false}
+        passwordRecoveryStart={() => undefined}
       />
     ))
 
@@ -97,6 +101,8 @@ describe("PasswordPanel view component", () => {
         rememberIdentifierChange={() => undefined}
         submit={(e) => e.preventDefault()}
         showChooser={() => (chooserClicked = true)}
+        passwordRecoveryAvailable={() => false}
+        passwordRecoveryStart={() => undefined}
       />
     ))
 
@@ -106,5 +112,64 @@ describe("PasswordPanel view component", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Back to methods" }))
     expect(chooserClicked).toBe(true)
+  })
+})
+
+describe("PasswordPanel password recovery entry", () => {
+  test("hides the recovery action when the capability is not permitted", () => {
+    render(() => (
+      <PasswordPanel
+        identifier={() => "alice"}
+        password={() => ""}
+        showPassword={() => false}
+        mfaRequired={() => false}
+        busy={() => false}
+        valid={() => false}
+        rememberIdentifier={() => false}
+        headingRegister={() => undefined}
+        identifierInputRegister={() => undefined}
+        passwordInputRegister={() => undefined}
+        identifierInput={() => undefined}
+        passwordInput={() => undefined}
+        toggleShowPassword={() => undefined}
+        rememberIdentifierChange={() => undefined}
+        submit={(e) => e.preventDefault()}
+        showChooser={() => undefined}
+        passwordRecoveryAvailable={() => false}
+        passwordRecoveryStart={() => undefined}
+      />
+    ))
+
+    expect(screen.queryByRole("button", { name: "Forgot password?" })).toBeNull()
+  })
+
+  test("shows the recovery action only when permitted and starts standalone recovery", () => {
+    let started = 0
+
+    render(() => (
+      <PasswordPanel
+        identifier={() => "alice"}
+        password={() => ""}
+        showPassword={() => false}
+        mfaRequired={() => false}
+        busy={() => false}
+        valid={() => false}
+        rememberIdentifier={() => false}
+        headingRegister={() => undefined}
+        identifierInputRegister={() => undefined}
+        passwordInputRegister={() => undefined}
+        identifierInput={() => undefined}
+        passwordInput={() => undefined}
+        toggleShowPassword={() => undefined}
+        rememberIdentifierChange={() => undefined}
+        submit={(e) => e.preventDefault()}
+        showChooser={() => undefined}
+        passwordRecoveryAvailable={() => true}
+        passwordRecoveryStart={() => (started += 1)}
+      />
+    ))
+
+    fireEvent.click(screen.getByRole("button", { name: "Forgot password?" }))
+    expect(started).toBe(1)
   })
 })

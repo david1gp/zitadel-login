@@ -16,6 +16,24 @@ const bindings: WorkerBindingsInput = {
 }
 
 describe("workerBindingsParse MFA ownership gate", () => {
+  test("defaults the validated password recovery capability off", () => {
+    const result = workerBindingsParse(bindings)
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.data.ZITADEL_PASSWORD_RESET_V2_ENABLED).toBe(false)
+  })
+
+  test("accepts only the canonical enabled password recovery value", () => {
+    const enabled = workerBindingsParse({ ...bindings, ZITADEL_PASSWORD_RESET_V2_ENABLED: "true" })
+    expect(enabled.success && enabled.data.ZITADEL_PASSWORD_RESET_V2_ENABLED).toBe(true)
+
+    const malformed = workerBindingsParse({
+      ...bindings,
+      ZITADEL_PASSWORD_RESET_V2_ENABLED: "TRUE" as "true",
+    })
+    expect(malformed.success).toBe(false)
+  })
+
   test("defaults the validated MFA capability off", () => {
     const result = workerBindingsParse(bindings)
     expect(result.success).toBe(true)

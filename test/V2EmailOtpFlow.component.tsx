@@ -10,6 +10,7 @@ const validCsrf = "C".repeat(43)
 const validFlow = "A".repeat(22)
 
 const bootstrap = {
+  capabilities: { passwordRecovery: false },
   branding: {
     dark: { colors: { background: "#111111", font: "#fefefe", primary: "#ddeeff", warn: "#ff0000" } },
     disableWatermark: true,
