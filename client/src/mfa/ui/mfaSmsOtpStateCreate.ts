@@ -4,6 +4,7 @@ import { createSignalObject } from "../../ui/createSignalObject"
 import { mfaV2SmsOtpChallengeApiRequest } from "../api/mfaV2SmsOtpChallengeApiRequest"
 import { mfaV2SmsOtpResendApiRequest } from "../api/mfaV2SmsOtpResendApiRequest"
 import { mfaV2SmsOtpVerifyApiRequest } from "../api/mfaV2SmsOtpVerifyApiRequest"
+import { mfaOtpCountdownCreate } from "../model/mfaOtpCountdownCreate"
 
 type Inputs = {
   apiOrigin: () => string
@@ -26,40 +27,18 @@ export function mfaSmsOtpStateCreate(inputs: Inputs) {
   const stage = createSignalObject<"send" | "code">("send")
   const code = createSignalObject("")
   const notice = createSignalObject("")
-  const countdown = createSignalObject(0)
+  const countdown = mfaOtpCountdownCreate()
 
   let codeInputElement: HTMLInputElement | undefined
-  let timerId: ReturnType<typeof setInterval> | undefined
 
   const focusSchedule = () => queueMicrotask(() => codeInputElement?.focus())
-
-  const countdownStop = () => {
-    if (timerId !== undefined) {
-      clearInterval(timerId)
-      timerId = undefined
-    }
-  }
-
-  const countdownStart = (seconds = 30) => {
-    countdownStop()
-    countdown.set(seconds)
-    timerId = setInterval(() => {
-      const next = countdown.get() - 1
-      if (next <= 0) {
-        countdown.set(0)
-        countdownStop()
-      } else {
-        countdown.set(next)
-      }
-    }, 1000)
-  }
 
   onMount(() => {
     // Starts in stage "send"
   })
 
   onCleanup(() => {
-    countdownStop()
+    countdown.stop()
     code.set("")
   })
 
@@ -96,7 +75,7 @@ export function mfaSmsOtpStateCreate(inputs: Inputs) {
 
     stage.set("code")
     notice.set("Verification code sent to your mobile phone via SMS.")
-    countdownStart(30)
+    countdown.start(30)
     focusSchedule()
   }
 
@@ -134,7 +113,7 @@ export function mfaSmsOtpStateCreate(inputs: Inputs) {
     }
 
     notice.set("A new verification code was sent to your mobile phone via SMS.")
-    countdownStart(30)
+    countdown.start(30)
     focusSchedule()
   }
 
@@ -190,10 +169,9 @@ export function mfaSmsOtpStateCreate(inputs: Inputs) {
   }
 
   const reset = () => {
-    countdownStop()
+    countdown.reset()
     code.set("")
     notice.set("")
-    countdown.set(0)
     stage.set("send")
   }
 

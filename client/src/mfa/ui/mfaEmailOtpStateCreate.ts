@@ -5,6 +5,7 @@ import { mfaV2EmailOtpChallengeApiRequest } from "../api/mfaV2EmailOtpChallengeA
 import { mfaV2EmailOtpEnrollApiRequest } from "../api/mfaV2EmailOtpEnrollApiRequest"
 import { mfaV2EmailOtpResendApiRequest } from "../api/mfaV2EmailOtpResendApiRequest"
 import { mfaV2EmailOtpVerifyApiRequest } from "../api/mfaV2EmailOtpVerifyApiRequest"
+import { mfaOtpCountdownCreate } from "../model/mfaOtpCountdownCreate"
 
 type Inputs = {
   apiOrigin: () => string
@@ -30,39 +31,17 @@ export function mfaEmailOtpStateCreate(inputs: Inputs) {
   const stage = createSignalObject<"send" | "enroll" | "code">(initialStage)
   const code = createSignalObject("")
   const notice = createSignalObject("")
-  const countdown = createSignalObject(0)
+  const countdown = mfaOtpCountdownCreate()
 
   let codeInputElement: HTMLInputElement | undefined
-  let timerId: ReturnType<typeof setInterval> | undefined
   let inFlight = false
   let disposed = false
 
   const focusSchedule = () => queueMicrotask(() => codeInputElement?.focus())
 
-  const countdownStop = () => {
-    if (timerId !== undefined) {
-      clearInterval(timerId)
-      timerId = undefined
-    }
-  }
-
-  const countdownStart = (seconds = 30) => {
-    countdownStop()
-    countdown.set(seconds)
-    timerId = setInterval(() => {
-      const next = countdown.get() - 1
-      if (next <= 0) {
-        countdown.set(0)
-        countdownStop()
-      } else {
-        countdown.set(next)
-      }
-    }, 1000)
-  }
-
   onCleanup(() => {
     disposed = true
-    countdownStop()
+    countdown.stop()
     code.set("")
   })
 
@@ -105,7 +84,7 @@ export function mfaEmailOtpStateCreate(inputs: Inputs) {
         ? "Email codes are set up. Enter the code sent to your email address, or resend it."
         : "Email codes are set up. Resend a code to continue.",
     )
-    if (challengeIssued) countdownStart(30)
+    if (challengeIssued) countdown.start(30)
     focusSchedule()
   }
 
@@ -142,7 +121,7 @@ export function mfaEmailOtpStateCreate(inputs: Inputs) {
 
     stage.set("code")
     notice.set("Verification code sent to your email address.")
-    countdownStart(30)
+    countdown.start(30)
     focusSchedule()
   }
 
@@ -180,7 +159,7 @@ export function mfaEmailOtpStateCreate(inputs: Inputs) {
     }
 
     notice.set("A new verification code was sent to your email address.")
-    countdownStart(30)
+    countdown.start(30)
     focusSchedule()
   }
 
@@ -257,10 +236,9 @@ export function mfaEmailOtpStateCreate(inputs: Inputs) {
     },
     submit,
     reset: () => {
-      countdownStop()
+      countdown.reset()
       code.set("")
       notice.set("")
-      countdown.set(0)
       stage.set(initialStage)
     },
     codeFocus: focusSchedule,
