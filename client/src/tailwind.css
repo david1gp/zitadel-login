@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+@source "./**/*.{ts,tsx}";
+
+@theme {
+  --color-background: var(--brand-background);
+  --color-foreground: var(--brand-font);
+  --color-primary: var(--brand-primary);
+  --color-primary-foreground: var(--brand-background);
+  --color-warn: var(--brand-warn);
+  --color-foreground-4: color-mix(in srgb, var(--brand-font) 4%, transparent);
+  --color-foreground-14: color-mix(in srgb, var(--brand-font) 14%, transparent);
+  --color-foreground-18: color-mix(in srgb, var(--brand-font) 18%, transparent);
+  --color-foreground-20: color-mix(in srgb, var(--brand-font) 20%, transparent);
+  --color-foreground-25: color-mix(in srgb, var(--brand-font) 25%, transparent);
+  --color-foreground-30: color-mix(in srgb, var(--brand-font) 30%, transparent);
+  --color-foreground-42: color-mix(in srgb, var(--brand-font) 42%, transparent);
+  --color-foreground-68: color-mix(in srgb, var(--brand-font) 68%, transparent);
+  --color-foreground-70: color-mix(in srgb, var(--brand-font) 70%, transparent);
+  --color-foreground-72: color-mix(in srgb, var(--brand-font) 72%, transparent);
+  --color-foreground-75: color-mix(in srgb, var(--brand-font) 75%, transparent);
+  --color-foreground-76: color-mix(in srgb, var(--brand-font) 76%, transparent);
+  --color-foreground-80: color-mix(in srgb, var(--brand-font) 80%, transparent);
+  --color-primary-10: color-mix(in srgb, var(--brand-primary) 10%, transparent);
+  --color-primary-14: color-mix(in srgb, var(--brand-primary) 14%, transparent);
+  --color-primary-15: color-mix(in srgb, var(--brand-primary) 15%, transparent);
+  --color-primary-16: color-mix(in srgb, var(--brand-primary) 16%, transparent);
+  --color-primary-22: color-mix(in srgb, var(--brand-primary) 22%, transparent);
+  --color-warn-13: color-mix(in srgb, var(--brand-warn) 13%, transparent);
+  --color-warn-85: color-mix(in srgb, var(--brand-warn) 85%, var(--brand-font));
+  --color-demo-nav: color-mix(in srgb, var(--brand-background) 88%, var(--brand-font));
+  --font-sans:
+    var(--brand-font-family, Inter), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-serif: Georgia, "Times New Roman", serif;
+  --shadow-login: 0 24px 70px color-mix(in srgb, var(--brand-font) 18%, transparent);
+  --shadow-input-focus: 0 0 0 4px color-mix(in srgb, var(--brand-primary) 22%, transparent);
+  --animate-spin: spin 750ms linear infinite;
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+}
+
+@layer base {
+  :root {
+    --brand-background: #f5f3ed;
+    --brand-font: #15201d;
+    --brand-primary: #1d5c4b;
+    --brand-warn: #a9362b;
+  }
+
+  html {
+    color: var(--brand-font);
+    background: var(--brand-background);
+    font-family: var(--font-sans);
+    font-synthesis: none;
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+  }
+
+  button,
+  input {
+    font: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  button:focus-visible,
+  input:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--brand-primary) 48%, transparent);
+    outline-offset: 3px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms;
+    transition-duration: 0.01ms;
+  }
+}
