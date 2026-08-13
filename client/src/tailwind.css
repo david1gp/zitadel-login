@@ -50,6 +50,33 @@
     --brand-warn: #a9362b;
   }
 
+  :root[data-theme="light"] .page-shell {
+    position: relative;
+    isolation: isolate;
+  }
+
+  :root[data-theme="light"] .page-shell::before {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    pointer-events: none;
+    content: "";
+    background:
+      radial-gradient(circle at 10% 8%, color-mix(in srgb, var(--brand-primary) 22%, transparent), transparent 38%),
+      radial-gradient(circle at 90% 92%, color-mix(in srgb, var(--brand-primary) 14%, transparent), transparent 42%),
+      linear-gradient(
+        145deg,
+        color-mix(in srgb, white 42%, transparent),
+        transparent 48%,
+        color-mix(in srgb, var(--brand-primary) 8%, transparent)
+      );
+  }
+
+  :root[data-theme="light"] .page-shell > * {
+    position: relative;
+    z-index: 1;
+  }
+
   html {
     color: var(--brand-font);
     background: var(--brand-background);

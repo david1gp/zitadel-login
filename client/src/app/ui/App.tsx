@@ -19,9 +19,11 @@ import { classesIntro } from "../../ui/classes/classesIntro"
 import { classesLoadingState } from "../../ui/classes/classesLoadingState"
 import { classesLoginCard } from "../../ui/classes/classesLoginCard"
 import { classesNoticeMessage } from "../../ui/classes/classesNoticeMessage"
+import { classesOrganizationName } from "../../ui/classes/classesOrganizationName"
 import { classesPageShell } from "../../ui/classes/classesPageShell"
 import { classesSpinner } from "../../ui/classes/classesSpinner"
-import { classesStep } from "../../ui/classes/classesStep"
+import { pageBackgroundStyleGet } from "../../ui/styles/pageBackgroundStyleGet"
+import { pageBackgroundScreenFromAppGet } from "../model/pageBackgroundScreenFromAppGet"
 import { appStateCreate } from "./appStateCreate"
 
 type AppProps = { apiOrigin: string }
@@ -30,7 +32,17 @@ export function App(props: AppProps) {
   const state = appStateCreate(() => props.apiOrigin)
 
   return (
-    <main class={classesPageShell}>
+    <main
+      class={classesPageShell}
+      style={pageBackgroundStyleGet(
+        pageBackgroundScreenFromAppGet({
+          status: state.status(),
+          recoveryRoute: state.recoveryRoute(),
+          passwordChangeRequired: Boolean(state.passwordChangeRequired()),
+          selection: state.selection(),
+        }),
+      )}
+    >
       <section class={classesLoginCard} aria-busy={state.busy()}>
         <div class={classesCardTop}>
           <BrandHeader
@@ -38,6 +50,7 @@ export function App(props: AppProps) {
             name={() => state.bootstrap().organization.name}
             onAssetError={state.brandAssetFail}
           />
+          <p class={classesOrganizationName}>{state.bootstrap().organization.name}</p>
           <ThemeToggle
             preference={state.preferredTheme}
             switchable={state.themeSwitchable}
@@ -76,7 +89,6 @@ export function App(props: AppProps) {
             </Match>
             <Match when={state.status() === "fatal"}>
               <div class={classesIntro}>
-                <p class={classesStep}>Unable to continue</p>
                 <h1 ref={state.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                   Start sign-in again
                 </h1>

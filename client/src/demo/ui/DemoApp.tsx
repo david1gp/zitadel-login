@@ -23,13 +23,19 @@ import { classesIntro } from "../../ui/classes/classesIntro"
 import { classesLoadingState } from "../../ui/classes/classesLoadingState"
 import { classesLoginCard } from "../../ui/classes/classesLoginCard"
 import { classesNoticeMessage } from "../../ui/classes/classesNoticeMessage"
+import { classesOrganizationName } from "../../ui/classes/classesOrganizationName"
 import { classesPageShell } from "../../ui/classes/classesPageShell"
 import { classesSpinner } from "../../ui/classes/classesSpinner"
-import { classesStep } from "../../ui/classes/classesStep"
 import { classMerge } from "../../ui/classMerge"
+import { pageBackgroundStyleGet } from "../../ui/styles/pageBackgroundStyleGet"
+import { pageBackgroundScreenFromDemoGet } from "../model/pageBackgroundScreenFromDemoGet"
 import { DemoDirectory } from "./DemoDirectory"
 import { DemoNav } from "./DemoNav"
 import { demoAppStateCreate } from "./demoAppStateCreate"
+
+function showScenarioMeta(id: string): boolean {
+  return id === "directory"
+}
 
 export function DemoApp() {
   const state = demoAppStateCreate()
@@ -53,7 +59,10 @@ export function DemoApp() {
         hasNext={state.hasNext}
         showDirectory={state.showDirectory}
       />
-      <main class={classMerge(classesPageShell, classesDemoStage)}>
+      <main
+        class={classMerge(classesPageShell, classesDemoStage)}
+        style={pageBackgroundStyleGet(pageBackgroundScreenFromDemoGet(id()))}
+      >
         <section class={classesLoginCard} aria-busy={state.busy()}>
           <div class={classesCardTop}>
             <BrandHeader
@@ -61,6 +70,7 @@ export function DemoApp() {
               name={() => state.bootstrap().organization.name}
               onAssetError={state.brandAssetFail}
             />
+            <p class={classesOrganizationName}>{state.bootstrap().organization.name}</p>
             <ThemeToggle
               preference={state.preferredTheme}
               switchable={state.themeSwitchable}
@@ -68,9 +78,11 @@ export function DemoApp() {
             />
           </div>
           <div class={classesContent}>
-            <p class={classesDemoScenarioMeta}>
-              {state.scenario().group} · {state.scenario().label}
-            </p>
+            <Show when={showScenarioMeta(id())}>
+              <p class={classesDemoScenarioMeta}>
+                {state.scenario().group} · {state.scenario().label}
+              </p>
+            </Show>
             <Show when={id()} keyed>
               {(scenarioId) => (
                 <Switch>
@@ -92,7 +104,6 @@ export function DemoApp() {
                   </Match>
                   <Match when={scenarioId === "fatal"}>
                     <div class={classesIntro}>
-                      <p class={classesStep}>Unable to continue</p>
                       <h1 ref={state.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                         Start sign-in again
                       </h1>
