@@ -1,5 +1,6 @@
 import type { FlowV2Cookie } from "../../flow/model/flowV2CookieSchema"
 import type { FlowV2Transition } from "../../flow/model/flowV2TransitionSchema"
+import { primaryFlowMfaPolicyEvaluate } from "../../flow/domain/primaryFlowMfaPolicyEvaluate"
 import { mfaOptionsGet } from "../../mfa/domain/mfaOptionsGet"
 import { resultCreate } from "../../result/resultCreate"
 import { resultErrorCreate } from "../../result/resultErrorCreate"
@@ -14,20 +15,12 @@ type Input = {
   currentPassword: string
   newPassword: string
   csrfToken: string
-  mfaV2Enabled: boolean
   now: number
   consume: (state: ChangedState) => Promise<Result<void>>
   client: ReturnType<typeof zitadelClientCreate>
 }
 
 const passwordMethod = "AUTHENTICATION_METHOD_TYPE_PASSWORD"
-const mfaMethods = new Set([
-  "AUTHENTICATION_METHOD_TYPE_TOTP",
-  "AUTHENTICATION_METHOD_TYPE_OTP_SMS",
-  "AUTHENTICATION_METHOD_TYPE_OTP_EMAIL",
-  "AUTHENTICATION_METHOD_TYPE_U2F",
-])
-
 function resultStatusGet(result: { success: boolean; rawData?: unknown }): number | undefined {
   if (result.success || typeof result.rawData !== "object" || result.rawData === null) return undefined
   if (!("status" in result.rawData) || typeof result.rawData.status !== "number") return undefined
@@ -169,13 +162,16 @@ export async function passwordChangeRequiredExecute(input: Input) {
     return resultCreate(fallbackCreate(consumedState))
   }
   const finalToken = refreshedSession.data.session.sessionToken ?? latestToken
-  const availableMfaMethods = refreshedMethods.data.authMethodTypes.filter((method) => mfaMethods.has(method))
-  const requiresMfa =
-    availableMfaMethods.length > 0 ||
-    refreshedSettings.data.settings?.forceMfa === true ||
-    refreshedSettings.data.settings?.forceMfaLocalOnly === true
+  const mfa = primaryFlowMfaPolicyEvaluate({
+    method: "password",
+    methods: refreshedMethods.data.authMethodTypes,
+    emailVerified: refreshedUser.data.user.human.email?.isVerified === true,
+    phoneVerified: refreshedUser.data.user.human.phone?.isVerified === true,
+    policy: refreshedSettings.data.settings ?? {},
+  })
+  if (!mfa.supported) return resultCreate(fallbackCreate({ ...consumedState, sessionToken: finalToken }))
 
-  if (!requiresMfa) {
+  if (!mfa.required) {
     const state: Extract<FlowV2Cookie, { stage: "verified" }> = {
       ...stateBase,
       stage: "verified",
@@ -193,14 +189,13 @@ export async function passwordChangeRequiredExecute(input: Input) {
     })
   }
 
-  if (!input.mfaV2Enabled) return resultCreate(fallbackCreate({ ...consumedState, sessionToken: finalToken }))
   const mfaState: Extract<FlowV2Cookie, { stage: "mfa" }> = {
     ...stateBase,
     stage: "mfa",
     transitionCounter: consumedState.transitionCounter + 1,
     csrfToken: input.csrfToken,
     sessionToken: finalToken,
-    mfaMethods: availableMfaMethods,
+    mfaMethods: mfa.methods,
   }
   const options = await mfaOptionsGet({ state: mfaState, now: input.now, client: input.client })
   if (!options.success || options.data.options.mode === "fallback") {

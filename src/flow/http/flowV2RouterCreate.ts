@@ -431,12 +431,7 @@ function stateTransitionGet(
       csrfToken: state.csrfToken,
     }
   }
-  if (
-    state.stage !== "ready" ||
-    !state.owned ||
-    !bindings.ZITADEL_LOGIN_V2_ENABLED ||
-    !bindings.ZITADEL_EMAIL_OTP_V2_ENABLED
-  ) {
+  if (state.stage !== "ready" || !state.owned || !bindings.ZITADEL_CUSTOM_LOGIN_ENABLED) {
     return { kind: "fallback", path: `/api/v2/flow/fallback?flow=${state.flowHandle}` }
   }
   return {
@@ -636,11 +631,7 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
       ) || new Set(request.prompt).size !== request.prompt.length
     const silent = request.prompt.includes("PROMPT_NONE")
     if (silent && request.prompt.length !== 1) return resultErrorResponse(c, op, "request_rejected")
-    const owned =
-      !unsupportedScope &&
-      !unsupportedPrompt &&
-      bindings.data.ZITADEL_LOGIN_V2_ENABLED &&
-      bindings.data.ZITADEL_EMAIL_OTP_V2_ENABLED
+    const owned = !unsupportedScope && !unsupportedPrompt && bindings.data.ZITADEL_CUSTOM_LOGIN_ENABLED
     const now = dependencies.now()
     const base = {
       version: 2 as const,
@@ -733,12 +724,6 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     }
     const request = await authRequestRevalidate(bindings.data, state.data)
     if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
-    if (!bindings.data.ZITADEL_LOGIN_V2_ENABLED || !bindings.data.ZITADEL_MFA_V2_ENABLED) {
-      const options = v.safeParse(mfaOptionsSchema, { mode: "fallback", reason: "unsupported_branch" })
-      if (!options.success) return resultErrorResponse(c, op, "service_unavailable")
-      return c.json(resultCreate(options.output), 200)
-    }
-
     const mfaState: Extract<FlowV2Cookie, { stage: "mfa" }> =
       state.data.stage === "mfa"
         ? state.data
@@ -789,10 +774,6 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!limited.success) return resultErrorResponse(c, op, limited.errorMessage)
     const request = await authRequestRevalidate(bindings.data, state.data)
     if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
-    if (!bindings.data.ZITADEL_LOGIN_V2_ENABLED || !bindings.data.ZITADEL_MFA_V2_ENABLED) {
-      return resultErrorResponse(c, op, "mfa_skip_forbidden")
-    }
-
     const result = await mfaEnrollmentSkip({
       state: state.data,
       now: dependencies.now(),
@@ -843,10 +824,6 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!limited.success) return resultErrorResponse(c, op, limited.errorMessage)
     const request = await authRequestRevalidate(bindings.data, stored.data)
     if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
-    if (!bindings.data.ZITADEL_LOGIN_V2_ENABLED || !bindings.data.ZITADEL_MFA_V2_ENABLED) {
-      return resultErrorResponse(c, op, "mfa_enrollment_not_allowed")
-    }
-
     const client = zitadelClientCreate(bindings.data, dependencies.fetch)
     const prepared = await mfaV2EmailOtpEnrollmentPrepare({
       state: stored.data,
@@ -911,10 +888,6 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!limited.success) return resultErrorResponse(c, op, limited.errorMessage)
     const request = await authRequestRevalidate(bindings.data, state.data)
     if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
-    if (!bindings.data.ZITADEL_LOGIN_V2_ENABLED || !bindings.data.ZITADEL_MFA_V2_ENABLED) {
-      return resultErrorResponse(c, op, "mfa_enrollment_not_allowed")
-    }
-
     const result = await mfaV2TotpEnrollmentStart({
       state: state.data,
       now: dependencies.now(),
@@ -979,10 +952,6 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!limited.success) return resultErrorResponse(c, op, limited.errorMessage)
     const request = await authRequestRevalidate(bindings.data, state.data)
     if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
-    if (!bindings.data.ZITADEL_LOGIN_V2_ENABLED || !bindings.data.ZITADEL_MFA_V2_ENABLED) {
-      return resultErrorResponse(c, op, "mfa_enrollment_not_allowed")
-    }
-
     const result = await mfaV2WebAuthnEnrollmentStart({
       state: state.data,
       method,
@@ -1044,10 +1013,6 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!limited.success) return resultErrorResponse(c, op, limited.errorMessage)
     const request = await authRequestRevalidate(bindings.data, state.data)
     if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
-    if (!bindings.data.ZITADEL_LOGIN_V2_ENABLED || !bindings.data.ZITADEL_MFA_V2_ENABLED) {
-      return resultErrorResponse(c, op, "mfa_enrollment_not_allowed")
-    }
-
     const result = await mfaV2WebAuthnEnrollmentVerify({
       state: state.data,
       method,
@@ -1108,10 +1073,6 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!limited.success) return resultErrorResponse(c, op, limited.errorMessage)
     const request = await authRequestRevalidate(bindings.data, state.data)
     if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
-    if (!bindings.data.ZITADEL_LOGIN_V2_ENABLED || !bindings.data.ZITADEL_MFA_V2_ENABLED) {
-      return resultErrorResponse(c, op, "mfa_enrollment_not_allowed")
-    }
-
     let code = payload.data.code
     try {
       const result = await mfaV2TotpEnrollmentVerify({
@@ -1186,10 +1147,6 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!limited.success) return resultErrorResponse(c, op, limited.errorMessage)
     const request = await authRequestRevalidate(bindings.data, state.data)
     if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
-    if (!bindings.data.ZITADEL_LOGIN_V2_ENABLED || !bindings.data.ZITADEL_MFA_V2_ENABLED) {
-      return transitionResponse(c, { kind: "fallback", path: `/api/v2/flow/fallback?flow=${state.data.flowHandle}` })
-    }
-
     let code = payload.data.code
     try {
       const result =
@@ -1282,10 +1239,6 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!limited.success) return resultErrorResponse(c, op, limited.errorMessage)
     const request = await authRequestRevalidate(bindings.data, state.data)
     if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
-    if (!bindings.data.ZITADEL_LOGIN_V2_ENABLED || !bindings.data.ZITADEL_MFA_V2_ENABLED) {
-      return transitionResponse(c, { kind: "fallback", path: `/api/v2/flow/fallback?flow=${state.data.flowHandle}` })
-    }
-
     const result = isSmsOtp
       ? await mfaV2SmsOtpChallenge({
           state: state.data,
@@ -1355,10 +1308,6 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!limited.success) return resultErrorResponse(c, op, limited.errorMessage)
     const request = await authRequestRevalidate(bindings.data, state.data)
     if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
-    if (!bindings.data.ZITADEL_LOGIN_V2_ENABLED || !bindings.data.ZITADEL_MFA_V2_ENABLED) {
-      return transitionResponse(c, { kind: "fallback", path: `/api/v2/flow/fallback?flow=${state.data.flowHandle}` })
-    }
-
     const result =
       isSmsOtp && state.data.stage === "mfa"
         ? await mfaV2SmsOtpResend({
@@ -1432,10 +1381,6 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!limited.success) return resultErrorResponse(c, op, limited.errorMessage)
     const request = await authRequestRevalidate(bindings.data, state.data)
     if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
-    if (!bindings.data.ZITADEL_LOGIN_V2_ENABLED || !bindings.data.ZITADEL_MFA_V2_ENABLED) {
-      return transitionResponse(c, { kind: "fallback", path: `/api/v2/flow/fallback?flow=${state.data.flowHandle}` })
-    }
-
     const result = await mfaV2U2fChallenge({
       state: state.data,
       ...(payload.data.method ? { method: payload.data.method } : {}),
@@ -1490,10 +1435,6 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!limited.success) return resultErrorResponse(c, op, limited.errorMessage)
     const request = await authRequestRevalidate(bindings.data, state.data)
     if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
-    if (!bindings.data.ZITADEL_LOGIN_V2_ENABLED || !bindings.data.ZITADEL_MFA_V2_ENABLED) {
-      return transitionResponse(c, { kind: "fallback", path: `/api/v2/flow/fallback?flow=${state.data.flowHandle}` })
-    }
-
     const credential = payload.data.credential ?? payload.data.assertion
     if (!credential) return resultErrorResponse(c, op, "invalid_payload")
 
@@ -1555,7 +1496,7 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
     if (
       !state.data.owned ||
-      !bindings.data.ZITADEL_LOGIN_V2_ENABLED ||
+      !bindings.data.ZITADEL_CUSTOM_LOGIN_ENABLED ||
       !bindings.data.ZITADEL_RECENT_ACCOUNT_V2_ENABLED
     ) {
       return transitionResponse(c, { kind: "fallback", path: `/api/v2/flow/fallback?flow=${state.data.flowHandle}` })
@@ -1620,7 +1561,7 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!csrfTokenMatches(payload.data.csrfToken, state.data.csrfToken)) {
       return resultErrorResponse(c, op, "csrf_rejected")
     }
-    if (!state.data.owned || !bindings.data.ZITADEL_LOGIN_V2_ENABLED || !bindings.data.ZITADEL_EMAIL_OTP_V2_ENABLED) {
+    if (!state.data.owned || !bindings.data.ZITADEL_CUSTOM_LOGIN_ENABLED) {
       return transitionResponse(c, { kind: "fallback", path: `/api/v2/flow/fallback?flow=${state.data.flowHandle}` })
     }
     const limited = await abuseLimitCheck(bindings.data.RATE_LIMITER, bindings.data.FLOW_COOKIE_KEY, "v2-otp-start", [
@@ -1635,7 +1576,6 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     const result = await emailOtpV2Start({
       state: state.data,
       email: payload.data.email,
-      mfaV2Enabled: bindings.data.ZITADEL_MFA_V2_ENABLED,
       now: dependencies.now(),
       client: zitadelClientCreate(bindings.data, dependencies.fetch),
     })
@@ -1760,7 +1700,7 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!limited.success) return resultErrorResponse(c, op, limited.errorMessage)
     const request = await authRequestRevalidate(bindings.data, state.data)
     if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
-    if (!state.data.owned || !bindings.data.ZITADEL_LOGIN_V2_ENABLED || !bindings.data.ZITADEL_PASSWORD_V2_ENABLED) {
+    if (!state.data.owned || !bindings.data.ZITADEL_CUSTOM_LOGIN_ENABLED) {
       return transitionResponse(c, { kind: "fallback", path: `/api/v2/flow/fallback?flow=${state.data.flowHandle}` })
     }
 
@@ -1770,7 +1710,6 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
         state: state.data,
         identifier: payload.data.identifier,
         password,
-        mfaV2Enabled: bindings.data.ZITADEL_MFA_V2_ENABLED,
         now: dependencies.now(),
         client: zitadelClientCreate(bindings.data, dependencies.fetch),
       })
@@ -1829,10 +1768,6 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!limited.success) return resultErrorResponse(c, op, limited.errorMessage)
     const request = await authRequestRevalidate(bindings.data, stored.data)
     if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
-    if (!bindings.data.ZITADEL_LOGIN_V2_ENABLED || !bindings.data.ZITADEL_PASSWORD_V2_ENABLED) {
-      return resultErrorResponse(c, op, "password_unavailable")
-    }
-
     const csrfToken = base64UrlEncode(dependencies.randomBytes(32))
     let currentPassword = payload.data.currentPassword
     let newPassword = payload.data.newPassword
@@ -1842,7 +1777,6 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
         currentPassword,
         newPassword,
         csrfToken,
-        mfaV2Enabled: bindings.data.ZITADEL_MFA_V2_ENABLED,
         now: dependencies.now(),
         consume: (state) => stateSet(c, bindings.data, state),
         client: zitadelClientCreate(bindings.data, dependencies.fetch),
@@ -1924,10 +1858,7 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     const request = await authRequestRevalidate(bindings.data, state.data)
     if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
     const owned = state.data.stage === "ready" ? state.data.owned : true
-    if (
-      state.data.stage === "ready" &&
-      (!owned || !bindings.data.ZITADEL_LOGIN_V2_ENABLED || !bindings.data.ZITADEL_PASSKEY_V2_ENABLED)
-    ) {
+    if (state.data.stage === "ready" && (!owned || !bindings.data.ZITADEL_CUSTOM_LOGIN_ENABLED)) {
       return transitionResponse(c, { kind: "fallback", path: `/api/v2/flow/fallback?flow=${state.data.flowHandle}` })
     }
 
@@ -1935,7 +1866,6 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
       state: state.data,
       identifier: payload.data.identifier,
       rpId,
-      mfaV2Enabled: bindings.data.ZITADEL_MFA_V2_ENABLED,
       now: dependencies.now(),
       client: zitadelClientCreate(bindings.data, dependencies.fetch),
     })
@@ -1984,10 +1914,6 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!limited.success) return resultErrorResponse(c, op, limited.errorMessage)
     const request = await authRequestRevalidate(bindings.data, state.data)
     if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
-    if (!bindings.data.ZITADEL_LOGIN_V2_ENABLED || !bindings.data.ZITADEL_PASSKEY_V2_ENABLED) {
-      return transitionResponse(c, { kind: "fallback", path: `/api/v2/flow/fallback?flow=${state.data.flowHandle}` })
-    }
-
     const credential = payload.data.credential ?? payload.data.assertion
     if (!credential) return resultErrorResponse(c, op, "invalid_payload")
 
@@ -2036,12 +1962,7 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!limited.success) return resultErrorResponse(c, op, limited.errorMessage)
     const request = await authRequestRevalidate(bindings.data, state.data)
     if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
-    if (
-      !state.data.owned ||
-      !bindings.data.ZITADEL_LOGIN_V2_ENABLED ||
-      !bindings.data.ZITADEL_IDP_V2_ENABLED ||
-      !bindings.data.ZITADEL_MFA_V2_ENABLED
-    ) {
+    if (!state.data.owned || !bindings.data.ZITADEL_CUSTOM_LOGIN_ENABLED) {
       return transitionResponse(c, { kind: "fallback", path: `/api/v2/flow/fallback?flow=${state.data.flowHandle}` })
     }
 
@@ -2049,7 +1970,6 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
       state: state.data,
       idpId: payload.data.idpId,
       pagesOrigin: bindings.data.PAGES_ORIGIN,
-      mfaV2Enabled: bindings.data.ZITADEL_MFA_V2_ENABLED,
       client: zitadelClientCreate(bindings.data, dependencies.fetch),
     })
     if (!result.success) {

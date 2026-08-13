@@ -40,11 +40,6 @@ describe("identityProviderV2IntentStart", () => {
         SESSION_LIFETIME_SECONDS: 900,
         ZITADEL_LOGIN_CLIENT_PAT: "test-pat-not-a-real-secret-value",
         FLOW_COOKIE_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-        ZITADEL_LOGIN_V2_ENABLED: true,
-        ZITADEL_EMAIL_OTP_V2_ENABLED: true,
-        ZITADEL_PASSWORD_V2_ENABLED: true,
-        ZITADEL_PASSKEY_V2_ENABLED: true,
-        ZITADEL_IDP_V2_ENABLED: true,
         RATE_LIMITER: { limit: async () => ({ success: true }) },
       },
       mockFetch,
@@ -82,11 +77,6 @@ describe("identityProviderV2IntentStart", () => {
         SESSION_LIFETIME_SECONDS: 900,
         ZITADEL_LOGIN_CLIENT_PAT: "test-pat-not-a-real-secret-value",
         FLOW_COOKIE_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-        ZITADEL_LOGIN_V2_ENABLED: true,
-        ZITADEL_EMAIL_OTP_V2_ENABLED: true,
-        ZITADEL_PASSWORD_V2_ENABLED: true,
-        ZITADEL_PASSKEY_V2_ENABLED: true,
-        ZITADEL_IDP_V2_ENABLED: true,
         RATE_LIMITER: { limit: async () => ({ success: true }) },
       },
       mockFetch,
@@ -103,5 +93,44 @@ describe("identityProviderV2IntentStart", () => {
     if (result.success && "transition" in result.data) {
       expect(result.data.transition.kind).toBe("fallback")
     }
+  })
+
+  test("returns fallback before creating an IdP intent for an unsupported live MFA policy", async () => {
+    const mockFetch = async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === `${identityOrigin}/v2/settings/login`) {
+        return Response.json({ settings: { allowExternalIdp: true, secondFactors: ["SECOND_FACTOR_TYPE_UNKNOWN"] } })
+      }
+      if (url === `${identityOrigin}/v2/settings/login/idps`) {
+        return Response.json({
+          identityProviders: [{ id: "google-1", name: "Google", type: "IDENTITY_PROVIDER_TYPE_GOOGLE" }],
+        })
+      }
+      throw new Error(`Unexpected url: ${url}`)
+    }
+    const client = zitadelClientCreate(
+      {
+        ZITADEL_ORIGIN: identityOrigin,
+        ZITADEL_ORGANIZATION_ID: "org-1",
+        ZITADEL_ALLOWED_CLIENT_IDS: ["client-1"],
+        LOGIN_V2_FALLBACK_URL: `${identityOrigin}/ui/v2/login`,
+        PAGES_ORIGIN: pagesOrigin,
+        SESSION_LIFETIME_SECONDS: 900,
+        ZITADEL_LOGIN_CLIENT_PAT: "test-pat-not-a-real-secret-value",
+        FLOW_COOKIE_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        RATE_LIMITER: { limit: async () => ({ success: true }) },
+      },
+      mockFetch,
+    )
+
+    const result = await identityProviderV2IntentStart({
+      state: readyState,
+      idpId: "google-1",
+      pagesOrigin,
+      client,
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success && "transition" in result.data) expect(result.data.transition.kind).toBe("fallback")
   })
 })

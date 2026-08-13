@@ -21,12 +21,6 @@ const bindings: WorkerBindingsInput = {
   SESSION_LIFETIME_SECONDS: "900",
   ZITADEL_LOGIN_CLIENT_PAT: "test-pat-not-a-real-secret-value",
   FLOW_COOKIE_KEY: key,
-  ZITADEL_LOGIN_V2_ENABLED: "true",
-  ZITADEL_EMAIL_OTP_V2_ENABLED: "true",
-  ZITADEL_PASSWORD_V2_ENABLED: "true",
-  ZITADEL_PASSKEY_V2_ENABLED: "true",
-  ZITADEL_IDP_V2_ENABLED: "true",
-  ZITADEL_MFA_V2_ENABLED: "true",
   RATE_LIMITER: { limit: async () => ({ success: true }) },
 }
 
@@ -110,7 +104,7 @@ describe("GET /api/v2/identity-provider/callback/:provider", () => {
           cookie: `${flowCookieNameGet(flowHandle)}=${cookieValue}`,
         },
       },
-      bindings,
+      { ...bindings, ZITADEL_CUSTOM_LOGIN_ENABLED: "false" },
     )
 
     expect(response.status).toBe(302)
@@ -161,7 +155,7 @@ describe("GET /api/v2/identity-provider/callback/:provider", () => {
         return Response.json({ authMethodTypes: ["AUTHENTICATION_METHOD_TYPE_TOTP"] })
       }
       if (url === `${identityOrigin}/v2/settings/login`) {
-        return Response.json({ settings: { forceMfa: true } })
+        return Response.json({ settings: { forceMfa: true, secondFactors: ["SECOND_FACTOR_TYPE_OTP"] } })
       }
       throw new Error(`Unexpected native request: ${url}`)
     }

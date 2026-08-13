@@ -105,7 +105,6 @@ describe("passkeyV2ChallengeCreate domain", () => {
       state: readyState,
       identifier: "user@example.com",
       rpId: "client.example",
-      mfaV2Enabled: false,
       now: 1_800_000_000,
       client: native.client,
     })
@@ -159,7 +158,6 @@ describe("passkeyV2ChallengeCreate domain", () => {
       state: passkeyState,
       identifier: "user@example.com",
       rpId: "client.example",
-      mfaV2Enabled: false,
       now: 1_800_000_000,
       client: native.client,
     })
@@ -176,7 +174,6 @@ describe("passkeyV2ChallengeCreate domain", () => {
       state: readyState,
       identifier: "user@example.com",
       rpId: "client.example",
-      mfaV2Enabled: false,
       now: 1_800_000_000,
       client: native.client,
     })
@@ -196,7 +193,6 @@ describe("passkeyV2ChallengeCreate domain", () => {
       state: readyState,
       identifier: "user@example.com",
       rpId: "client.example",
-      mfaV2Enabled: false,
       now: 1_800_000_000,
       client: native.client,
     })
@@ -218,7 +214,28 @@ describe("passkeyV2ChallengeCreate domain", () => {
       state: readyState,
       identifier: "user@example.com",
       rpId: "client.example",
-      mfaV2Enabled: false,
+      now: 1_800_000_000,
+      client: native.client,
+    })
+
+    expect(result).toEqual({
+      success: true,
+      data: {
+        state: expect.objectContaining({ stage: "passkey", sessionId: "session-1" }),
+        transition: expect.objectContaining({ kind: "render", route: "/login/passkey?flow=AAAAAAAAAAAAAAAAAAAAAA" }),
+      },
+    })
+    expect(native.calls).toEqual([{ method: "passkeySessionCreate", domain: "client.example" }])
+  })
+
+  test("returns fallback before creating a challenge for an unsupported live MFA policy", async () => {
+    const native = clientCreate()
+    native.client.loginSettingsGet = async () =>
+      resultCreate({ settings: { allowLocalAuthentication: true, secondFactors: ["SECOND_FACTOR_TYPE_UNKNOWN"] } })
+    const result = await passkeyV2ChallengeCreate({
+      state: readyState,
+      identifier: "user@example.com",
+      rpId: "client.example",
       now: 1_800_000_000,
       client: native.client,
     })
@@ -239,7 +256,6 @@ describe("passkeyV2ChallengeCreate domain", () => {
       state: readyState,
       identifier: "user@example.com",
       rpId: "client.example",
-      mfaV2Enabled: false,
       now: 1_800_000_000,
       client: native.client,
     })
@@ -259,7 +275,6 @@ describe("passkeyV2ChallengeCreate domain", () => {
       state: readyState,
       identifier: "user@example.com",
       rpId: "client.example",
-      mfaV2Enabled: false,
       now: 1_800_000_000,
       client: native.client,
     })

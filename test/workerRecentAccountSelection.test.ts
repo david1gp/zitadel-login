@@ -27,7 +27,7 @@ const bindings: WorkerBindingsInput = {
   ZITADEL_LOGIN_CLIENT_PAT: "test-pat-not-a-real-secret-value",
   FLOW_COOKIE_KEY: flowKey,
   RECENT_ACCOUNT_COOKIE_KEY: accountKey,
-  ZITADEL_LOGIN_V2_ENABLED: "true",
+  ZITADEL_CUSTOM_LOGIN_ENABLED: "true",
   ZITADEL_RECENT_ACCOUNT_V2_ENABLED: "true",
   RATE_LIMITER: { limit: async () => ({ success: true }) },
 }

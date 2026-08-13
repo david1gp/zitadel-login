@@ -110,6 +110,13 @@ export async function appInitializationStart(
     return resultCreate({ status: "fatal", errorMessage: "The sign-in service returned an invalid response." })
   }
 
+  if (bootstrapResult && !bootstrapResult.success && transition.screen.name === "email_otp_start") {
+    return resultCreate({
+      status: "fallback",
+      fallbackUrl: `/api/v2/flow/fallback?flow=${encodeURIComponent(flowHandle)}`,
+    })
+  }
+
   const bootstrapData = bootstrapResult?.success ? bootstrapResult.data : fallbackBootstrap
   const noticeMessage =
     bootstrapResult && !bootstrapResult.success ? "Some sign-in methods are temporarily unavailable." : undefined

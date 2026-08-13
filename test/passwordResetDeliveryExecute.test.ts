@@ -21,13 +21,7 @@ const bindings = {
   FLOW_COOKIE_PREVIOUS_KEY: undefined,
   RECENT_ACCOUNT_COOKIE_KEY: undefined,
   RECENT_ACCOUNT_COOKIE_PREVIOUS_KEY: undefined,
-  ZITADEL_LOGIN_V2_ENABLED: false,
-  ZITADEL_EMAIL_OTP_V2_ENABLED: false,
-  ZITADEL_PASSWORD_V2_ENABLED: false,
   ZITADEL_PASSWORD_RESET_V2_ENABLED: true,
-  ZITADEL_PASSKEY_V2_ENABLED: false,
-  ZITADEL_IDP_V2_ENABLED: false,
-  ZITADEL_MFA_V2_ENABLED: false,
   ZITADEL_RECENT_ACCOUNT_V2_ENABLED: false,
   RATE_LIMITER: { limit: async () => ({ success: true }) },
 } satisfies WorkerBindings

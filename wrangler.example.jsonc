@@ -14,8 +14,8 @@
     "LOGIN_V2_FALLBACK_URL": "https://your-zitadel.example/ui/v2/login",
     "PAGES_ORIGIN": "https://your-pages.example",
     "SESSION_LIFETIME_SECONDS": "900",
-    "ZITADEL_PASSWORD_RESET_V2_ENABLED": "false",
-    "ZITADEL_MFA_V2_ENABLED": "false"
+    "ZITADEL_CUSTOM_LOGIN_ENABLED": "false",
+    "ZITADEL_PASSWORD_RESET_V2_ENABLED": "false"
   },
   "ratelimits": [
     {

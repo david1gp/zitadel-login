@@ -66,13 +66,8 @@ export const workerBindingsSchema = v.strictObject({
   RECENT_ACCOUNT_COOKIE_PREVIOUS_KEY: v.optional(
     v.pipe(v.string(), v.regex(/^[A-Za-z0-9_-]{43}$/, "Expected an unpadded base64url-encoded 32-byte key")),
   ),
-  ZITADEL_LOGIN_V2_ENABLED: booleanBindingSchema,
-  ZITADEL_EMAIL_OTP_V2_ENABLED: booleanBindingSchema,
-  ZITADEL_PASSWORD_V2_ENABLED: booleanBindingSchema,
+  ZITADEL_CUSTOM_LOGIN_ENABLED: booleanBindingSchema,
   ZITADEL_PASSWORD_RESET_V2_ENABLED: booleanBindingSchema,
-  ZITADEL_PASSKEY_V2_ENABLED: booleanBindingSchema,
-  ZITADEL_IDP_V2_ENABLED: booleanBindingSchema,
-  ZITADEL_MFA_V2_ENABLED: booleanBindingSchema,
   ZITADEL_RECENT_ACCOUNT_V2_ENABLED: booleanBindingSchema,
   RATE_LIMITER: rateLimiterSchema,
 })

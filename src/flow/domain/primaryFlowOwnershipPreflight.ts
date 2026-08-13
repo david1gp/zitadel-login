@@ -1,3 +1,5 @@
+import { primaryFlowMfaPolicyEvaluate } from "./primaryFlowMfaPolicyEvaluate"
+
 type PrimaryMethod = "email_otp" | "passkey" | "password"
 
 type Input = {
@@ -8,9 +10,12 @@ type Input = {
   maxAgeSeconds?: number
   organizationId: string
   identifier: string
-  mfaV2Enabled: boolean
-  forceMfa: boolean
-  forceMfaLocalOnly: boolean
+  policy: {
+    forceMfa?: boolean
+    forceMfaLocalOnly?: boolean
+    secondFactors?: string[]
+    multiFactors?: string[]
+  }
   now: number
   passwordMaxAgeDays?: number
   methods: string[]
@@ -38,13 +43,6 @@ const supportedMethods = new Set([
   "AUTHENTICATION_METHOD_TYPE_TOTP",
   "AUTHENTICATION_METHOD_TYPE_U2F",
 ])
-const mfaMethods = new Set([
-  "AUTHENTICATION_METHOD_TYPE_OTP_EMAIL",
-  "AUTHENTICATION_METHOD_TYPE_OTP_SMS",
-  "AUTHENTICATION_METHOD_TYPE_TOTP",
-  "AUTHENTICATION_METHOD_TYPE_U2F",
-])
-
 function loginHintMatches(input: Input): boolean {
   if (!input.loginHint) return true
   const expected = input.loginHint.trim().toLowerCase()
@@ -86,9 +84,12 @@ export function primaryFlowOwnershipPreflight(input: Input): boolean {
   if (input.method === "email_otp" && input.user.human.email?.isVerified !== true) return false
   if (!passwordLifecycleIsSupported(input)) return false
 
-  const enrolledMfa = input.methods.some(
-    (method) => mfaMethods.has(method) && !(input.method === "email_otp" && method === primaryMethod),
-  )
-  const policyMayRequireMfa = input.forceMfa || (input.method === "password" && input.forceMfaLocalOnly)
-  return input.mfaV2Enabled || (!enrolledMfa && !policyMayRequireMfa)
+  const mfa = primaryFlowMfaPolicyEvaluate({
+    method: input.method,
+    methods: input.methods,
+    emailVerified: input.user.human.email?.isVerified === true,
+    phoneVerified: input.user.human.phone?.isVerified === true,
+    policy: input.policy,
+  })
+  return mfa.supported
 }

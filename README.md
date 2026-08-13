@@ -67,6 +67,7 @@ Copy [`wrangler.example.jsonc`](./wrangler.example.jsonc) to `wrangler.jsonc` an
 | `LOGIN_V2_FALLBACK_URL` | No | ZITADEL Login V2 URL, using the same origin as `ZITADEL_ORIGIN`, normally `/ui/v2/login`. |
 | `PAGES_ORIGIN` | No | Exact HTTPS Pages origin allowed to call the Worker. `http://localhost` is allowed locally. |
 | `SESSION_LIFETIME_SECONDS` | No | Flow/session lifetime from `60` through `1800` seconds; the example uses `900`. |
+| `ZITADEL_CUSTOM_LOGIN_ENABLED` | No | Strict `true`/`false` emergency switch for the custom Login App; defaults to `false`. |
 | `ZITADEL_LOGIN_CLIENT_PAT` | Yes | ZITADEL machine-user PAT with the permissions required by the listed v2 APIs. Set as a Worker secret. |
 | `FLOW_COOKIE_KEY` | Yes | 32 random bytes as unpadded base64url, exactly 43 characters. Set as a Worker secret. |
 | `RATE_LIMITER` | No | Cloudflare Rate Limit binding named `RATE_LIMITER`; the example uses a five-request, 60-second window. |

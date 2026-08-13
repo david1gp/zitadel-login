@@ -132,6 +132,7 @@ describe("v2 email OTP flow component & URL scrubbing", () => {
   test("resumes from flow parameter on page reload", async () => {
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
+      if (url.includes("/api/v2/bootstrap")) return Response.json({ success: true, data: bootstrap })
       if (url.includes("/api/v2/flow/resume")) {
         return Response.json({
           success: true,
@@ -175,6 +176,7 @@ describe("v2 email OTP flow component & URL scrubbing", () => {
   test("handles back/forward popstate browser history navigation safely", async () => {
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
+      if (url.includes("/api/v2/bootstrap")) return Response.json({ success: true, data: bootstrap })
       if (url.includes("/api/v2/flow/resume")) {
         return Response.json({
           success: true,

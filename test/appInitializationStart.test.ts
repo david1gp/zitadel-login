@@ -110,6 +110,70 @@ describe("appInitializationStart", () => {
     }
   })
 
+  test("falls back to native Login V2 when bootstrap fails for a fresh flow", async () => {
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes("/api/v2/bootstrap"))
+        return Response.json({ success: false, errorMessage: "unavailable" }, { status: 503 })
+      if (url.includes("/api/v2/flow/initialize")) {
+        return Response.json({
+          success: true,
+          data: {
+            kind: "render",
+            route: `/login/email-otp?flow=${validFlow}`,
+            screen: { name: "email_otp_start" },
+            csrfToken: validCsrf,
+          },
+        })
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    const result = await appInitializationStart(
+      "https://worker.example",
+      new URL("https://login.example/login?authRequest=request-1"),
+      () => undefined,
+    )
+
+    expect(result).toEqual({
+      success: true,
+      data: { status: "fallback", fallbackUrl: `/api/v2/flow/fallback?flow=${validFlow}` },
+    })
+  })
+
+  test("keeps an authoritative continuation screen when bootstrap fails", async () => {
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes("/api/v2/bootstrap"))
+        return Response.json({ success: false, errorMessage: "unavailable" }, { status: 503 })
+      if (url.includes("/api/v2/flow/resume")) {
+        return Response.json({
+          success: true,
+          data: {
+            kind: "render",
+            route: `/login/email-otp?flow=${validFlow}`,
+            screen: { name: "email_otp_code" },
+            csrfToken: validCsrf,
+          },
+        })
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    const result = await appInitializationStart(
+      "https://worker.example",
+      new URL(`https://login.example/login/email-otp?flow=${validFlow}`),
+      () => undefined,
+    )
+
+    expect(result.success).toBe(true)
+    if (result.success && result.data.status === "ready") {
+      expect(result.data.bootstrap.primaryMethods).toEqual([])
+      expect(result.data.emailStep).toBe("code")
+      expect(result.data.routeSelection).toEqual({ method: "email_otp" })
+    }
+  })
+
   test("uses the canonical password route when resuming at the chooser route", async () => {
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)

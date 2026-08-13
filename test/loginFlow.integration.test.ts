@@ -45,8 +45,7 @@ const bindings: WorkerBindingsInput = {
   SESSION_LIFETIME_SECONDS: "900",
   ZITADEL_LOGIN_CLIENT_PAT: "test-pat-not-a-secret-value",
   FLOW_COOKIE_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-  ZITADEL_LOGIN_V2_ENABLED: "true",
-  ZITADEL_EMAIL_OTP_V2_ENABLED: "true",
+  ZITADEL_CUSTOM_LOGIN_ENABLED: "true",
   RATE_LIMITER: { limit: async () => ({ success: true }) },
 }
 

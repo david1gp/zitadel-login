@@ -8,7 +8,6 @@ import { zitadelClientCreate } from "../../zitadel/zitadelClientCreate"
 type Input = {
   state: Extract<FlowV2Cookie, { stage: "ready" }>
   email: string
-  mfaV2Enabled: boolean
   now: number
   client: ReturnType<typeof zitadelClientCreate>
 }
@@ -82,9 +81,7 @@ export async function emailOtpV2Start(input: Input) {
       ...(input.state.maxAgeSeconds !== undefined ? { maxAgeSeconds: input.state.maxAgeSeconds } : {}),
       organizationId: input.state.organizationId,
       identifier: input.email,
-      mfaV2Enabled: input.mfaV2Enabled,
-      forceMfa: settings.data.settings.forceMfa === true,
-      forceMfaLocalOnly: settings.data.settings.forceMfaLocalOnly === true,
+      policy: settings.data.settings,
       now: input.now,
       methods: methods.data.authMethodTypes,
       user,

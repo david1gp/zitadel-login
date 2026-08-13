@@ -18,6 +18,8 @@ import { zitadelClientCreate } from "../zitadel/zitadelClientCreate"
 
 const flowCookieName = "__Host-zitadel-login-flow"
 const rateLimitRetryAfterSeconds = 60
+const bootstrapCacheVersion = "v3"
+const bootstrapCacheLifetimeSeconds = 60
 const callbackQueryParameterNames = new Set(["code", "state", "error", "error_description", "error_uri"])
 const authRequestQuerySchema = v.strictObject({
   authRequest: v.pipe(v.string(), v.minLength(1), v.maxLength(200), v.regex(/^[A-Za-z0-9._~-]+$/)),
@@ -431,6 +433,8 @@ export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
     const set = await flowCookieSet(c, bindings.data, state)
     if (!set.success) return errorResponse(c, 500, "service_unavailable", "The sign-in service is unavailable.")
 
+    if (!bindings.data.ZITADEL_CUSTOM_LOGIN_ENABLED) return fallbackResponse(c)
+
     if (authRequest.data.prompt.includes("PROMPT_NONE")) {
       return c.json({ status: "continue", continuationUrl: "/api/prompt-none" })
     }
@@ -465,24 +469,6 @@ export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
         return bootstrapResultResponse(c, resultErrorCreate("bootstrap", "Invalid bootstrap request"), 403)
     }
 
-    const cacheKey = [
-      "v2",
-      bindings.data.ZITADEL_ORIGIN,
-      bindings.data.ZITADEL_ORGANIZATION_ID,
-      Number(bindings.data.ZITADEL_LOGIN_V2_ENABLED),
-      Number(bindings.data.ZITADEL_EMAIL_OTP_V2_ENABLED),
-      Number(bindings.data.ZITADEL_PASSWORD_V2_ENABLED),
-      Number(bindings.data.ZITADEL_PASSWORD_RESET_V2_ENABLED),
-      Number(bindings.data.ZITADEL_PASSKEY_V2_ENABLED),
-      Number(bindings.data.ZITADEL_IDP_V2_ENABLED),
-      Number(bindings.data.ZITADEL_MFA_V2_ENABLED),
-    ].join(":")
-    const now = dependencies.now()
-    const cached = dependencies.bootstrapCache.get(cacheKey, now)
-    if (cached) {
-      return bootstrapResultResponse(c, resultCreate(query.output.updatedAt === cached.updatedAt ? null : cached), 200)
-    }
-
     const client = zitadelClientCreate(bindings.data, dependencies.fetch)
     const organization = await client.organizationGet(bindings.data.ZITADEL_ORGANIZATION_ID)
     if (
@@ -494,26 +480,34 @@ export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
       return bootstrapResultResponse(c, resultErrorCreate("bootstrap", "Bootstrap organization is unavailable"), 403)
     }
 
+    const cacheKey = [
+      bootstrapCacheVersion,
+      bindings.data.ZITADEL_ORIGIN,
+      bindings.data.ZITADEL_ORGANIZATION_ID,
+      Number(bindings.data.ZITADEL_CUSTOM_LOGIN_ENABLED),
+      Number(bindings.data.ZITADEL_PASSWORD_RESET_V2_ENABLED),
+    ].join(":")
+    const now = dependencies.now()
+    const cached = dependencies.bootstrapCache.get(cacheKey, now)
+    if (cached) {
+      return bootstrapResultResponse(c, resultCreate(query.output.updatedAt === cached.updatedAt ? null : cached), 200)
+    }
+
     const view = await bootstrapViewGet({
       client,
+      customLoginEnabled: bindings.data.ZITADEL_CUSTOM_LOGIN_ENABLED,
       now,
       organization: { id: organization.data.id, name: organization.data.name },
       origin: bindings.data.ZITADEL_ORIGIN,
       capabilities: {
-        loginV2: bindings.data.ZITADEL_LOGIN_V2_ENABLED,
-        emailOtpV2: bindings.data.ZITADEL_EMAIL_OTP_V2_ENABLED,
-        passwordV2: bindings.data.ZITADEL_PASSWORD_V2_ENABLED,
         passwordResetV2: bindings.data.ZITADEL_PASSWORD_RESET_V2_ENABLED,
-        passkeyV2: bindings.data.ZITADEL_PASSKEY_V2_ENABLED,
-        idpV2: bindings.data.ZITADEL_IDP_V2_ENABLED,
-        mfaV2: bindings.data.ZITADEL_MFA_V2_ENABLED,
       },
     })
     if (!view.success) {
       dependencies.logger.error("bootstrap_settings_failed")
       return bootstrapResultResponse(c, view, 502)
     }
-    dependencies.bootstrapCache.set(cacheKey, view.data, now + 3600)
+    dependencies.bootstrapCache.set(cacheKey, view.data, now + bootstrapCacheLifetimeSeconds)
     return bootstrapResultResponse(
       c,
       resultCreate(query.output.updatedAt === view.data.updatedAt ? null : view.data),
@@ -538,6 +532,8 @@ export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
     if (!csrfTokenMatches(payload.data.csrfToken, state.data.csrfToken)) {
       return errorResponse(c, 403, "csrf_rejected", "Request verification failed.")
     }
+    if (!bindings.data.ZITADEL_CUSTOM_LOGIN_ENABLED) return fallbackResponse(c)
+
     const startLimit = await abuseLimitCheck(bindings.data.RATE_LIMITER, bindings.data.FLOW_COOKIE_KEY, "otp-start", [
       ["email", payload.data.email],
       ["ip", c.req.header("cf-connecting-ip") ?? "unknown"],

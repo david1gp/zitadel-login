@@ -10,6 +10,6 @@ export const fallbackBootstrap: BootstrapView = {
   },
   identityProviders: [],
   organization: { id: "default", name: "Contentoren" },
-  primaryMethods: ["email_otp"],
+  primaryMethods: [],
   updatedAt: 0,
 }

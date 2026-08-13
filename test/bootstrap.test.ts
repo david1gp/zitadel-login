@@ -12,13 +12,8 @@ const bindings: WorkerBindingsInput = {
   SESSION_LIFETIME_SECONDS: "900",
   ZITADEL_LOGIN_CLIENT_PAT: "test-pat-not-a-real-secret-value",
   FLOW_COOKIE_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-  ZITADEL_LOGIN_V2_ENABLED: "true",
-  ZITADEL_EMAIL_OTP_V2_ENABLED: "true",
-  ZITADEL_PASSWORD_V2_ENABLED: "true",
+  ZITADEL_CUSTOM_LOGIN_ENABLED: "true",
   ZITADEL_PASSWORD_RESET_V2_ENABLED: "true",
-  ZITADEL_PASSKEY_V2_ENABLED: "true",
-  ZITADEL_IDP_V2_ENABLED: "true",
-  ZITADEL_MFA_V2_ENABLED: "true",
   RATE_LIMITER: { limit: async () => ({ success: true }) },
 }
 
@@ -30,7 +25,7 @@ const authRequest = {
   prompt: ["PROMPT_LOGIN"],
 }
 
-const defaultOrganization = {
+const configuredOrganization = {
   result: [{ id: "org-contentoren", name: "Contentoren", state: "ORGANIZATION_STATE_ACTIVE" }],
 }
 
@@ -127,7 +122,7 @@ describe("v2 bootstrap contract", () => {
           expect(JSON.parse(String(init?.body))).toEqual({
             queries: [{ idQuery: { id: bindings.ZITADEL_ORGANIZATION_ID } }],
           })
-          return jsonResponse(defaultOrganization)
+          return jsonResponse(configuredOrganization)
         }
         if (url.endsWith("/v2/settings/branding")) {
           headersAssert(init, bindings.ZITADEL_ORGANIZATION_ID)
@@ -241,7 +236,7 @@ describe("v2 bootstrap contract", () => {
         calls += 1
         const url = requestUrl(input)
         if (url.endsWith(`/v2/oidc/auth_requests/${authRequest.id}`)) return jsonResponse({ authRequest })
-        if (url.endsWith("/v2/organizations/_search")) return jsonResponse(defaultOrganization)
+        if (url.endsWith("/v2/organizations/_search")) return jsonResponse(configuredOrganization)
         if (url.endsWith("/v2/settings/branding")) return jsonResponse(brandingSettings)
         if (url.endsWith("/v2/settings/login")) return jsonResponse(loginSettings)
         if (url.endsWith("/v2/settings/login/idps")) return jsonResponse(identityProviders)
@@ -255,7 +250,102 @@ describe("v2 bootstrap contract", () => {
 
     expect(first.status).toBe(200)
     expect(await second.json()).toEqual({ success: true, data: null })
+    expect(calls).toBe(7)
+  })
+
+  test("does not trust a cached projection when the auth request becomes invalid", async () => {
+    let authRequestCalls = 0
+    let calls = 0
+    const app = workerAppCreate({
+      fetch: async (input) => {
+        calls += 1
+        const url = requestUrl(input)
+        if (url.endsWith(`/v2/oidc/auth_requests/${authRequest.id}`)) {
+          authRequestCalls += 1
+          return jsonResponse({
+            authRequest:
+              authRequestCalls === 1
+                ? authRequest
+                : { ...authRequest, scope: ["openid", "urn:zitadel:iam:org:id:other"] },
+          })
+        }
+        if (url.endsWith("/v2/organizations/_search")) return jsonResponse(configuredOrganization)
+        if (url.endsWith("/v2/settings/branding")) return jsonResponse(brandingSettings)
+        if (url.endsWith("/v2/settings/login")) return jsonResponse(loginSettings)
+        if (url.endsWith("/v2/settings/login/idps")) return jsonResponse(identityProviders)
+        throw new Error(`Unexpected native call: ${url}`)
+      },
+      now: () => 1_800_000_000,
+    })
+
+    expect((await app.fetch(bootstrapRequest(), bindings)).status).toBe(200)
+    const response = await app.fetch(bootstrapRequest(), bindings)
+
+    expect(response.status).toBe(403)
     expect(calls).toBe(6)
+  })
+
+  test("does not trust a cached projection when the configured organization changes", async () => {
+    let organizationCalls = 0
+    let calls = 0
+    const app = workerAppCreate({
+      fetch: async (input) => {
+        calls += 1
+        const url = requestUrl(input)
+        if (url.endsWith(`/v2/oidc/auth_requests/${authRequest.id}`)) return jsonResponse({ authRequest })
+        if (url.endsWith("/v2/organizations/_search")) {
+          organizationCalls += 1
+          return jsonResponse({
+            result: [
+              organizationCalls === 1
+                ? configuredOrganization.result[0]
+                : { id: "org-other", name: "Other", state: "ORGANIZATION_STATE_ACTIVE" },
+            ],
+          })
+        }
+        if (url.endsWith("/v2/settings/branding")) return jsonResponse(brandingSettings)
+        if (url.endsWith("/v2/settings/login")) return jsonResponse(loginSettings)
+        if (url.endsWith("/v2/settings/login/idps")) return jsonResponse(identityProviders)
+        throw new Error(`Unexpected native call: ${url}`)
+      },
+      now: () => 1_800_000_000,
+    })
+
+    expect((await app.fetch(bootstrapRequest(), bindings)).status).toBe(200)
+    const response = await app.fetch(bootstrapRequest(), bindings)
+
+    expect(response.status).toBe(403)
+    expect(calls).toBe(7)
+  })
+
+  test("expires cached live settings after 60 seconds and separates the global switch", async () => {
+    let now = 1_800_000_000
+    let calls = 0
+    const app = workerAppCreate({
+      fetch: async (input) => {
+        calls += 1
+        const url = requestUrl(input)
+        if (url.endsWith(`/v2/oidc/auth_requests/${authRequest.id}`)) return jsonResponse({ authRequest })
+        if (url.endsWith("/v2/organizations/_search")) return jsonResponse(configuredOrganization)
+        if (url.endsWith("/v2/settings/branding")) return jsonResponse(brandingSettings)
+        if (url.endsWith("/v2/settings/login")) return jsonResponse(loginSettings)
+        if (url.endsWith("/v2/settings/login/idps")) return jsonResponse(identityProviders)
+        throw new Error(`Unexpected native call: ${url}`)
+      },
+      now: () => now,
+    })
+
+    expect((await app.fetch(bootstrapRequest(), bindings)).status).toBe(200)
+    now += 59
+    expect((await app.fetch(bootstrapRequest(), bindings)).status).toBe(200)
+    const disabled = await app.fetch(bootstrapRequest(), { ...bindings, ZITADEL_CUSTOM_LOGIN_ENABLED: "false" })
+    now += 1
+    const expired = await app.fetch(bootstrapRequest(), bindings)
+
+    expect(expired.status).toBe(200)
+    expect(disabled.status).toBe(200)
+    expect((await disabled.json()).data.primaryMethods).toEqual([])
+    expect(calls).toBe(17)
   })
 
   test("fails closed on malformed upstream branding without returning upstream data", async () => {
@@ -263,7 +353,7 @@ describe("v2 bootstrap contract", () => {
       fetch: async (input) => {
         const url = requestUrl(input)
         if (url.endsWith(`/v2/oidc/auth_requests/${authRequest.id}`)) return jsonResponse({ authRequest })
-        if (url.endsWith("/v2/organizations/_search")) return jsonResponse(defaultOrganization)
+        if (url.endsWith("/v2/organizations/_search")) return jsonResponse(configuredOrganization)
         if (url.endsWith("/v2/settings/branding"))
           return jsonResponse({ settings: { lightTheme: { primaryColor: 42 } } })
         if (url.endsWith("/v2/settings/login")) return jsonResponse(loginSettings)
@@ -288,7 +378,7 @@ describe("v2 bootstrap contract", () => {
       fetch: async (input) => {
         const url = requestUrl(input)
         if (url.endsWith(`/v2/oidc/auth_requests/${authRequest.id}`)) return jsonResponse({ authRequest })
-        if (url.endsWith("/v2/organizations/_search")) return jsonResponse(defaultOrganization)
+        if (url.endsWith("/v2/organizations/_search")) return jsonResponse(configuredOrganization)
         if (url.endsWith("/v2/settings/branding")) return jsonResponse(brandingSettings)
         if (url.endsWith("/v2/settings/login")) return jsonResponse(loginSettings)
         if (url.endsWith("/v2/settings/login/idps"))
@@ -314,12 +404,12 @@ describe("v2 bootstrap contract", () => {
     expect(body).not.toContain("tokenEndpoint")
   })
 
-  test("omits disabled methods from primaryMethods when capability gates are off", async () => {
+  test("derives primary methods from live policy instead of legacy rollout gates", async () => {
     const app = workerAppCreate({
       fetch: async (input) => {
         const url = requestUrl(input)
         if (url.endsWith(`/v2/oidc/auth_requests/${authRequest.id}`)) return jsonResponse({ authRequest })
-        if (url.endsWith("/v2/organizations/_search")) return jsonResponse(defaultOrganization)
+        if (url.endsWith("/v2/organizations/_search")) return jsonResponse(configuredOrganization)
         if (url.endsWith("/v2/settings/branding")) return jsonResponse(brandingSettings)
         if (url.endsWith("/v2/settings/login")) return jsonResponse(loginSettings)
         if (url.endsWith("/v2/settings/login/idps")) return jsonResponse(identityProviders)
@@ -330,8 +420,6 @@ describe("v2 bootstrap contract", () => {
 
     const customBindings: WorkerBindingsInput = {
       ...bindings,
-      ZITADEL_PASSWORD_V2_ENABLED: "false",
-      ZITADEL_PASSKEY_V2_ENABLED: "false",
     }
 
     const response = await app.fetch(bootstrapRequest(), customBindings)
@@ -348,7 +436,7 @@ describe("v2 bootstrap contract", () => {
           { id: "github-1", name: "GitHub", type: "github" },
         ],
         organization: { id: "org-contentoren", name: "Contentoren" },
-        primaryMethods: ["email_otp", "identity_provider"],
+        primaryMethods: ["email_otp", "password", "passkey", "identity_provider"],
         updatedAt: 1_800_000_000,
       },
     })
@@ -359,7 +447,7 @@ describe("v2 bootstrap contract", () => {
       fetch: async (input) => {
         const url = requestUrl(input)
         if (url.endsWith(`/v2/oidc/auth_requests/${authRequest.id}`)) return jsonResponse({ authRequest })
-        if (url.endsWith("/v2/organizations/_search")) return jsonResponse(defaultOrganization)
+        if (url.endsWith("/v2/organizations/_search")) return jsonResponse(configuredOrganization)
         if (url.endsWith("/v2/settings/branding")) return jsonResponse(brandingSettings)
         if (url.endsWith("/v2/settings/login")) return jsonResponse(loginSettings)
         if (url.endsWith("/v2/settings/login/idps")) return jsonResponse(identityProviders)
@@ -383,7 +471,7 @@ describe("v2 bootstrap contract", () => {
       fetch: async (input) => {
         const url = requestUrl(input)
         if (url.endsWith(`/v2/oidc/auth_requests/${authRequest.id}`)) return jsonResponse({ authRequest })
-        if (url.endsWith("/v2/organizations/_search")) return jsonResponse(defaultOrganization)
+        if (url.endsWith("/v2/organizations/_search")) return jsonResponse(configuredOrganization)
         if (url.endsWith("/v2/settings/branding")) return jsonResponse(brandingSettings)
         if (url.endsWith("/v2/settings/login")) {
           return jsonResponse({ settings: { ...loginSettings.settings, hidePasswordReset: true } })
@@ -406,7 +494,7 @@ describe("v2 bootstrap contract", () => {
       fetch: async (input) => {
         const url = requestUrl(input)
         if (url.endsWith(`/v2/oidc/auth_requests/${authRequest.id}`)) return jsonResponse({ authRequest })
-        if (url.endsWith("/v2/organizations/_search")) return jsonResponse(defaultOrganization)
+        if (url.endsWith("/v2/organizations/_search")) return jsonResponse(configuredOrganization)
         if (url.endsWith("/v2/settings/branding")) return jsonResponse(brandingSettings)
         if (url.endsWith("/v2/settings/login")) {
           return jsonResponse({ settings: { ...loginSettings.settings, allowLocalAuthentication: false } })
@@ -424,12 +512,12 @@ describe("v2 bootstrap contract", () => {
     expect(body.data.capabilities).toEqual({ passwordRecovery: false })
   })
 
-  test("does not advertise IdPs or forced unowned MFA branches when the MFA gate is off", async () => {
+  test("does not use the legacy MFA gate for primary methods or providers", async () => {
     const app = workerAppCreate({
       fetch: async (input) => {
         const url = requestUrl(input)
         if (url.endsWith(`/v2/oidc/auth_requests/${authRequest.id}`)) return jsonResponse({ authRequest })
-        if (url.endsWith("/v2/organizations/_search")) return jsonResponse(defaultOrganization)
+        if (url.endsWith("/v2/organizations/_search")) return jsonResponse(configuredOrganization)
         if (url.endsWith("/v2/settings/branding")) return jsonResponse(brandingSettings)
         if (url.endsWith("/v2/settings/login")) {
           return jsonResponse({
@@ -442,14 +530,37 @@ describe("v2 bootstrap contract", () => {
       now: () => 1_800_000_000,
     })
 
-    const response = await app.fetch(bootstrapRequest(), {
-      ...bindings,
-      ZITADEL_MFA_V2_ENABLED: "false",
+    const response = await app.fetch(bootstrapRequest(), bindings)
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.data.primaryMethods).toEqual(["email_otp", "password", "passkey", "identity_provider"])
+    expect(body.data.identityProviders).toEqual([
+      { id: "google-1", name: "Google", type: "google" },
+      { id: "github-1", name: "GitHub", type: "github" },
+    ])
+  })
+
+  test("exposes no custom primary methods or providers when the global switch is off", async () => {
+    const app = workerAppCreate({
+      fetch: async (input) => {
+        const url = requestUrl(input)
+        if (url.endsWith(`/v2/oidc/auth_requests/${authRequest.id}`)) return jsonResponse({ authRequest })
+        if (url.endsWith("/v2/organizations/_search")) return jsonResponse(configuredOrganization)
+        if (url.endsWith("/v2/settings/branding")) return jsonResponse(brandingSettings)
+        if (url.endsWith("/v2/settings/login")) return jsonResponse(loginSettings)
+        if (url.endsWith("/v2/settings/login/idps")) return jsonResponse(identityProviders)
+        throw new Error(`Unexpected native call: ${url}`)
+      },
+      now: () => 1_800_000_000,
     })
+
+    const response = await app.fetch(bootstrapRequest(), { ...bindings, ZITADEL_CUSTOM_LOGIN_ENABLED: "false" })
     const body = await response.json()
 
     expect(response.status).toBe(200)
     expect(body.data.primaryMethods).toEqual([])
     expect(body.data.identityProviders).toEqual([])
+    expect(body.data.capabilities).toEqual({ passwordRecovery: true })
   })
 })

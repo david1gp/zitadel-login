@@ -20,10 +20,7 @@ const bindings: WorkerBindingsInput = {
   SESSION_LIFETIME_SECONDS: "900",
   ZITADEL_LOGIN_CLIENT_PAT: "test-pat-not-a-real-secret-value",
   FLOW_COOKIE_KEY: key,
-  ZITADEL_LOGIN_V2_ENABLED: "true",
-  ZITADEL_EMAIL_OTP_V2_ENABLED: "true",
-  ZITADEL_PASSWORD_V2_ENABLED: "true",
-  ZITADEL_PASSKEY_V2_ENABLED: "true",
+  ZITADEL_CUSTOM_LOGIN_ENABLED: "true",
   RATE_LIMITER: { limit: async () => ({ success: true }) },
 }
 
@@ -72,7 +69,13 @@ function nativeCreate(options: NativeOptions = {}) {
       return Response.json({ authRequest })
     }
     if (url === `${identityOrigin}/v2/settings/login` && method === "GET") {
-      return Response.json({ settings: { allowLocalAuthentication: true, forceMfa: options.forceMfa ?? false } })
+      return Response.json({
+        settings: {
+          allowLocalAuthentication: true,
+          forceMfa: options.forceMfa ?? false,
+          secondFactors: options.methods?.includes("AUTHENTICATION_METHOD_TYPE_TOTP") ? ["SECOND_FACTOR_TYPE_OTP"] : [],
+        },
+      })
     }
     if (url === `${identityOrigin}/v2/users` && method === "POST") {
       return Response.json({
@@ -452,7 +455,7 @@ describe("Worker V2 passkey flow", () => {
     })
   })
 
-  test("returns fallback when ZITADEL_PASSKEY_V2_ENABLED is false", async () => {
+  test("returns fallback when ZITADEL_CUSTOM_LOGIN_ENABLED is false", async () => {
     const native = nativeCreate()
     const app = workerAppCreate({
       fetch: native.fetch,
@@ -476,7 +479,7 @@ describe("Worker V2 passkey flow", () => {
           csrfToken: "B".repeat(43),
         }),
       },
-      { ...bindings, ZITADEL_PASSKEY_V2_ENABLED: "false" },
+      { ...bindings, ZITADEL_CUSTOM_LOGIN_ENABLED: "false" },
     )
 
     expect(response.status).toBe(200)

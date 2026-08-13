@@ -23,10 +23,6 @@ const bindings: WorkerBindingsInput = {
   SESSION_LIFETIME_SECONDS: "900",
   ZITADEL_LOGIN_CLIENT_PAT: "test-pat-not-a-real-secret-value",
   FLOW_COOKIE_KEY: key,
-  ZITADEL_LOGIN_V2_ENABLED: "true",
-  ZITADEL_EMAIL_OTP_V2_ENABLED: "true",
-  ZITADEL_PASSWORD_V2_ENABLED: "true",
-  ZITADEL_MFA_V2_ENABLED: "true",
   RATE_LIMITER: { limit: async () => ({ success: true }) },
 }
 
@@ -190,7 +186,10 @@ describe("Worker required password change", () => {
         error: (event, context) => logs.push({ event, context }),
       },
     })
-    const response = await app.request(requestCreate(await cookieCreate()), undefined, bindings)
+    const response = await app.request(requestCreate(await cookieCreate()), undefined, {
+      ...bindings,
+      ZITADEL_CUSTOM_LOGIN_ENABLED: "false",
+    })
     const body = await response.clone().json()
 
     expect(response.status).toBe(200)

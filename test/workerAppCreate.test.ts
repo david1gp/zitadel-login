@@ -17,6 +17,7 @@ const bindings: WorkerBindingsInput = {
   SESSION_LIFETIME_SECONDS: "900",
   ZITADEL_LOGIN_CLIENT_PAT: "test-pat-not-a-real-secret-value",
   FLOW_COOKIE_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  ZITADEL_CUSTOM_LOGIN_ENABLED: "true",
   RATE_LIMITER: rateLimiter,
 }
 
@@ -258,6 +259,56 @@ describe("Worker native email OTP flow", () => {
     expect(fallback.status).toBe(302)
     expect(fallback.headers.get("location")).toBe("https://identity.example/ui/v2/login?authRequest=request-1")
     expect(call).toBe(4)
+  })
+
+  test("returns native fallback before custom initialization when globally disabled", async () => {
+    let call = 0
+    const app = workerAppCreate({
+      fetch: async () => {
+        call += 1
+        return jsonResponse({ authRequest })
+      },
+    })
+    const response = await app.request(
+      `https://worker.example/api/auth-request?authRequest=${authRequest.id}`,
+      { headers: { origin: bindings.PAGES_ORIGIN } },
+      { ...bindings, ZITADEL_CUSTOM_LOGIN_ENABLED: "false" },
+    )
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ status: "fallback", fallbackUrl: "/api/fallback" })
+    expect(cookieGet(response)).toContain("__Host-zitadel-login-flow=")
+    expect(call).toBe(1)
+  })
+
+  test("returns native fallback before email lookup when globally disabled", async () => {
+    let call = 0
+    const app = workerAppCreate({
+      fetch: async () => {
+        call += 1
+        return jsonResponse({ authRequest })
+      },
+      randomBytes: (length) => new Uint8Array(length).fill(7),
+    })
+    const initialized = await app.request(
+      `https://worker.example/api/auth-request?authRequest=${authRequest.id}`,
+      { headers: { origin: bindings.PAGES_ORIGIN } },
+      bindings,
+    )
+    const body = await initialized.json()
+    const response = await app.request(
+      "https://worker.example/api/email-otp/start",
+      {
+        method: "POST",
+        headers: postHeaders(cookieGet(initialized)),
+        body: JSON.stringify({ email: "person@example.com", csrfToken: body.csrfToken }),
+      },
+      { ...bindings, ZITADEL_CUSTOM_LOGIN_ENABLED: "false" },
+    )
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ status: "fallback", fallbackUrl: "/api/fallback" })
+    expect(call).toBe(1)
   })
 
   test("rejects cross-origin mutation before calling ZITADEL", async () => {

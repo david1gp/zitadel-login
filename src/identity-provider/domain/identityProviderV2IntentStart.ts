@@ -1,13 +1,13 @@
 import type { FlowV2Cookie } from "../../flow/model/flowV2CookieSchema"
 import { resultCreate } from "../../result/resultCreate"
 import { resultErrorCreate } from "../../result/resultErrorCreate"
+import { primaryFlowMfaPolicyEvaluate } from "../../flow/domain/primaryFlowMfaPolicyEvaluate"
 import type { zitadelClientCreate } from "../../zitadel/zitadelClientCreate"
 
 type Input = {
   state: Extract<FlowV2Cookie, { stage: "ready" }>
   idpId: string
   pagesOrigin: string
-  mfaV2Enabled: boolean
   client: ReturnType<typeof zitadelClientCreate>
 }
 
@@ -32,16 +32,22 @@ function urlIsSafeRedirect(authUrl: string | undefined): boolean {
 export async function identityProviderV2IntentStart(input: Input) {
   const op = "identityProviderV2IntentStart"
   if (!input.state.delegable) return resultErrorCreate(op, "flow_stage_invalid")
-  if (!input.mfaV2Enabled) {
+  const settings = await input.client.loginSettingsGet(input.state.organizationId)
+  if (!settings.success) return resultErrorCreate(op, "provider_unavailable", { status: resultStatusGet(settings) })
+  if (settings.data.settings?.allowExternalIdp !== true) {
     return resultCreate({
       state: input.state,
       transition: { kind: "fallback" as const, path: `/api/v2/flow/fallback?flow=${input.state.flowHandle}` },
     })
   }
-
-  const settings = await input.client.loginSettingsGet(input.state.organizationId)
-  if (!settings.success) return resultErrorCreate(op, "provider_unavailable", { status: resultStatusGet(settings) })
-  if (settings.data.settings?.allowExternalIdp !== true) {
+  const mfa = primaryFlowMfaPolicyEvaluate({
+    method: "identity_provider",
+    methods: [],
+    emailVerified: false,
+    phoneVerified: false,
+    policy: settings.data.settings ?? {},
+  })
+  if (!mfa.supported) {
     return resultCreate({
       state: input.state,
       transition: { kind: "fallback" as const, path: `/api/v2/flow/fallback?flow=${input.state.flowHandle}` },

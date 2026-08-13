@@ -22,12 +22,7 @@ const bindings: WorkerBindingsInput = {
   SESSION_LIFETIME_SECONDS: "900",
   ZITADEL_LOGIN_CLIENT_PAT: "test-pat-not-a-real-secret-value",
   FLOW_COOKIE_KEY: key,
-  ZITADEL_LOGIN_V2_ENABLED: "true",
-  ZITADEL_EMAIL_OTP_V2_ENABLED: "true",
-  ZITADEL_PASSWORD_V2_ENABLED: "true",
-  ZITADEL_PASSKEY_V2_ENABLED: "true",
-  ZITADEL_IDP_V2_ENABLED: "true",
-  ZITADEL_MFA_V2_ENABLED: "true",
+  ZITADEL_CUSTOM_LOGIN_ENABLED: "true",
   RATE_LIMITER: { limit: async () => ({ success: true }) },
 }
 
@@ -271,14 +266,14 @@ describe("POST /api/v2/identity-provider/start", () => {
     }
   })
 
-  test("returns fallback transition when ZITADEL_IDP_V2_ENABLED is false", async () => {
+  test("returns fallback transition when ZITADEL_CUSTOM_LOGIN_ENABLED is false", async () => {
     const native = nativeCreate()
     const app = workerAppCreate({ fetch: native.fetch, now: () => now })
     const cookieValue = await readyStateSeal()
 
     const disabledBindings = {
       ...bindings,
-      ZITADEL_IDP_V2_ENABLED: "false",
+      ZITADEL_CUSTOM_LOGIN_ENABLED: "false",
     }
 
     const response = await app.request(
@@ -306,7 +301,7 @@ describe("POST /api/v2/identity-provider/start", () => {
     expect(native.calls.some((call) => call.url === `${identityOrigin}/v2/idp_intents`)).toBe(false)
   })
 
-  test("returns fallback before intent mutation when MFA continuation ownership is disabled", async () => {
+  test("admits primary IdP without an independent rollout flag", async () => {
     const native = nativeCreate()
     const app = workerAppCreate({ fetch: native.fetch, now: () => now })
     const cookieValue = await readyStateSeal()
@@ -321,14 +316,11 @@ describe("POST /api/v2/identity-provider/start", () => {
         },
         body: JSON.stringify({ idpId: "google-1", csrfToken }),
       },
-      { ...bindings, ZITADEL_MFA_V2_ENABLED: "false" },
+      bindings,
     )
 
-    expect(await response.json()).toEqual({
-      success: true,
-      data: { kind: "fallback", path: `/api/v2/flow/fallback?flow=${flowHandle}` },
-    })
-    expect(native.calls.some((call) => call.url === `${identityOrigin}/v2/idp_intents`)).toBe(false)
+    expect((await response.json()).data.redirectUrl).toBe(`/api/v2/identity-provider/redirect?flow=${flowHandle}`)
+    expect(native.calls.some((call) => call.url === `${identityOrigin}/v2/idp_intents`)).toBe(true)
   })
 
   test("returns 409 flow_stage_invalid when flow is in wrong stage", async () => {

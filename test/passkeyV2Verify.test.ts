@@ -66,7 +66,13 @@ function validCredentialCreate(overrides: { clientDataJSON?: string; userHandle?
 }
 
 function clientMockCreate(
-  options: { userVerified?: boolean; verifyError?: { status: number }; mfaMethods?: string[]; forceMfa?: boolean } = {},
+  options: {
+    userVerified?: boolean
+    verifyError?: { status: number }
+    mfaMethods?: string[]
+    forceMfa?: boolean
+    secondFactors?: string[]
+  } = {},
 ) {
   const calls: string[] = []
   const client = {
@@ -113,6 +119,7 @@ function clientMockCreate(
         settings: {
           allowLocalAuthentication: true,
           forceMfa: options.forceMfa ?? false,
+          secondFactors: options.secondFactors,
         },
       })
     },
@@ -275,6 +282,7 @@ describe("passkeyV2Verify domain", () => {
     const mock = clientMockCreate({
       userVerified: false,
       mfaMethods: ["AUTHENTICATION_METHOD_TYPE_PASSKEY", "AUTHENTICATION_METHOD_TYPE_TOTP"],
+      secondFactors: ["SECOND_FACTOR_TYPE_OTP"],
     })
     const result = await passkeyV2Verify({
       state: passkeyState,

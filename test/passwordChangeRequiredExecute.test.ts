@@ -116,7 +116,6 @@ async function execute(options: Options = {}) {
     currentPassword: "current-password-secret",
     newPassword: "new-password-secret",
     csrfToken: "C".repeat(43),
-    mfaV2Enabled: true,
     now,
     consume: async (nextState) => {
       consumed.push(nextState)

@@ -1,5 +1,6 @@
 import type { FlowV2Cookie } from "../../flow/model/flowV2CookieSchema"
 import type { FlowV2Transition } from "../../flow/model/flowV2TransitionSchema"
+import { primaryFlowMfaPolicyEvaluate } from "../../flow/domain/primaryFlowMfaPolicyEvaluate"
 
 import type { PasskeyCredentialAssertion } from "../model/passkeyVerifyRequestSchema"
 
@@ -13,13 +14,6 @@ type Input = {
   expectedOrigin: string
   client: ReturnType<typeof zitadelClientCreate>
 }
-
-const mfaMethods = new Set([
-  "AUTHENTICATION_METHOD_TYPE_TOTP",
-  "AUTHENTICATION_METHOD_TYPE_OTP_SMS",
-  "AUTHENTICATION_METHOD_TYPE_OTP_EMAIL",
-  "AUTHENTICATION_METHOD_TYPE_U2F",
-])
 
 function resultStatusGet(result: { success: boolean; rawData?: unknown }): number | undefined {
   if (result.success || typeof result.rawData !== "object" || result.rawData === null) return undefined
@@ -112,16 +106,19 @@ export async function passkeyV2Verify(input: Input) {
   if (!settings.success) return resultErrorCreate(op, "passkey_unavailable", { status: resultStatusGet(settings) })
 
   const userVerified = Boolean(session.data.session.factors.webAuthN.userVerified)
-  const availableMfaMethods = methods.data.authMethodTypes.filter((method) => mfaMethods.has(method))
-  const requiresMfa =
-    !userVerified &&
-    (availableMfaMethods.length > 0 ||
-      settings.data.settings?.forceMfa === true ||
-      settings.data.settings?.forceMfaLocalOnly === true)
+  const mfa = primaryFlowMfaPolicyEvaluate({
+    method: "passkey",
+    methods: methods.data.authMethodTypes,
+    emailVerified: false,
+    phoneVerified: false,
+    userVerified,
+    policy: settings.data.settings ?? {},
+  })
+  if (!mfa.supported) return resultErrorCreate(op, "authorization_unavailable")
 
   const { options: _options, ...stateBase } = input.state
 
-  if (requiresMfa) {
+  if (mfa.required) {
     const state: Extract<FlowV2Cookie, { stage: "mfa" }> = {
       ...stateBase,
       stage: "mfa",
@@ -130,12 +127,12 @@ export async function passkeyV2Verify(input: Input) {
       userId: input.state.userId,
       sessionId: input.state.sessionId,
       sessionToken: verified.data.sessionToken,
-      mfaMethods: availableMfaMethods,
+      mfaMethods: mfa.methods,
     }
     const transition: FlowV2Transition = {
       kind: "render",
       route: `/login/mfa?flow=${state.flowHandle}`,
-      screen: { name: "mfa", factors: availableMfaMethods },
+      screen: { name: "mfa", factors: mfa.methods },
       csrfToken: state.csrfToken,
     }
     return resultCreate({ state, transition })

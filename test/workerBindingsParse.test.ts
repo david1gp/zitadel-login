@@ -16,6 +16,17 @@ const bindings: WorkerBindingsInput = {
 }
 
 describe("workerBindingsParse MFA ownership gate", () => {
+  test("defaults the custom login switch off and accepts only canonical values", () => {
+    const disabled = workerBindingsParse(bindings)
+    expect(disabled.success && disabled.data.ZITADEL_CUSTOM_LOGIN_ENABLED).toBe(false)
+
+    const enabled = workerBindingsParse({ ...bindings, ZITADEL_CUSTOM_LOGIN_ENABLED: "true" })
+    expect(enabled.success && enabled.data.ZITADEL_CUSTOM_LOGIN_ENABLED).toBe(true)
+
+    const malformed = workerBindingsParse({ ...bindings, ZITADEL_CUSTOM_LOGIN_ENABLED: "TRUE" as "true" })
+    expect(malformed.success).toBe(false)
+  })
+
   test("defaults the validated password recovery capability off", () => {
     const result = workerBindingsParse(bindings)
     expect(result.success).toBe(true)
@@ -32,17 +43,5 @@ describe("workerBindingsParse MFA ownership gate", () => {
       ZITADEL_PASSWORD_RESET_V2_ENABLED: "TRUE" as "true",
     })
     expect(malformed.success).toBe(false)
-  })
-
-  test("defaults the validated MFA capability off", () => {
-    const result = workerBindingsParse(bindings)
-    expect(result.success).toBe(true)
-    if (!result.success) return
-    expect(result.data.ZITADEL_MFA_V2_ENABLED).toBe(false)
-  })
-
-  test("rejects non-canonical boolean values", () => {
-    const result = workerBindingsParse({ ...bindings, ZITADEL_MFA_V2_ENABLED: "TRUE" as "true" })
-    expect(result.success).toBe(false)
   })
 })

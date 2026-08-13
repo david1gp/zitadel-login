@@ -21,9 +21,8 @@ const bindings: WorkerBindingsInput = {
   SESSION_LIFETIME_SECONDS: "900",
   ZITADEL_LOGIN_CLIENT_PAT: "test-pat-not-a-real-secret-value",
   FLOW_COOKIE_KEY: key,
+  ZITADEL_CUSTOM_LOGIN_ENABLED: "true",
   FLOW_COOKIE_PREVIOUS_KEY: previousKey,
-  ZITADEL_LOGIN_V2_ENABLED: "true",
-  ZITADEL_EMAIL_OTP_V2_ENABLED: "true",
   RATE_LIMITER: { limit: async () => ({ success: true }) },
 }
 
@@ -337,7 +336,7 @@ describe("Worker v2 flow foundation", () => {
     const cases = [
       {
         name: "capability disabled",
-        inputBindings: { ...bindings, ZITADEL_EMAIL_OTP_V2_ENABLED: "false" },
+        inputBindings: { ...bindings, ZITADEL_CUSTOM_LOGIN_ENABLED: "false" },
         native: nativeCreate(),
       },
       {
@@ -361,14 +360,6 @@ describe("Worker v2 flow foundation", () => {
         name: "OTP method absent",
         inputBindings: bindings,
         native: nativeCreate({ methods: ["AUTHENTICATION_METHOD_TYPE_PASSWORD"] }),
-        start: true,
-      },
-      {
-        name: "MFA method enrolled",
-        inputBindings: bindings,
-        native: nativeCreate({
-          methods: ["AUTHENTICATION_METHOD_TYPE_OTP_EMAIL", "AUTHENTICATION_METHOD_TYPE_TOTP"],
-        }),
         start: true,
       },
     ]
@@ -482,6 +473,29 @@ describe("Worker v2 flow foundation", () => {
     )
     expect(matchingStart.status).toBe(202)
     expect(matchingNative.calls.some((call) => call.url === `${identityOrigin}/v2/sessions`)).toBe(true)
+  })
+
+  test("uses native email OTP while custom login is enabled", async () => {
+    const native = nativeCreate()
+    const app = workerAppCreate({
+      fetch: native.fetch,
+      now: () => now,
+      randomBytes: (length) => new Uint8Array(length).fill(20),
+    })
+    const initialized = await flowInitialize(app)
+    expect(initialized.body.data.kind).toBe("render")
+
+    const started = await app.request(
+      `${origin}/api/v2/email-otp/start?flow=${initialized.flow}`,
+      {
+        method: "POST",
+        headers: jsonHeaders(initialized.cookie),
+        body: JSON.stringify({ email: "person@example.com", csrfToken: initialized.csrfToken }),
+      },
+      bindings,
+    )
+    expect(started.status).toBe(202)
+    expect(native.calls.some((call) => call.url === `${identityOrigin}/v2/sessions`)).toBe(true)
   })
 
   test("rejects unsupported protocol and client input and delegates unsupported organization scope", async () => {

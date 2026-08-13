@@ -4,12 +4,13 @@ import type { Result } from "../result/Result"
 import { resultCreate } from "../result/resultCreate"
 import { resultErrorCreate } from "../result/resultErrorCreate"
 import { zitadelClientCreate } from "../zitadel/zitadelClientCreate"
-import { bootstrapViewSchema, type BootstrapView } from "./bootstrapViewSchema"
+import { type BootstrapView, bootstrapViewSchema } from "./bootstrapViewSchema"
 
 type Client = ReturnType<typeof zitadelClientCreate>
 
 type BootstrapViewGetInput = {
   client: Client
+  customLoginEnabled: boolean
   now: number
   origin: string
   organization: {
@@ -17,13 +18,7 @@ type BootstrapViewGetInput = {
     name: string
   }
   capabilities?: {
-    loginV2?: boolean
-    emailOtpV2?: boolean
-    passwordV2?: boolean
     passwordResetV2?: boolean
-    passkeyV2?: boolean
-    idpV2?: boolean
-    mfaV2?: boolean
   }
 }
 
@@ -115,38 +110,17 @@ export async function bootstrapViewGet(input: BootstrapViewGetInput): Promise<Re
     .filter((provider): provider is NonNullable<typeof provider> => provider !== undefined)
 
   const caps = {
-    loginV2: input.capabilities?.loginV2 ?? true,
-    emailOtpV2: input.capabilities?.emailOtpV2 ?? true,
-    passwordV2: input.capabilities?.passwordV2 ?? true,
     passwordResetV2: input.capabilities?.passwordResetV2 ?? false,
-    passkeyV2: input.capabilities?.passkeyV2 ?? true,
-    idpV2: input.capabilities?.idpV2 ?? true,
-    mfaV2: input.capabilities?.mfaV2 ?? false,
   }
 
   const primaryMethods: BootstrapView["primaryMethods"] = []
-  const forceMfa = login?.forceMfa === true
-  const forceMfaLocalOnly = login?.forceMfaLocalOnly === true
-  const idpOwned = caps.idpV2 && caps.mfaV2
-  if (caps.loginV2) {
-    if (login?.allowLocalAuthentication === true && caps.emailOtpV2 && (caps.mfaV2 || !forceMfa)) {
+  if (input.customLoginEnabled) {
+    if (login?.allowLocalAuthentication === true) {
       primaryMethods.push("email_otp")
-    }
-    if (
-      login?.allowLocalAuthentication === true &&
-      caps.passwordV2 &&
-      (caps.mfaV2 || (!forceMfa && !forceMfaLocalOnly))
-    ) {
       primaryMethods.push("password")
+      if (login.passkeysType === "PASSKEYS_TYPE_ALLOWED") primaryMethods.push("passkey")
     }
-    if (
-      login?.allowLocalAuthentication === true &&
-      login.passkeysType === "PASSKEYS_TYPE_ALLOWED" &&
-      caps.passkeyV2 &&
-      (caps.mfaV2 || !forceMfa)
-    )
-      primaryMethods.push("passkey")
-    if (login?.allowExternalIdp === true && providers.length > 0 && idpOwned) primaryMethods.push("identity_provider")
+    if (login?.allowExternalIdp === true && providers.length > 0) primaryMethods.push("identity_provider")
   }
 
   const light = themeGet(brandingSettings?.lightTheme, fallbackColors.light, input.origin)
@@ -165,7 +139,7 @@ export async function bootstrapViewGet(input: BootstrapViewGetInput): Promise<Re
       light,
       themeMode: themeModeGet(brandingSettings?.themeMode),
     },
-    identityProviders: caps.loginV2 && login?.allowExternalIdp === true && idpOwned ? providers : [],
+    identityProviders: input.customLoginEnabled && login?.allowExternalIdp === true ? providers : [],
     organization: input.organization,
     primaryMethods,
     updatedAt: input.now,

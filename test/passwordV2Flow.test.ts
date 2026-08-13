@@ -20,9 +20,7 @@ const bindings: WorkerBindingsInput = {
   SESSION_LIFETIME_SECONDS: "900",
   ZITADEL_LOGIN_CLIENT_PAT: "test-pat-not-a-real-secret-value",
   FLOW_COOKIE_KEY: key,
-  ZITADEL_LOGIN_V2_ENABLED: "true",
-  ZITADEL_EMAIL_OTP_V2_ENABLED: "true",
-  ZITADEL_PASSWORD_V2_ENABLED: "true",
+  ZITADEL_CUSTOM_LOGIN_ENABLED: "true",
   RATE_LIMITER: { limit: async () => ({ success: true }) },
 }
 
@@ -61,7 +59,16 @@ function nativeCreate(options: NativeOptions = {}) {
       return Response.json({ authRequest })
     }
     if (url === `${identityOrigin}/v2/settings/login` && method === "GET") {
-      return Response.json({ settings: { allowLocalAuthentication: true, forceMfa: options.mfa ?? false } })
+      return Response.json({
+        settings: {
+          allowLocalAuthentication: true,
+          forceMfa: options.mfa ?? false,
+          secondFactors:
+            options.methods?.includes("AUTHENTICATION_METHOD_TYPE_TOTP") || options.mfa
+              ? ["SECOND_FACTOR_TYPE_OTP"]
+              : [],
+        },
+      })
     }
     if (url === `${identityOrigin}/v2/settings/password/expiry` && method === "GET") {
       return Response.json({ settings: { maxAgeDays: String(options.passwordMaxAgeDays ?? 90) } })
@@ -233,13 +240,13 @@ describe("Worker v2 password flow", () => {
     }
   })
 
-  test("falls back before native mutation when the password capability is disabled", async () => {
+  test("falls back before native mutation when custom login is disabled", async () => {
     const native = nativeCreate()
     const app = workerAppCreate({ fetch: native.fetch, now: () => now })
     const initialized = await initialize(app)
     const response = await passwordVerify(app, initialized.flow, initialized.cookie, initialized.csrfToken, {
       ...bindings,
-      ZITADEL_PASSWORD_V2_ENABLED: "false",
+      ZITADEL_CUSTOM_LOGIN_ENABLED: "false",
     })
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({
@@ -249,14 +256,15 @@ describe("Worker v2 password flow", () => {
     expect(native.calls.some((call) => call.url === `${identityOrigin}/v2/sessions`)).toBe(false)
   })
 
-  test("falls back before password Session mutation for unowned MFA and malformed password lifecycle", async () => {
-    const cases: Array<{ name: string; options: NativeOptions }> = [
+  test("uses live policy for password primary admission and rejects malformed lifecycle", async () => {
+    const cases: Array<{ name: string; options: NativeOptions; kind: "render" | "fallback" }> = [
       {
         name: "enrolled MFA",
         options: { methods: ["AUTHENTICATION_METHOD_TYPE_PASSWORD", "AUTHENTICATION_METHOD_TYPE_TOTP"] },
+        kind: "render",
       },
-      { name: "forced MFA", options: { mfa: true } },
-      { name: "malformed password timestamp", options: { passwordChanged: "not-a-timestamp" } },
+      { name: "forced MFA", options: { mfa: true }, kind: "render" },
+      { name: "malformed password timestamp", options: { passwordChanged: "not-a-timestamp" }, kind: "fallback" },
     ]
 
     for (const item of cases) {
@@ -266,14 +274,13 @@ describe("Worker v2 password flow", () => {
       const response = await passwordVerify(app, initialized.flow, initialized.cookie, initialized.csrfToken)
 
       expect(response.status, item.name).toBe(200)
-      expect(await response.json(), item.name).toEqual({
-        success: true,
-        data: { kind: "fallback", path: `/api/v2/flow/fallback?flow=${initialized.flow}` },
-      })
+      const body = await response.json()
+      expect(body.success, item.name).toBe(true)
+      expect(body.data.kind, item.name).toBe(item.kind)
       expect(
         native.calls.some((call) => call.url === `${identityOrigin}/v2/sessions`),
         item.name,
-      ).toBe(false)
+      ).toBe(item.kind === "render")
     }
   })
 
@@ -301,15 +308,8 @@ describe("Worker v2 password flow", () => {
     ]) {
       const native = nativeCreate(item.options)
       const app = workerAppCreate({ fetch: native.fetch, now: () => now })
-      const ownedBindings = { ...bindings, ZITADEL_MFA_V2_ENABLED: "true" }
-      const initialized = await initialize(app, ownedBindings)
-      const response = await passwordVerify(
-        app,
-        initialized.flow,
-        initialized.cookie,
-        initialized.csrfToken,
-        ownedBindings,
-      )
+      const initialized = await initialize(app)
+      const response = await passwordVerify(app, initialized.flow, initialized.cookie, initialized.csrfToken, bindings)
 
       expect(response.status, item.name).toBe(200)
       const body = await response.clone().json()
@@ -347,7 +347,7 @@ describe("Worker v2 password flow", () => {
       const resumed = await app.request(
         `${origin}/api/v2/flow/resume?flow=${initialized.flow}`,
         { headers: { cookie } },
-        ownedBindings,
+        bindings,
       )
       expect(resumed.status).toBe(200)
       expect(await resumed.json()).toEqual(body)
@@ -355,7 +355,7 @@ describe("Worker v2 password flow", () => {
       const mfaOptions = await app.request(
         `${origin}/api/v2/mfa/options?flow=${initialized.flow}`,
         { headers: { cookie } },
-        ownedBindings,
+        bindings,
       )
       expect(mfaOptions.status).toBe(409)
       expect(await mfaOptions.json()).toEqual({
@@ -367,7 +367,7 @@ describe("Worker v2 password flow", () => {
       const continued = await app.request(
         `${origin}/api/v2/flow/continue?flow=${initialized.flow}`,
         { headers: { cookie } },
-        ownedBindings,
+        bindings,
       )
       expect(continued.status).toBe(409)
       expect(await continued.json()).toEqual({
@@ -379,7 +379,7 @@ describe("Worker v2 password flow", () => {
       const delegated = await app.request(
         `${origin}/api/v2/flow/fallback?flow=${initialized.flow}`,
         { headers: { cookie } },
-        ownedBindings,
+        bindings,
       )
       expect(delegated.status).toBe(409)
       expect(await delegated.json()).toEqual({
@@ -388,7 +388,7 @@ describe("Worker v2 password flow", () => {
         errorMessage: "fallback_forbidden",
       })
 
-      const replayed = await passwordVerify(app, initialized.flow, cookie, initialized.csrfToken, ownedBindings)
+      const replayed = await passwordVerify(app, initialized.flow, cookie, initialized.csrfToken, bindings)
       expect(replayed.status).toBe(409)
       expect(await replayed.json()).toEqual({
         success: false,
@@ -409,7 +409,7 @@ describe("Worker v2 password flow", () => {
             cookie: `__Host-zitadel-login-flow-${initialized.flow}=${expiredCookie.data}`,
           },
         },
-        ownedBindings,
+        bindings,
       )
       expect(expiredResume.status).toBe(409)
       expect(await expiredResume.json()).toEqual({
@@ -491,9 +491,8 @@ describe("Worker v2 password flow", () => {
   test("returns an MFA continuation with the native session instead of completing it", async () => {
     const native = nativeCreate({ methods: ["AUTHENTICATION_METHOD_TYPE_PASSWORD", "AUTHENTICATION_METHOD_TYPE_TOTP"] })
     const app = workerAppCreate({ fetch: native.fetch, now: () => now })
-    const mfaBindings = { ...bindings, ZITADEL_MFA_V2_ENABLED: "true" }
-    const initialized = await initialize(app, mfaBindings)
-    const response = await passwordVerify(app, initialized.flow, initialized.cookie, initialized.csrfToken, mfaBindings)
+    const initialized = await initialize(app)
+    const response = await passwordVerify(app, initialized.flow, initialized.cookie, initialized.csrfToken, bindings)
     expect(response.status).toBe(200)
     const body = await response.clone().json()
     expect(body.data).toEqual({
@@ -507,7 +506,7 @@ describe("Worker v2 password flow", () => {
       {
         headers: { cookie: cookieGet(response) },
       },
-      mfaBindings,
+      bindings,
     )
     expect(continued.status).toBe(409)
     expect(await continued.json()).toEqual({ success: false, op: "flowContinue", errorMessage: "flow_stage_invalid" })

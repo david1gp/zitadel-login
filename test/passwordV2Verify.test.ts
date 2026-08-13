@@ -26,6 +26,8 @@ function clientCreate(
   options: {
     methods?: string[]
     forceMfa?: boolean
+    secondFactors?: string[]
+    multiFactors?: string[]
     listedPasswordChangeRequired?: boolean
     listedPasswordChanged?: string
     passwordChangeRequired?: boolean
@@ -55,7 +57,14 @@ function clientCreate(
   }
   const client = {
     loginSettingsGet: async () =>
-      resultCreate({ settings: { allowLocalAuthentication: true, forceMfa: options.forceMfa } }),
+      resultCreate({
+        settings: {
+          allowLocalAuthentication: true,
+          forceMfa: options.forceMfa,
+          secondFactors: options.secondFactors,
+          multiFactors: options.multiFactors,
+        },
+      }),
     usersByIdentifierList: async () =>
       resultCreate({
         result: [listedUser],
@@ -95,7 +104,6 @@ describe("passwordV2Verify domain", () => {
       state,
       identifier: "person@example.com",
       password: "correct-password",
-      mfaV2Enabled: false,
       now: 1_800_000_000,
       client: native.client,
     })
@@ -114,12 +122,14 @@ describe("passwordV2Verify domain", () => {
   })
 
   test("returns policy continuation when an MFA method or policy requires it", async () => {
-    const native = clientCreate({ methods: ["AUTHENTICATION_METHOD_TYPE_PASSWORD", "AUTHENTICATION_METHOD_TYPE_TOTP"] })
+    const native = clientCreate({
+      methods: ["AUTHENTICATION_METHOD_TYPE_PASSWORD", "AUTHENTICATION_METHOD_TYPE_TOTP"],
+      secondFactors: ["SECOND_FACTOR_TYPE_OTP"],
+    })
     const result = await passwordV2Verify({
       state,
       identifier: "person@example.com",
       password: "password",
-      mfaV2Enabled: true,
       now: 1_800_000_000,
       client: native.client,
     })
@@ -152,7 +162,6 @@ describe("passwordV2Verify domain", () => {
         state,
         identifier: "person@example.com",
         password: "password",
-        mfaV2Enabled: true,
         now: 1_800_000_000,
         client: native.client,
       })
@@ -184,10 +193,29 @@ describe("passwordV2Verify domain", () => {
       state,
       identifier: "person@example.com",
       password: "password",
-      mfaV2Enabled: false,
       now: 1_800_000_000,
       client: native.client,
     })
+    expect(result).toEqual({
+      success: true,
+      data: {
+        state,
+        transition: { kind: "fallback", path: "/api/v2/flow/fallback?flow=AAAAAAAAAAAAAAAAAAAAAA" },
+      },
+    })
+    expect(native.calls).toEqual([])
+  })
+
+  test("delegates before password session mutation for an unsupported live MFA policy", async () => {
+    const native = clientCreate({ secondFactors: ["SECOND_FACTOR_TYPE_UNKNOWN"] })
+    const result = await passwordV2Verify({
+      state,
+      identifier: "person@example.com",
+      password: "password",
+      now: 1_800_000_000,
+      client: native.client,
+    })
+
     expect(result).toEqual({
       success: true,
       data: {
