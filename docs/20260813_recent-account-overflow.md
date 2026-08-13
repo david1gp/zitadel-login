@@ -16,7 +16,7 @@ Prevent chooser content from being cut off at the bottom and fix the same layout
 1. [complete] Reproduce and audit the cutoff, shared layout, and potentially affected screens.
 2. [complete] Implement the smallest correct layout fix by adding safe item centering to the shared desktop demo stage.
 3. [complete] Verify the target and other affected screens in a browser and run relevant checks.
-4. [in progress] Format, commit only the task changes in semantic commits, and push.
+4. [complete] Format, commit only the task changes in semantic commits, and push.
 
 ## Paths
 - `docs/20260813_recent-account-overflow.md`
