@@ -3,7 +3,7 @@ import { render } from "solid-js/web"
 import { App } from "./app/ui/App"
 import { demoPathIsActive } from "./demo/model/demoPathIsActive"
 import { DemoApp } from "./demo/ui/DemoApp"
-import "./styles.css"
+import "./tailwind.css"
 
 declare global {
   var ZITADEL_LOGIN_CONFIG: { apiOrigin?: string } | undefined

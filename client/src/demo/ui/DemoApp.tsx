@@ -12,6 +12,21 @@ import { PasswordPanel } from "../../password/ui/PasswordPanel"
 import { PasswordRecoveryRequestPanel } from "../../password-recovery/ui/PasswordRecoveryRequestPanel"
 import { PasswordResetPanel } from "../../password-recovery/ui/PasswordResetPanel"
 import { ThemeToggle } from "../../preferences/ui/ThemeToggle"
+import { classesCardTop } from "../../ui/classes/classesCardTop"
+import { classesContent } from "../../ui/classes/classesContent"
+import { classesDemoScenarioMeta } from "../../ui/classes/classesDemoScenarioMeta"
+import { classesDemoShell } from "../../ui/classes/classesDemoShell"
+import { classesDemoStage } from "../../ui/classes/classesDemoStage"
+import { classesErrorMessage } from "../../ui/classes/classesErrorMessage"
+import { classesHeading } from "../../ui/classes/classesHeading"
+import { classesIntro } from "../../ui/classes/classesIntro"
+import { classesLoadingState } from "../../ui/classes/classesLoadingState"
+import { classesLoginCard } from "../../ui/classes/classesLoginCard"
+import { classesNoticeMessage } from "../../ui/classes/classesNoticeMessage"
+import { classesPageShell } from "../../ui/classes/classesPageShell"
+import { classesSpinner } from "../../ui/classes/classesSpinner"
+import { classesStep } from "../../ui/classes/classesStep"
+import { classMerge } from "../../ui/classMerge"
 import { DemoDirectory } from "./DemoDirectory"
 import { DemoNav } from "./DemoNav"
 import { demoAppStateCreate } from "./demoAppStateCreate"
@@ -21,7 +36,7 @@ export function DemoApp() {
   const id = () => state.scenario().id
 
   return (
-    <div class="demo-shell" data-chrome={state.chrome()}>
+    <div class={classesDemoShell} data-chrome={state.chrome()}>
       <DemoNav
         chrome={state.chrome}
         chromeSelect={state.chromeSelect}
@@ -38,9 +53,9 @@ export function DemoApp() {
         hasNext={state.hasNext}
         showDirectory={state.showDirectory}
       />
-      <main class="page-shell demo-stage">
-        <section class="login-card" aria-busy={state.busy()}>
-          <div class="card-top">
+      <main class={classMerge(classesPageShell, classesDemoStage)}>
+        <section class={classesLoginCard} aria-busy={state.busy()}>
+          <div class={classesCardTop}>
             <BrandHeader
               assetUrl={state.brandAssetUrl}
               name={() => state.bootstrap().organization.name}
@@ -52,8 +67,8 @@ export function DemoApp() {
               select={state.themeSelect}
             />
           </div>
-          <div class="content">
-            <p class="demo-scenario-meta">
+          <div class={classesContent}>
+            <p class={classesDemoScenarioMeta}>
               {state.scenario().group} · {state.scenario().label}
             </p>
             <Show when={id()} keyed>
@@ -68,15 +83,15 @@ export function DemoApp() {
                     />
                   </Match>
                   <Match when={scenarioId === "loading" || scenarioId === "continuing"}>
-                    <div class="loading-state" role="status">
-                      <span class="spinner" aria-hidden="true" />
+                    <div class={classesLoadingState} role="status">
+                      <span class={classesSpinner} aria-hidden="true" />
                       <p>{scenarioId === "continuing" ? "Continuing sign-in..." : "Loading sign-in..."}</p>
                     </div>
                   </Match>
                   <Match when={scenarioId === "fatal"}>
-                    <div class="intro">
-                      <p class="step">Unable to continue</p>
-                      <h1 ref={state.headingRegister} id="login-title" tabindex="-1">
+                    <div class={classesIntro}>
+                      <p class={classesStep}>Unable to continue</p>
+                      <h1 ref={state.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                         Start sign-in again
                       </h1>
                     </div>
@@ -252,12 +267,12 @@ export function DemoApp() {
               )}
             </Show>
             <Show when={state.error()}>
-              <div ref={state.errorRegister} id="error-message" class="error-message" role="alert" tabindex="-1">
+              <div ref={state.errorRegister} id="error-message" class={classesErrorMessage} role="alert" tabindex="-1">
                 {state.error()}
               </div>
             </Show>
             <Show when={state.completed()}>
-              <p class="notice-message" role="status">
+              <p class={classesNoticeMessage} role="status">
                 {state.completed()}
               </p>
             </Show>

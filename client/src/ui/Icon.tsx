@@ -1,4 +1,6 @@
 import { type JSX, splitProps } from "solid-js"
+import { classesIcon } from "./classes/classesIcon"
+import { classMerge } from "./classMerge"
 
 type IconProps = JSX.SvgSVGAttributes<SVGSVGElement> & {
   /** An SVG path string, e.g. `import { mdiRobotOutline } from "@adaptive-ds/mdi/mdiRobotOutline.js"`. */
@@ -13,7 +15,7 @@ export function Icon(props: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
-      class={["icon", local.class].filter(Boolean).join(" ")}
+      class={classMerge(classesIcon, local.class)}
       role={local.title ? "img" : undefined}
       aria-hidden={local.title ? undefined : true}
       {...rest}

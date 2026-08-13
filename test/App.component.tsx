@@ -243,7 +243,7 @@ describe("application shell", () => {
 
     const logo = await screen.findByRole("img", { name: "Contentoren" })
     expect(logo.tagName).toBe("svg")
-    expect(logo.classList.contains("brand-logo")).toBe(true)
+    expect(logo.classList.contains("sm:max-w-[210px]")).toBe(true)
     expect(logo.querySelector("img")).toBeNull()
   })
 

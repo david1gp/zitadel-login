@@ -1,3 +1,6 @@
+import { classesBrand } from "../../ui/classes/classesBrand"
+import { classesBrandIdentity } from "../../ui/classes/classesBrandIdentity"
+import { classesBrandLogo } from "../../ui/classes/classesBrandLogo"
 import { BrandLogo } from "./BrandLogo"
 
 type BrandHeaderProps = {
@@ -8,10 +11,10 @@ type BrandHeaderProps = {
 
 export function BrandHeader(props: BrandHeaderProps) {
   return (
-    <header class="brand">
-      <div class="brand-identity">
+    <header class={classesBrand}>
+      <div class={classesBrandIdentity}>
         {props.assetUrl() ? (
-          <img class="brand-logo" src={props.assetUrl()} alt={props.name()} onError={props.onAssetError} />
+          <img class={classesBrandLogo} src={props.assetUrl()} alt={props.name()} onError={props.onAssetError} />
         ) : (
           <BrandLogo name={props.name} />
         )}

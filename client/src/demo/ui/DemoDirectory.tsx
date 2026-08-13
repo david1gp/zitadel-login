@@ -1,6 +1,12 @@
 import { For } from "solid-js"
 
 import { MethodChoiceButton } from "../../flow/ui/MethodChoiceButton"
+import { classesDemoDirectoryGroup } from "../../ui/classes/classesDemoDirectoryGroup"
+import { classesHeading } from "../../ui/classes/classesHeading"
+import { classesIntro } from "../../ui/classes/classesIntro"
+import { classesIntroCopy } from "../../ui/classes/classesIntroCopy"
+import { classesMethodList } from "../../ui/classes/classesMethodList"
+import { classesStep } from "../../ui/classes/classesStep"
 import { demoScenarioGroupsGet } from "../model/demoScenarioGroupsGet"
 import { demoScenarioIconPathGet } from "../model/demoScenarioIconPathGet"
 import type { DemoScenario } from "../model/demoScenarioSchema"
@@ -16,19 +22,19 @@ export function DemoDirectory(props: DemoDirectoryProps) {
   const groups = () => demoScenarioGroupsGet(props.scenarios())
 
   return (
-    <section class="demo-directory" aria-labelledby="login-title">
-      <div class="intro">
-        <p class="step">Demo</p>
-        <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+    <section aria-labelledby="login-title">
+      <div class={classesIntro}>
+        <p class={classesStep}>Demo</p>
+        <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
           Screen directory
         </h1>
-        <p>Open any login screen with fake data. Actions stay inside /demo.</p>
+        <p class={classesIntroCopy}>Open any login screen with fake data. Actions stay inside /demo.</p>
       </div>
       <For each={groups()}>
         {(group) => (
-          <section class="demo-directory-group">
+          <section class={classesDemoDirectoryGroup}>
             <h2>{group.group}</h2>
-            <ul class="method-list">
+            <ul class={classesMethodList}>
               <For each={group.scenarios}>
                 {(scenario) => (
                   <li>

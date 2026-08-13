@@ -1,5 +1,13 @@
 import { Show } from "solid-js"
-
+import { classesBackButton } from "../../ui/classes/classesBackButton"
+import { classesCodeInput } from "../../ui/classes/classesCodeInput"
+import { classesFieldHelp } from "../../ui/classes/classesFieldHelp"
+import { classesHeading } from "../../ui/classes/classesHeading"
+import { classesIntro } from "../../ui/classes/classesIntro"
+import { classesIntroCopy } from "../../ui/classes/classesIntroCopy"
+import { classesLabel } from "../../ui/classes/classesLabel"
+import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
+import { classesStep } from "../../ui/classes/classesStep"
 import { mfaTotpStateCreate } from "./mfaTotpStateCreate"
 
 type MfaTotpPanelProps = {
@@ -40,18 +48,20 @@ export function MfaTotpPanel(props: MfaTotpPanelProps) {
 
   return (
     <div>
-      <div class="intro">
-        <p class="step">2-Step Verification</p>
-        <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+      <div class={classesIntro}>
+        <p class={classesStep}>2-Step Verification</p>
+        <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
           Authenticator code
         </h1>
-        <p>Enter the 6-digit code from your authenticator app.</p>
+        <p class={classesIntroCopy}>Enter the 6-digit code from your authenticator app.</p>
       </div>
       <form onSubmit={state.submit} novalidate>
-        <label for="totp-code">Authenticator code</label>
+        <label class={classesLabel} for="totp-code">
+          Authenticator code
+        </label>
         <input
           ref={state.codeInputRegister}
-          class="code-input"
+          class={classesCodeInput}
           id="totp-code"
           name="code"
           type="text"
@@ -72,19 +82,19 @@ export function MfaTotpPanel(props: MfaTotpPanelProps) {
           disabled={props.busy()}
           aria-describedby="totp-code-help"
         />
-        <p id="totp-code-help" class="field-help">
+        <p id="totp-code-help" class={classesFieldHelp}>
           Enter 6 digits.
         </p>
-        <button class="primary" type="submit" disabled={props.busy() || !state.valid()}>
+        <button class={classesPrimaryButton} type="submit" disabled={props.busy() || !state.valid()}>
           {props.busy() ? "Verifying..." : "Verify"}
         </button>
       </form>
       <Show when={props.showChooser}>
-        <button class="back-button" type="button" onClick={props.showChooser} disabled={props.busy()}>
+        <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
           Back to 2-step choices
         </button>
       </Show>
-      <button class="back-button" type="button" onClick={props.showRootChooser} disabled={props.busy()}>
+      <button class={classesBackButton} type="button" onClick={props.showRootChooser} disabled={props.busy()}>
         Back to methods
       </button>
     </div>

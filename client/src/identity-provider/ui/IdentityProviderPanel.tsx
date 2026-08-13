@@ -1,5 +1,13 @@
 import { Show } from "solid-js"
 
+import { classesBackButton } from "../../ui/classes/classesBackButton"
+import { classesFieldHelp } from "../../ui/classes/classesFieldHelp"
+import { classesHeading } from "../../ui/classes/classesHeading"
+import { classesIdpIdentityBox } from "../../ui/classes/classesIdpIdentityBox"
+import { classesIdpProviderLabel } from "../../ui/classes/classesIdpProviderLabel"
+import { classesIntro } from "../../ui/classes/classesIntro"
+import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
+import { classesStep } from "../../ui/classes/classesStep"
 import { IdentityProviderIcon } from "./IdentityProviderIcon"
 
 type IdentityProviderPanelProps = {
@@ -27,29 +35,29 @@ export function IdentityProviderPanel(props: IdentityProviderPanelProps) {
 
   return (
     <section aria-labelledby="login-title">
-      <div class="intro">
-        <p class="step">{stepText()}</p>
-        <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+      <div class={classesIntro}>
+        <p class={classesStep}>{stepText()}</p>
+        <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
           {headingText()}
         </h1>
       </div>
-      <div class="idp-identity-box">
+      <div class={classesIdpIdentityBox}>
         <IdentityProviderIcon type={props.providerType()} name={props.providerName()} />
-        <span class="idp-provider-label">{props.providerName()}</span>
+        <span class={classesIdpProviderLabel}>{props.providerName()}</span>
       </div>
       <Show when={isFailure()}>
-        <p class="field-help" role="status">
+        <p class={classesFieldHelp} role="status">
           Sign in with {props.providerName()} was not completed. Please try again.
         </p>
       </Show>
       <Show when={isUnlinked()}>
-        <p class="field-help" role="status">
+        <p class={classesFieldHelp} role="status">
           No ZITADEL account is linked to this {props.providerName()} account. Account linking and self-service
           registration are not enabled yet.
         </p>
       </Show>
       <Show when={isLinkingFailed()}>
-        <p class="field-help" role="status">
+        <p class={classesFieldHelp} role="status">
           Account linking could not be completed. Please try another sign-in method.
         </p>
       </Show>
@@ -57,17 +65,17 @@ export function IdentityProviderPanel(props: IdentityProviderPanelProps) {
       <Show
         when={!isUnlinked() && !isLinkingFailed()}
         fallback={
-          <button class="primary" type="button" onClick={props.showChooser} disabled={props.busy()}>
+          <button class={classesPrimaryButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
             Back to methods
           </button>
         }
       >
         <form onSubmit={props.submit} novalidate>
-          <button class="primary idp-submit-button" type="submit" disabled={props.busy()}>
+          <button class={classesPrimaryButton} type="submit" disabled={props.busy()}>
             {isFailure() ? "Try again" : `Continue with ${props.providerName()}`}
           </button>
         </form>
-        <button class="back-button" type="button" onClick={props.showChooser} disabled={props.busy()}>
+        <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
           Back to methods
         </button>
       </Show>

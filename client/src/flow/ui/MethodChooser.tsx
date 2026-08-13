@@ -2,6 +2,11 @@ import { Show } from "solid-js"
 
 import type { RecentAccountSummary } from "../../session/model/recentAccountSummarySchema"
 import { RecentAccountChooser } from "../../session/ui/RecentAccountChooser"
+import { classesHeading } from "../../ui/classes/classesHeading"
+import { classesIntro } from "../../ui/classes/classesIntro"
+import { classesMethodChooserDivider } from "../../ui/classes/classesMethodChooserDivider"
+import { classesMethodList } from "../../ui/classes/classesMethodList"
+import { classesStep } from "../../ui/classes/classesStep"
 import { loginMethodIconPathGet } from "../model/loginMethodIconPathGet"
 import type { LoginMethodSelection } from "../model/loginMethodSelectionSchema"
 import { MethodChoiceButton } from "./MethodChoiceButton"
@@ -25,9 +30,9 @@ export function MethodChooser(props: MethodChooserProps) {
 
   return (
     <section aria-labelledby="login-title">
-      <div class="intro">
-        <p class="step">Sign in</p>
-        <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+      <div class={classesIntro}>
+        <p class={classesStep}>Sign in</p>
+        <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
           {hasRecentAccounts() ? "Choose an account or method" : "Choose a method"}
         </h1>
       </div>
@@ -37,9 +42,9 @@ export function MethodChooser(props: MethodChooserProps) {
           selectAccount={props.selectAccount!}
           busy={props.busy ?? (() => false)}
         />
-        <p class="method-chooser-divider">Or choose a method</p>
+        <p class={classesMethodChooserDivider}>Or choose a method</p>
       </Show>
-      <ul class="method-list">
+      <ul class={classesMethodList}>
         {props.methods().map((method) => (
           <li>
             <MethodChoiceButton

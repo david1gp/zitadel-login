@@ -1,5 +1,17 @@
 import { For, Show } from "solid-js"
 
+import { classesAccountAvatar } from "../../ui/classes/classesAccountAvatar"
+import { classesAccountAvatarContainer } from "../../ui/classes/classesAccountAvatarContainer"
+import { classesAccountAvatarFallback } from "../../ui/classes/classesAccountAvatarFallback"
+import { classesAccountDetails } from "../../ui/classes/classesAccountDetails"
+import { classesAccountLabel } from "../../ui/classes/classesAccountLabel"
+import { classesAccountReauthBadge } from "../../ui/classes/classesAccountReauthBadge"
+import { classesRecentAccountButton } from "../../ui/classes/classesRecentAccountButton"
+import { classesRecentAccountDivider } from "../../ui/classes/classesRecentAccountDivider"
+import { classesRecentAccountHeading } from "../../ui/classes/classesRecentAccountHeading"
+import { classesRecentAccountList } from "../../ui/classes/classesRecentAccountList"
+import { classesRecentAccountSection } from "../../ui/classes/classesRecentAccountSection"
+import { classesTextButton } from "../../ui/classes/classesTextButton"
 import { recentAccountInitialsGet } from "../model/recentAccountInitialsGet"
 import { recentAccountChooserStateCreate } from "./recentAccountChooserStateCreate"
 
@@ -23,23 +35,23 @@ export function RecentAccountChooser(props: RecentAccountChooserProps) {
   })
 
   return (
-    <div class="recent-account-section">
-      <p class="recent-account-heading">Recent accounts</p>
-      <ul class="recent-account-list">
+    <div class={classesRecentAccountSection}>
+      <p class={classesRecentAccountHeading}>Recent accounts</p>
+      <ul class={classesRecentAccountList}>
         <For each={state.accounts()}>
           {(account) => (
             <li>
               <button
                 type="button"
-                class="recent-account-button"
+                class={classesRecentAccountButton}
                 disabled={props.busy()}
                 onClick={() => state.selectAccount(account.id)}
               >
-                <span class="account-avatar-container">
+                <span class={classesAccountAvatarContainer}>
                   <Show
                     when={account.avatarUrl && !state.avatarFailed(account.id)}
                     fallback={
-                      <span class="account-avatar-fallback" aria-hidden="true">
+                      <span class={classesAccountAvatarFallback} aria-hidden="true">
                         {recentAccountInitialsGet(account.label)}
                       </span>
                     }
@@ -47,15 +59,15 @@ export function RecentAccountChooser(props: RecentAccountChooserProps) {
                     <img
                       src={account.avatarUrl}
                       alt=""
-                      class="account-avatar"
+                      class={classesAccountAvatar}
                       onError={() => state.avatarFail(account.id)}
                     />
                   </Show>
                 </span>
-                <span class="account-details">
-                  <span class="account-label">{account.label}</span>
+                <span class={classesAccountDetails}>
+                  <span class={classesAccountLabel}>{account.label}</span>
                   <Show when={account.reauthenticationRequired}>
-                    <span class="account-reauth-badge">Reauthentication required</span>
+                    <span class={classesAccountReauthBadge}>Reauthentication required</span>
                   </Show>
                 </span>
               </button>
@@ -64,13 +76,8 @@ export function RecentAccountChooser(props: RecentAccountChooserProps) {
         </For>
       </ul>
       <Show when={props.useAnotherAccount}>
-        <div class="recent-account-divider">
-          <button
-            type="button"
-            class="text-button use-another-button"
-            disabled={props.busy()}
-            onClick={props.useAnotherAccount}
-          >
+        <div class={classesRecentAccountDivider}>
+          <button type="button" class={classesTextButton} disabled={props.busy()} onClick={props.useAnotherAccount}>
             Use another method or account
           </button>
         </div>

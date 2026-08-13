@@ -1,5 +1,19 @@
 import { Show } from "solid-js"
 
+import { classesBackButton } from "../../ui/classes/classesBackButton"
+import { classesCheckbox } from "../../ui/classes/classesCheckbox"
+import { classesForgotPasswordButton } from "../../ui/classes/classesForgotPasswordButton"
+import { classesHeading } from "../../ui/classes/classesHeading"
+import { classesInput } from "../../ui/classes/classesInput"
+import { classesIntro } from "../../ui/classes/classesIntro"
+import { classesLabel } from "../../ui/classes/classesLabel"
+import { classesMfaNotice } from "../../ui/classes/classesMfaNotice"
+import { classesPasswordInputGroup } from "../../ui/classes/classesPasswordInputGroup"
+import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
+import { classesRememberField } from "../../ui/classes/classesRememberField"
+import { classesRevealButton } from "../../ui/classes/classesRevealButton"
+import { classesStep } from "../../ui/classes/classesStep"
+
 type PasswordPanelProps = {
   identifier: () => string
   password: () => string
@@ -27,32 +41,35 @@ export function PasswordPanel(props: PasswordPanelProps) {
       <Show
         when={!props.mfaRequired()}
         fallback={
-          <div class="mfa-placeholder">
-            <div class="intro">
-              <p class="step">Authentication</p>
-              <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+          <div>
+            <div class={classesIntro}>
+              <p class={classesStep}>Authentication</p>
+              <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                 2-Step Verification Required
               </h1>
-              <p class="mfa-notice">
+              <p class={classesMfaNotice}>
                 Multi-factor authentication (MFA) is required for this account. MFA support will be enabled in Task 5.
               </p>
             </div>
-            <button class="back-button" type="button" onClick={props.showChooser} disabled={props.busy()}>
+            <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
               Back to methods
             </button>
           </div>
         }
       >
-        <div class="intro">
-          <p class="step">Password</p>
-          <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+        <div class={classesIntro}>
+          <p class={classesStep}>Password</p>
+          <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
             Sign in with password
           </h1>
         </div>
         <form onSubmit={props.submit} novalidate>
-          <label for="identifier">Username or email</label>
+          <label class={classesLabel} for="identifier">
+            Username or email
+          </label>
           <input
             ref={props.identifierInputRegister}
+            class={classesInput}
             id="identifier"
             name="identifier"
             type="text"
@@ -64,10 +81,13 @@ export function PasswordPanel(props: PasswordPanelProps) {
             onInput={(event) => props.identifierInput(event.currentTarget.value)}
             disabled={props.busy()}
           />
-          <label for="password">Password</label>
-          <div class="password-input-group">
+          <label class={classesLabel} for="password">
+            Password
+          </label>
+          <div class={classesPasswordInputGroup}>
             <input
               ref={props.passwordInputRegister}
+              class={classesInput}
               id="password"
               name="password"
               type={props.showPassword() ? "text" : "password"}
@@ -79,7 +99,7 @@ export function PasswordPanel(props: PasswordPanelProps) {
               disabled={props.busy()}
             />
             <button
-              class="text-button reveal-button"
+              class={classesRevealButton}
               type="button"
               onClick={props.toggleShowPassword}
               disabled={props.busy()}
@@ -90,7 +110,7 @@ export function PasswordPanel(props: PasswordPanelProps) {
           </div>
           <Show when={props.passwordRecoveryAvailable()}>
             <button
-              class="text-button forgot-password-button"
+              class={classesForgotPasswordButton}
               type="button"
               onClick={props.passwordRecoveryStart}
               disabled={props.busy()}
@@ -98,8 +118,9 @@ export function PasswordPanel(props: PasswordPanelProps) {
               Forgot password?
             </button>
           </Show>
-          <label class="remember-field">
+          <label class={classesRememberField}>
             <input
+              class={classesCheckbox}
               type="checkbox"
               checked={props.rememberIdentifier()}
               onChange={(event) => props.rememberIdentifierChange(event)}
@@ -107,11 +128,11 @@ export function PasswordPanel(props: PasswordPanelProps) {
             />
             Remember this identifier
           </label>
-          <button class="primary" type="submit" disabled={props.busy() || !props.valid()}>
+          <button class={classesPrimaryButton} type="submit" disabled={props.busy() || !props.valid()}>
             {props.busy() ? "Signing in..." : "Sign in"}
           </button>
         </form>
-        <button class="back-button" type="button" onClick={props.showChooser} disabled={props.busy()}>
+        <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
           Back to methods
         </button>
       </Show>

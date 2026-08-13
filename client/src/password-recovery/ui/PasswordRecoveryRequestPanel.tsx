@@ -1,5 +1,15 @@
 import { Match, Switch } from "solid-js"
 
+import { classesBackButton } from "../../ui/classes/classesBackButton"
+import { classesHeading } from "../../ui/classes/classesHeading"
+import { classesInput } from "../../ui/classes/classesInput"
+import { classesIntro } from "../../ui/classes/classesIntro"
+import { classesIntroCopy } from "../../ui/classes/classesIntroCopy"
+import { classesLabel } from "../../ui/classes/classesLabel"
+import { classesLoadingState } from "../../ui/classes/classesLoadingState"
+import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
+import { classesSpinner } from "../../ui/classes/classesSpinner"
+import { classesStep } from "../../ui/classes/classesStep"
 import { passwordRecoveryRequestStateCreate } from "./passwordRecoveryRequestStateCreate"
 
 type PasswordRecoveryRequestPanelProps = {
@@ -27,45 +37,48 @@ export function PasswordRecoveryRequestPanel(props: PasswordRecoveryRequestPanel
     <section aria-labelledby="login-title">
       <Switch>
         <Match when={state.step() === "loading"}>
-          <div class="loading-state" role="status">
-            <span class="spinner" aria-hidden="true" />
+          <div class={classesLoadingState} role="status">
+            <span class={classesSpinner} aria-hidden="true" />
             <p>Loading password recovery...</p>
           </div>
         </Match>
         <Match when={state.step() === "sent"}>
-          <div class="intro">
-            <p class="step">Password recovery</p>
-            <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+          <div class={classesIntro}>
+            <p class={classesStep}>Password recovery</p>
+            <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
               Check your email
             </h1>
-            <p>If an account matches that email address, we sent a password reset link.</p>
+            <p class={classesIntroCopy}>If an account matches that email address, we sent a password reset link.</p>
           </div>
-          <button class="back-button" type="button" onClick={props.showLogin}>
+          <button class={classesBackButton} type="button" onClick={props.showLogin}>
             Back to sign-in
           </button>
         </Match>
         <Match when={state.step() === "fatal"}>
-          <div class="intro">
-            <p class="step">Password recovery</p>
-            <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+          <div class={classesIntro}>
+            <p class={classesStep}>Password recovery</p>
+            <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
               Password recovery unavailable
             </h1>
           </div>
-          <button class="back-button" type="button" onClick={props.showLogin}>
+          <button class={classesBackButton} type="button" onClick={props.showLogin}>
             Back to sign-in
           </button>
         </Match>
         <Match when={state.step() === "email"}>
-          <div class="intro">
-            <p class="step">Password recovery</p>
-            <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+          <div class={classesIntro}>
+            <p class={classesStep}>Password recovery</p>
+            <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
               Reset your password
             </h1>
           </div>
           <form onSubmit={state.submit} novalidate>
-            <label for="recovery-email">Email address</label>
+            <label class={classesLabel} for="recovery-email">
+              Email address
+            </label>
             <input
               ref={state.emailInputRegister}
+              class={classesInput}
               id="recovery-email"
               name="email"
               type="email"
@@ -77,11 +90,11 @@ export function PasswordRecoveryRequestPanel(props: PasswordRecoveryRequestPanel
               onInput={(event) => state.emailInput(event.currentTarget.value)}
               disabled={state.busy()}
             />
-            <button class="primary" type="submit" disabled={state.busy() || !state.valid()}>
+            <button class={classesPrimaryButton} type="submit" disabled={state.busy() || !state.valid()}>
               {state.busy() ? "Sending..." : "Send reset link"}
             </button>
           </form>
-          <button class="back-button" type="button" onClick={props.showLogin} disabled={state.busy()}>
+          <button class={classesBackButton} type="button" onClick={props.showLogin} disabled={state.busy()}>
             Back to sign-in
           </button>
         </Match>

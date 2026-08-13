@@ -1,5 +1,20 @@
 import { For, Match, Show, Switch } from "solid-js"
-
+import { classesBackButton } from "../../ui/classes/classesBackButton"
+import { classesCodeInput } from "../../ui/classes/classesCodeInput"
+import { classesFieldHelp } from "../../ui/classes/classesFieldHelp"
+import { classesHeading } from "../../ui/classes/classesHeading"
+import { classesIntro } from "../../ui/classes/classesIntro"
+import { classesLabel } from "../../ui/classes/classesLabel"
+import { classesMfaDescription } from "../../ui/classes/classesMfaDescription"
+import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
+import { classesSecondaryButton } from "../../ui/classes/classesSecondaryButton"
+import { classesStep } from "../../ui/classes/classesStep"
+import { classesTotpQr } from "../../ui/classes/classesTotpQr"
+import { classesTotpQrBackground } from "../../ui/classes/classesTotpQrBackground"
+import { classesTotpQrModules } from "../../ui/classes/classesTotpQrModules"
+import { classesTotpSecret } from "../../ui/classes/classesTotpSecret"
+import { classesTotpSecretLabel } from "../../ui/classes/classesTotpSecretLabel"
+import { classesTotpSecretValue } from "../../ui/classes/classesTotpSecretValue"
 import { mfaTotpEnrollStateCreate } from "./mfaTotpEnrollStateCreate"
 
 type MfaTotpEnrollPanelProps = {
@@ -40,58 +55,63 @@ export function MfaTotpEnrollPanel(props: MfaTotpEnrollPanelProps) {
 
   return (
     <div>
-      <div class="intro">
-        <p class="step">2-Step Verification</p>
-        <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+      <div class={classesIntro}>
+        <p class={classesStep}>2-Step Verification</p>
+        <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
           Set up authenticator app
         </h1>
       </div>
       <Switch>
         <Match when={state.stage() === "start"}>
-          <p class="mfa-mode-description">
+          <p class={classesMfaDescription}>
             Use an authenticator app such as 1Password, Google Authenticator, or Aegis to generate 6-digit codes.
           </p>
-          <button class="primary" type="button" onClick={() => void state.start()} disabled={props.busy()}>
+          <button class={classesPrimaryButton} type="button" onClick={() => void state.start()} disabled={props.busy()}>
             {props.busy() ? "Starting setup..." : "Start setup"}
           </button>
         </Match>
 
         <Match when={state.stage() === "unavailable"}>
-          <p class="mfa-mode-description">
+          <p class={classesMfaDescription}>
             Authenticator setup could not be prepared here. The setup details cannot be restored after a reload.
           </p>
-          <button class="primary" type="button" onClick={() => props.fallbackContinue()} disabled={props.busy()}>
+          <button
+            class={classesPrimaryButton}
+            type="button"
+            onClick={() => props.fallbackContinue()}
+            disabled={props.busy()}
+          >
             Continue in ZITADEL
           </button>
         </Match>
 
         <Match when={state.stage() === "setup"}>
-          <p class="mfa-mode-description">
+          <p class={classesMfaDescription}>
             Scan the code with your authenticator app, then enter the 6-digit code it shows.
           </p>
           <Show when={state.qr()}>
             {(qr) => (
               <svg
-                class="totp-qr"
+                class={classesTotpQr}
                 role="img"
                 aria-label="QR code for authenticator app setup"
                 viewBox={`0 0 ${qr().viewBoxSize} ${qr().viewBoxSize}`}
                 shape-rendering="crispEdges"
               >
-                <rect class="totp-qr-background" width={qr().viewBoxSize} height={qr().viewBoxSize} />
-                <path class="totp-qr-modules" d={qr().path} />
+                <rect class={classesTotpQrBackground} width={qr().viewBoxSize} height={qr().viewBoxSize} />
+                <path class={classesTotpQrModules} d={qr().path} />
               </svg>
             )}
           </Show>
-          <div class="totp-secret" role="group" aria-labelledby="totp-secret-label">
-            <p id="totp-secret-label" class="totp-secret-label">
+          <div class={classesTotpSecret} role="group" aria-labelledby="totp-secret-label">
+            <p id="totp-secret-label" class={classesTotpSecretLabel}>
               Setup key (if you cannot scan)
             </p>
             <Show
               when={state.secretVisible()}
               fallback={
                 <button
-                  class="secondary-button"
+                  class={classesSecondaryButton}
                   type="button"
                   onClick={state.secretVisibleToggle}
                   aria-describedby="totp-secret-label"
@@ -100,19 +120,21 @@ export function MfaTotpEnrollPanel(props: MfaTotpEnrollPanelProps) {
                 </button>
               }
             >
-              <p class="totp-secret-value">
-                <For each={state.secretGroups()}>{(group) => <span class="totp-secret-group">{group}</span>}</For>
+              <p class={classesTotpSecretValue}>
+                <For each={state.secretGroups()}>{(group) => <span>{group}</span>}</For>
               </p>
-              <button class="secondary-button" type="button" onClick={state.secretVisibleToggle}>
+              <button class={classesSecondaryButton} type="button" onClick={state.secretVisibleToggle}>
                 Hide setup key
               </button>
             </Show>
           </div>
           <form onSubmit={state.submit} novalidate>
-            <label for="totp-enroll-code">Authenticator code</label>
+            <label class={classesLabel} for="totp-enroll-code">
+              Authenticator code
+            </label>
             <input
               ref={state.codeInputRegister}
-              class="code-input"
+              class={classesCodeInput}
               id="totp-enroll-code"
               name="code"
               type="text"
@@ -131,22 +153,22 @@ export function MfaTotpEnrollPanel(props: MfaTotpEnrollPanelProps) {
               disabled={props.busy()}
               aria-describedby="totp-enroll-code-help"
             />
-            <p id="totp-enroll-code-help" class="field-help">
+            <p id="totp-enroll-code-help" class={classesFieldHelp}>
               Enter 6 digits.
             </p>
-            <button class="primary" type="submit" disabled={props.busy() || !state.valid()}>
+            <button class={classesPrimaryButton} type="submit" disabled={props.busy() || !state.valid()}>
               {props.busy() ? "Verifying..." : "Activate"}
             </button>
           </form>
         </Match>
       </Switch>
       <Show when={!props.setupUnavailable && props.showChooser}>
-        <button class="back-button" type="button" onClick={props.showChooser} disabled={props.busy()}>
+        <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
           Back to 2-step choices
         </button>
       </Show>
       <Show when={!props.setupUnavailable}>
-        <button class="back-button" type="button" onClick={props.showRootChooser} disabled={props.busy()}>
+        <button class={classesBackButton} type="button" onClick={props.showRootChooser} disabled={props.busy()}>
           Back to methods
         </button>
       </Show>

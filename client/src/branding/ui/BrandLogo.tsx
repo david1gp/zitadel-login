@@ -1,10 +1,12 @@
+import { classesBrandLogo } from "../../ui/classes/classesBrandLogo"
+
 type BrandLogoProps = {
   name: () => string
 }
 
 export function BrandLogo(props: BrandLogoProps) {
   return (
-    <svg class="brand-logo" viewBox="0 0 654.6 655" role="img" aria-label={props.name()}>
+    <svg class={classesBrandLogo} viewBox="0 0 654.6 655" role="img" aria-label={props.name()}>
       <title>{props.name()}</title>
       <path
         fill="currentColor"

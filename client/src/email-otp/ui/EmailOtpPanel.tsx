@@ -1,5 +1,21 @@
 import { Show } from "solid-js"
 
+import { classesBackButton } from "../../ui/classes/classesBackButton"
+import { classesCheckbox } from "../../ui/classes/classesCheckbox"
+import { classesCodeActions } from "../../ui/classes/classesCodeActions"
+import { classesCodeInput } from "../../ui/classes/classesCodeInput"
+import { classesFieldHelp } from "../../ui/classes/classesFieldHelp"
+import { classesHeading } from "../../ui/classes/classesHeading"
+import { classesInput } from "../../ui/classes/classesInput"
+import { classesIntro } from "../../ui/classes/classesIntro"
+import { classesIntroCopy } from "../../ui/classes/classesIntroCopy"
+import { classesLabel } from "../../ui/classes/classesLabel"
+import { classesNoticeMessage } from "../../ui/classes/classesNoticeMessage"
+import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
+import { classesRememberField } from "../../ui/classes/classesRememberField"
+import { classesStep } from "../../ui/classes/classesStep"
+import { classesTextButton } from "../../ui/classes/classesTextButton"
+
 type EmailOtpPanelProps = {
   step: () => "email" | "code"
   email: () => string
@@ -29,20 +45,22 @@ export function EmailOtpPanel(props: EmailOtpPanelProps) {
         when={props.step() === "email"}
         fallback={
           <>
-            <div class="intro">
-              <p class="step">Email code</p>
-              <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+            <div class={classesIntro}>
+              <p class={classesStep}>Email code</p>
+              <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                 Check your email
               </h1>
-              <p>
+              <p class={classesIntroCopy}>
                 Enter the code sent for <strong>{props.maskedEmail()}</strong>.
               </p>
             </div>
             <form onSubmit={props.codeSubmit} novalidate>
-              <label for="code">Verification code</label>
+              <label class={classesLabel} for="code">
+                Verification code
+              </label>
               <input
                 ref={props.codeInputRegister}
-                class="code-input"
+                class={classesCodeInput}
                 id="code"
                 name="code"
                 type="text"
@@ -56,37 +74,40 @@ export function EmailOtpPanel(props: EmailOtpPanelProps) {
                 disabled={props.busy()}
                 aria-describedby="code-help resend-status"
               />
-              <p id="code-help" class="field-help">
+              <p id="code-help" class={classesFieldHelp}>
                 Enter 6 to 20 digits.
               </p>
-              <button class="primary" type="submit" disabled={props.busy() || props.code().length < 6}>
+              <button class={classesPrimaryButton} type="submit" disabled={props.busy() || props.code().length < 6}>
                 {props.busy() ? "Verifying..." : "Continue"}
               </button>
             </form>
-            <div class="code-actions">
-              <button class="text-button" type="button" onClick={props.resend} disabled={props.busy()}>
+            <div class={classesCodeActions}>
+              <button class={classesTextButton} type="button" onClick={props.resend} disabled={props.busy()}>
                 Send a new code
               </button>
-              <button class="text-button" type="button" onClick={props.emailChange} disabled={props.busy()}>
+              <button class={classesTextButton} type="button" onClick={props.emailChange} disabled={props.busy()}>
                 Change email
               </button>
             </div>
-            <p id="resend-status" class="success-message" role="status">
+            <p id="resend-status" class={classesNoticeMessage} role="status">
               {props.notice()}
             </p>
           </>
         }
       >
-        <div class="intro">
-          <p class="step">Email code</p>
-          <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+        <div class={classesIntro}>
+          <p class={classesStep}>Email code</p>
+          <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
             Enter your email
           </h1>
         </div>
         <form onSubmit={props.emailSubmit} novalidate>
-          <label for="email">Email address</label>
+          <label class={classesLabel} for="email">
+            Email address
+          </label>
           <input
             ref={props.emailInputRegister}
+            class={classesInput}
             id="email"
             name="email"
             type="email"
@@ -98,8 +119,9 @@ export function EmailOtpPanel(props: EmailOtpPanelProps) {
             onInput={(event) => props.emailInput(event.currentTarget.value)}
             disabled={props.busy()}
           />
-          <label class="remember-field">
+          <label class={classesRememberField}>
             <input
+              class={classesCheckbox}
               type="checkbox"
               checked={props.rememberIdentifier()}
               onChange={(event) => props.rememberIdentifierChange(event)}
@@ -107,12 +129,12 @@ export function EmailOtpPanel(props: EmailOtpPanelProps) {
             />
             Remember this email
           </label>
-          <button class="primary" type="submit" disabled={props.busy() || !props.valid()}>
+          <button class={classesPrimaryButton} type="submit" disabled={props.busy() || !props.valid()}>
             {props.busy() ? "Sending..." : "Send code"}
           </button>
         </form>
       </Show>
-      <button class="back-button" type="button" onClick={props.showChooser} disabled={props.busy()}>
+      <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
         Back to methods
       </button>
     </section>

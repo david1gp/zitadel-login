@@ -1,5 +1,17 @@
 import { Show } from "solid-js"
 
+import { classesBackButton } from "../../ui/classes/classesBackButton"
+import { classesCheckbox } from "../../ui/classes/classesCheckbox"
+import { classesHeading } from "../../ui/classes/classesHeading"
+import { classesInput } from "../../ui/classes/classesInput"
+import { classesIntro } from "../../ui/classes/classesIntro"
+import { classesLabel } from "../../ui/classes/classesLabel"
+import { classesMfaNotice } from "../../ui/classes/classesMfaNotice"
+import { classesNoticeMessage } from "../../ui/classes/classesNoticeMessage"
+import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
+import { classesRememberField } from "../../ui/classes/classesRememberField"
+import { classesStep } from "../../ui/classes/classesStep"
+
 type PasskeyPanelProps = {
   identifier: () => string
   options: () => unknown
@@ -26,17 +38,17 @@ export function PasskeyPanel(props: PasskeyPanelProps) {
       <Show
         when={props.isSupported()}
         fallback={
-          <div class="unsupported-panel">
-            <div class="intro">
-              <p class="step">Passkey</p>
-              <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+          <div>
+            <div class={classesIntro}>
+              <p class={classesStep}>Passkey</p>
+              <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                 Passkey not supported
               </h1>
-              <p class="notice-message">
+              <p class={classesNoticeMessage}>
                 Passkey authentication is not supported in this browser. Please use another sign-in method.
               </p>
             </div>
-            <button class="back-button" type="button" onClick={props.showChooser} disabled={props.busy()}>
+            <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
               Back to methods
             </button>
           </div>
@@ -45,33 +57,36 @@ export function PasskeyPanel(props: PasskeyPanelProps) {
         <Show
           when={!props.mfaRequired()}
           fallback={
-            <div class="mfa-placeholder">
-              <div class="intro">
-                <p class="step">Authentication</p>
-                <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+            <div>
+              <div class={classesIntro}>
+                <p class={classesStep}>Authentication</p>
+                <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                   2-Step Verification Required
                 </h1>
-                <p class="mfa-notice">
+                <p class={classesMfaNotice}>
                   Multi-factor authentication (MFA) is required for this account. MFA support will be enabled in Task 5.
                 </p>
               </div>
-              <button class="back-button" type="button" onClick={props.showChooser} disabled={props.busy()}>
+              <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
                 Back to methods
               </button>
             </div>
           }
         >
-          <div class="intro">
-            <p class="step">Passkey</p>
-            <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+          <div class={classesIntro}>
+            <p class={classesStep}>Passkey</p>
+            <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
               Sign in with passkey
             </h1>
           </div>
           <form onSubmit={handleSubmit} novalidate>
             <Show when={!props.options()}>
-              <label for="identifier">Username or email</label>
+              <label class={classesLabel} for="identifier">
+                Username or email
+              </label>
               <input
                 ref={props.identifierInputRegister}
+                class={classesInput}
                 id="identifier"
                 name="identifier"
                 type="text"
@@ -83,8 +98,9 @@ export function PasskeyPanel(props: PasskeyPanelProps) {
                 onInput={(event) => props.identifierInput(event.currentTarget.value)}
                 disabled={props.busy()}
               />
-              <label class="remember-field">
+              <label class={classesRememberField}>
                 <input
+                  class={classesCheckbox}
                   type="checkbox"
                   checked={props.rememberIdentifier()}
                   onChange={(event) => props.rememberIdentifierChange(event)}
@@ -93,11 +109,11 @@ export function PasskeyPanel(props: PasskeyPanelProps) {
                 Remember this identifier
               </label>
             </Show>
-            <button class="primary" type="submit" disabled={props.busy()}>
+            <button class={classesPrimaryButton} type="submit" disabled={props.busy()}>
               {props.busy() ? "Signing in..." : "Sign in with passkey"}
             </button>
           </form>
-          <button class="back-button" type="button" onClick={props.showChooser} disabled={props.busy()}>
+          <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
             Back to methods
           </button>
         </Show>

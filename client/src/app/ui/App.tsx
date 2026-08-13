@@ -3,7 +3,6 @@ import { Match, Show, Switch } from "solid-js"
 import { BrandHeader } from "../../branding/ui/BrandHeader"
 import { EmailOtpPanel } from "../../email-otp/ui/EmailOtpPanel"
 import { MethodChooser } from "../../flow/ui/MethodChooser"
-import { UnsupportedMethodPanel } from "../../flow/ui/UnsupportedMethodPanel"
 import { IdentityProviderPanel } from "../../identity-provider/ui/IdentityProviderPanel"
 import { MfaPanel } from "../../mfa/ui/MfaPanel"
 import { PasskeyPanel } from "../../passkey/ui/PasskeyPanel"
@@ -12,6 +11,17 @@ import { PasswordPanel } from "../../password/ui/PasswordPanel"
 import { PasswordRecoveryRequestPanel } from "../../password-recovery/ui/PasswordRecoveryRequestPanel"
 import { PasswordResetPanel } from "../../password-recovery/ui/PasswordResetPanel"
 import { ThemeToggle } from "../../preferences/ui/ThemeToggle"
+import { classesCardTop } from "../../ui/classes/classesCardTop"
+import { classesContent } from "../../ui/classes/classesContent"
+import { classesErrorMessage } from "../../ui/classes/classesErrorMessage"
+import { classesHeading } from "../../ui/classes/classesHeading"
+import { classesIntro } from "../../ui/classes/classesIntro"
+import { classesLoadingState } from "../../ui/classes/classesLoadingState"
+import { classesLoginCard } from "../../ui/classes/classesLoginCard"
+import { classesNoticeMessage } from "../../ui/classes/classesNoticeMessage"
+import { classesPageShell } from "../../ui/classes/classesPageShell"
+import { classesSpinner } from "../../ui/classes/classesSpinner"
+import { classesStep } from "../../ui/classes/classesStep"
 import { appStateCreate } from "./appStateCreate"
 
 type AppProps = { apiOrigin: string }
@@ -20,9 +30,9 @@ export function App(props: AppProps) {
   const state = appStateCreate(() => props.apiOrigin)
 
   return (
-    <main class="page-shell">
-      <section class="login-card" aria-busy={state.busy()}>
-        <div class="card-top">
+    <main class={classesPageShell}>
+      <section class={classesLoginCard} aria-busy={state.busy()}>
+        <div class={classesCardTop}>
           <BrandHeader
             assetUrl={state.brandAssetUrl}
             name={() => state.bootstrap().organization.name}
@@ -34,7 +44,7 @@ export function App(props: AppProps) {
             select={state.themeSelect}
           />
         </div>
-        <div class="content">
+        <div class={classesContent}>
           <Switch>
             <Match when={state.status() === "password_recovery" && state.recoveryRoute() === "request"}>
               <PasswordRecoveryRequestPanel
@@ -57,15 +67,15 @@ export function App(props: AppProps) {
               />
             </Match>
             <Match when={state.status() === "loading" || state.status() === "continuing"}>
-              <div class="loading-state" role="status">
-                <span class="spinner" aria-hidden="true" />
+              <div class={classesLoadingState} role="status">
+                <span class={classesSpinner} aria-hidden="true" />
                 <p>{state.status() === "continuing" ? "Continuing sign-in..." : "Loading sign-in..."}</p>
               </div>
             </Match>
             <Match when={state.status() === "fatal"}>
-              <div class="intro">
-                <p class="step">Unable to continue</p>
-                <h1 ref={state.headingRegister} id="login-title" tabindex="-1">
+              <div class={classesIntro}>
+                <p class={classesStep}>Unable to continue</p>
+                <h1 ref={state.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                   Start sign-in again
                 </h1>
               </div>
@@ -193,12 +203,12 @@ export function App(props: AppProps) {
             </Match>
           </Switch>
           <Show when={state.error()}>
-            <div ref={state.errorRegister} id="error-message" class="error-message" role="alert" tabindex="-1">
+            <div ref={state.errorRegister} id="error-message" class={classesErrorMessage} role="alert" tabindex="-1">
               {state.error()}
             </div>
           </Show>
           <Show when={state.notice() && state.emailStep() !== "code"}>
-            <p class="notice-message" role="status">
+            <p class={classesNoticeMessage} role="status">
               {state.notice()}
             </p>
           </Show>

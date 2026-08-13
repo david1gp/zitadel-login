@@ -1,6 +1,16 @@
 import { For, Match, Show, Switch } from "solid-js"
 import type { LoginMethodSelection } from "../../flow/model/loginMethodSelectionSchema"
 import { MethodChoiceButton } from "../../flow/ui/MethodChoiceButton"
+import { classesBackButton } from "../../ui/classes/classesBackButton"
+import { classesHeading } from "../../ui/classes/classesHeading"
+import { classesIntro } from "../../ui/classes/classesIntro"
+import { classesLoadingState } from "../../ui/classes/classesLoadingState"
+import { classesMethodList } from "../../ui/classes/classesMethodList"
+import { classesMfaDescription } from "../../ui/classes/classesMfaDescription"
+import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
+import { classesSecondaryButton } from "../../ui/classes/classesSecondaryButton"
+import { classesSpinner } from "../../ui/classes/classesSpinner"
+import { classesStep } from "../../ui/classes/classesStep"
 import { mfaFactorDetailGet } from "../model/mfaFactorDetailGet"
 import { mfaFactorIconPathGet } from "../model/mfaFactorIconPathGet"
 import { mfaFactorLabelGet } from "../model/mfaFactorLabelGet"
@@ -164,22 +174,27 @@ export function MfaPanel(props: MfaPanelProps) {
           )}
         </Match>
         <Match when={state.loading()}>
-          <div class="loading-state" role="status">
-            <span class="spinner" aria-hidden="true" />
+          <div class={classesLoadingState} role="status">
+            <span class={classesSpinner} aria-hidden="true" />
             <p>Loading 2-step verification options...</p>
           </div>
         </Match>
         <Match when={!state.options()}>
-          <div class="intro">
-            <p class="step">2-Step Verification</p>
-            <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+          <div class={classesIntro}>
+            <p class={classesStep}>2-Step Verification</p>
+            <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
               2-Step Verification
             </h1>
           </div>
-          <button class="primary" type="button" onClick={() => void state.reload()} disabled={props.busy()}>
+          <button
+            class={classesPrimaryButton}
+            type="button"
+            onClick={() => void state.reload()}
+            disabled={props.busy()}
+          >
             Retry loading options
           </button>
-          <button class="back-button" type="button" onClick={state.showRootChooser} disabled={props.busy()}>
+          <button class={classesBackButton} type="button" onClick={state.showRootChooser} disabled={props.busy()}>
             Back to methods
           </button>
         </Match>
@@ -326,17 +341,17 @@ export function MfaPanel(props: MfaPanelProps) {
                     }
                   >
                     <div>
-                      <div class="intro">
-                        <p class="step">2-Step Verification</p>
-                        <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+                      <div class={classesIntro}>
+                        <p class={classesStep}>2-Step Verification</p>
+                        <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                           {mfaFactorLabelGet(factorType())}
                         </h1>
                       </div>
-                      <p class="mfa-placeholder-notice">
+                      <p class={classesMfaDescription}>
                         Verification with {mfaFactorLabelGet(factorType())} will be completed in the next update.
                       </p>
                       <button
-                        class="primary"
+                        class={classesPrimaryButton}
                         type="button"
                         onClick={() => props.fallbackContinue()}
                         disabled={props.busy()}
@@ -344,11 +359,21 @@ export function MfaPanel(props: MfaPanelProps) {
                         Continue in ZITADEL
                       </button>
                       <Show when={selectOptions() || enrollOptions() || skipOptions()}>
-                        <button class="back-button" type="button" onClick={state.showChooser} disabled={props.busy()}>
+                        <button
+                          class={classesBackButton}
+                          type="button"
+                          onClick={state.showChooser}
+                          disabled={props.busy()}
+                        >
                           Back to 2-step choices
                         </button>
                       </Show>
-                      <button class="back-button" type="button" onClick={state.showRootChooser} disabled={props.busy()}>
+                      <button
+                        class={classesBackButton}
+                        type="button"
+                        onClick={state.showRootChooser}
+                        disabled={props.busy()}
+                      >
                         Back to methods
                       </button>
                     </div>
@@ -445,24 +470,29 @@ export function MfaPanel(props: MfaPanelProps) {
                     }
                   >
                     <div>
-                      <div class="intro">
-                        <p class="step">2-Step Verification</p>
-                        <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+                      <div class={classesIntro}>
+                        <p class={classesStep}>2-Step Verification</p>
+                        <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                           {mfaFactorLabelGet(check().method.type)}
                         </h1>
                       </div>
-                      <p class="mfa-placeholder-notice">
+                      <p class={classesMfaDescription}>
                         Verification with {mfaFactorLabelGet(check().method.type)} will be completed in the next update.
                       </p>
                       <button
-                        class="primary"
+                        class={classesPrimaryButton}
                         type="button"
                         onClick={() => props.fallbackContinue()}
                         disabled={props.busy()}
                       >
                         Continue in ZITADEL
                       </button>
-                      <button class="back-button" type="button" onClick={state.showRootChooser} disabled={props.busy()}>
+                      <button
+                        class={classesBackButton}
+                        type="button"
+                        onClick={state.showRootChooser}
+                        disabled={props.busy()}
+                      >
                         Back to methods
                       </button>
                     </div>
@@ -474,13 +504,13 @@ export function MfaPanel(props: MfaPanelProps) {
             <Match when={selectOptions()}>
               {(select) => (
                 <div>
-                  <div class="intro">
-                    <p class="step">2-Step Verification</p>
-                    <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+                  <div class={classesIntro}>
+                    <p class={classesStep}>2-Step Verification</p>
+                    <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                       Choose 2-step verification method
                     </h1>
                   </div>
-                  <ul class="method-list">
+                  <ul class={classesMethodList}>
                     <For each={select().methods}>
                       {(method) => (
                         <li>
@@ -495,7 +525,12 @@ export function MfaPanel(props: MfaPanelProps) {
                       )}
                     </For>
                   </ul>
-                  <button class="back-button" type="button" onClick={state.showRootChooser} disabled={props.busy()}>
+                  <button
+                    class={classesBackButton}
+                    type="button"
+                    onClick={state.showRootChooser}
+                    disabled={props.busy()}
+                  >
                     Back to methods
                   </button>
                 </div>
@@ -505,14 +540,14 @@ export function MfaPanel(props: MfaPanelProps) {
             <Match when={enrollOptions()}>
               {(enroll) => (
                 <div>
-                  <div class="intro">
-                    <p class="step">2-Step Verification</p>
-                    <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+                  <div class={classesIntro}>
+                    <p class={classesStep}>2-Step Verification</p>
+                    <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                       Set up 2-step verification
                     </h1>
                   </div>
-                  <p class="mfa-mode-description">Select a method to set up 2-step verification for your account.</p>
-                  <ul class="method-list">
+                  <p class={classesMfaDescription}>Select a method to set up 2-step verification for your account.</p>
+                  <ul class={classesMethodList}>
                     <For each={enroll().methods}>
                       {(method) => (
                         <li>
@@ -527,7 +562,12 @@ export function MfaPanel(props: MfaPanelProps) {
                       )}
                     </For>
                   </ul>
-                  <button class="back-button" type="button" onClick={state.showRootChooser} disabled={props.busy()}>
+                  <button
+                    class={classesBackButton}
+                    type="button"
+                    onClick={state.showRootChooser}
+                    disabled={props.busy()}
+                  >
                     Back to methods
                   </button>
                 </div>
@@ -539,15 +579,15 @@ export function MfaPanel(props: MfaPanelProps) {
                 <div>
                   <Switch>
                     <Match when={skip().reason === "factor_satisfied"}>
-                      <div class="intro">
-                        <p class="step">2-Step Verification</p>
-                        <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+                      <div class={classesIntro}>
+                        <p class={classesStep}>2-Step Verification</p>
+                        <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                           2-Step verification satisfied
                         </h1>
                       </div>
-                      <p class="mfa-mode-description">Your sign-in already satisfies 2-step verification policy.</p>
+                      <p class={classesMfaDescription}>Your sign-in already satisfies 2-step verification policy.</p>
                       <button
-                        class="primary"
+                        class={classesPrimaryButton}
                         type="button"
                         onClick={() => props.fallbackContinue()}
                         disabled={props.busy()}
@@ -556,17 +596,17 @@ export function MfaPanel(props: MfaPanelProps) {
                       </button>
                     </Match>
                     <Match when={skip().reason === "optional_setup"}>
-                      <div class="intro">
-                        <p class="step">2-Step Verification</p>
-                        <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+                      <div class={classesIntro}>
+                        <p class={classesStep}>2-Step Verification</p>
+                        <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                           Optional 2-step verification
                         </h1>
                       </div>
-                      <p class="mfa-mode-description">
+                      <p class={classesMfaDescription}>
                         You can set up 2-step verification for extra security or skip for now.
                       </p>
                       <Show when={skip().methods.length > 0}>
-                        <ul class="method-list">
+                        <ul class={classesMethodList}>
                           <For each={skip().methods}>
                             {(method) => (
                               <li>
@@ -582,12 +622,22 @@ export function MfaPanel(props: MfaPanelProps) {
                           </For>
                         </ul>
                       </Show>
-                      <button class="secondary-button" type="button" onClick={state.skipSubmit} disabled={props.busy()}>
+                      <button
+                        class={classesSecondaryButton}
+                        type="button"
+                        onClick={state.skipSubmit}
+                        disabled={props.busy()}
+                      >
                         {props.busy() ? "Skipping..." : "Skip for now"}
                       </button>
                     </Match>
                   </Switch>
-                  <button class="back-button" type="button" onClick={state.showRootChooser} disabled={props.busy()}>
+                  <button
+                    class={classesBackButton}
+                    type="button"
+                    onClick={state.showRootChooser}
+                    disabled={props.busy()}
+                  >
                     Back to methods
                   </button>
                 </div>
@@ -597,26 +647,31 @@ export function MfaPanel(props: MfaPanelProps) {
             <Match when={fallbackOptions()}>
               {(fb) => (
                 <div>
-                  <div class="intro">
-                    <p class="step">2-Step Verification</p>
-                    <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+                  <div class={classesIntro}>
+                    <p class={classesStep}>2-Step Verification</p>
+                    <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                       2-Step verification required
                     </h1>
                   </div>
-                  <p class="mfa-mode-description">
+                  <p class={classesMfaDescription}>
                     {fb().reason === "recovery_code"
                       ? "Recovery code verification requires native ZITADEL sign-in."
                       : "This 2-step verification option requires native ZITADEL sign-in."}
                   </p>
                   <button
-                    class="primary"
+                    class={classesPrimaryButton}
                     type="button"
                     onClick={() => props.fallbackContinue()}
                     disabled={props.busy()}
                   >
                     Continue in ZITADEL
                   </button>
-                  <button class="back-button" type="button" onClick={state.showRootChooser} disabled={props.busy()}>
+                  <button
+                    class={classesBackButton}
+                    type="button"
+                    onClick={state.showRootChooser}
+                    disabled={props.busy()}
+                  >
                     Back to methods
                   </button>
                 </div>

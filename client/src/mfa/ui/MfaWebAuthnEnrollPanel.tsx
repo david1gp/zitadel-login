@@ -1,10 +1,20 @@
 import { Match, Show, Switch } from "solid-js"
 
 import type { PasskeyOptions } from "../../passkey/model/passkeyOptionsSchema"
+import { classesBackButton } from "../../ui/classes/classesBackButton"
+import { classesFieldHelp } from "../../ui/classes/classesFieldHelp"
+import { classesHeading } from "../../ui/classes/classesHeading"
+import { classesInput } from "../../ui/classes/classesInput"
+import { classesIntro } from "../../ui/classes/classesIntro"
+import { classesLabel } from "../../ui/classes/classesLabel"
+import { classesMfaDescription } from "../../ui/classes/classesMfaDescription"
+import { classesNoticeMessage } from "../../ui/classes/classesNoticeMessage"
+import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
+import { classesStep } from "../../ui/classes/classesStep"
 import {
-  type PasskeyCredentialsCreate,
   mfaWebAuthnDisplayNameMaxLength,
   mfaWebAuthnEnrollStateCreate,
+  type PasskeyCredentialsCreate,
 } from "./mfaWebAuthnEnrollStateCreate"
 
 type MfaWebAuthnEnrollPanelProps = {
@@ -56,37 +66,45 @@ export function MfaWebAuthnEnrollPanel(props: MfaWebAuthnEnrollPanelProps) {
 
   return (
     <div>
-      <div class="intro">
-        <p class="step">2-Step Verification</p>
-        <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+      <div class={classesIntro}>
+        <p class={classesStep}>2-Step Verification</p>
+        <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
           {title()}
         </h1>
       </div>
       <Switch>
         <Match when={!state.isSupported()}>
-          <p class="notice-message">
+          <p class={classesNoticeMessage}>
             {props.method() === "passkey"
               ? "Passkey registration is not supported in this browser."
               : "Security key registration is not supported in this browser."}
           </p>
         </Match>
         <Match when={state.stage() === "unavailable"}>
-          <p class="mfa-mode-description">
+          <p class={classesMfaDescription}>
             This registration cannot be resumed after a reload. Continue in ZITADEL to finish setup.
           </p>
-          <button class="primary" type="button" onClick={() => props.fallbackContinue()} disabled={props.busy()}>
+          <button
+            class={classesPrimaryButton}
+            type="button"
+            onClick={() => props.fallbackContinue()}
+            disabled={props.busy()}
+          >
             Continue in ZITADEL
           </button>
         </Match>
         <Match when={state.stage() === "start"}>
-          <p class="mfa-mode-description">
+          <p class={classesMfaDescription}>
             {props.method() === "passkey"
               ? "Register a passkey with biometrics or a device PIN, then verify it once to continue."
               : "Register a hardware security key, then verify it once to continue."}
           </p>
           <form onSubmit={state.submit} novalidate>
-            <label for="webauthn-enroll-name">Name (optional)</label>
+            <label class={classesLabel} for="webauthn-enroll-name">
+              Name (optional)
+            </label>
             <input
+              class={classesInput}
               id="webauthn-enroll-name"
               name="displayName"
               type="text"
@@ -100,22 +118,22 @@ export function MfaWebAuthnEnrollPanel(props: MfaWebAuthnEnrollPanelProps) {
               disabled={props.busy()}
               aria-describedby="webauthn-enroll-name-help"
             />
-            <p id="webauthn-enroll-name-help" class="field-help">
+            <p id="webauthn-enroll-name-help" class={classesFieldHelp}>
               Helps you recognize this device later.
             </p>
-            <button class="primary" type="submit" disabled={props.busy()}>
+            <button class={classesPrimaryButton} type="submit" disabled={props.busy()}>
               {props.busy() ? "Registering..." : action()}
             </button>
           </form>
         </Match>
       </Switch>
       <Show when={!props.setupUnavailable && props.showChooser}>
-        <button class="back-button" type="button" onClick={props.showChooser} disabled={props.busy()}>
+        <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
           Back to 2-step choices
         </button>
       </Show>
       <Show when={!props.setupUnavailable}>
-        <button class="back-button" type="button" onClick={props.showRootChooser} disabled={props.busy()}>
+        <button class={classesBackButton} type="button" onClick={props.showRootChooser} disabled={props.busy()}>
           Back to methods
         </button>
       </Show>

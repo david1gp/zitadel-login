@@ -1,5 +1,17 @@
 import { For, Show } from "solid-js"
 
+import { classesDemoChromeToggle } from "../../ui/classes/classesDemoChromeToggle"
+import { classesDemoChromeToggleButton } from "../../ui/classes/classesDemoChromeToggleButton"
+import { classesDemoNav } from "../../ui/classes/classesDemoNav"
+import { classesDemoNavIcon } from "../../ui/classes/classesDemoNavIcon"
+import { classesDemoNavKicker } from "../../ui/classes/classesDemoNavKicker"
+import { classesDemoNavList } from "../../ui/classes/classesDemoNavList"
+import { classesDemoNavListButton } from "../../ui/classes/classesDemoNavListButton"
+import { classesDemoNavRow } from "../../ui/classes/classesDemoNavRow"
+import { classesDemoSearchLabel } from "../../ui/classes/classesDemoSearchLabel"
+import { classesInput } from "../../ui/classes/classesInput"
+import { classesTextButton } from "../../ui/classes/classesTextButton"
+import { classesVisuallyHidden } from "../../ui/classes/classesVisuallyHidden"
 import { Icon } from "../../ui/Icon"
 import type { DemoChrome } from "../model/demoChromeSchema"
 import { demoScenarioGroupsGet } from "../model/demoScenarioGroupsGet"
@@ -28,49 +40,65 @@ export function DemoNav(props: DemoNavProps) {
   const compact = () => props.chrome() === "compact"
 
   return (
-    <aside class="demo-nav" data-chrome={props.chrome()}>
-      <div class="demo-nav-top">
-        <p class="demo-nav-kicker">UI demo</p>
-        <div class="demo-nav-actions">
-          <button class="text-button" type="button" onClick={props.showDirectory}>
+    <aside class={classesDemoNav} data-chrome={props.chrome()}>
+      <div class={classesDemoNavRow}>
+        <p class={classesDemoNavKicker}>UI demo</p>
+        <div class={classesDemoNavRow}>
+          <button class={classesTextButton} type="button" onClick={props.showDirectory}>
             Directory
           </button>
           <Show when={compact()}>
-            <button class="text-button" type="button" onClick={props.pickerToggle} aria-expanded={props.pickerOpen()}>
+            <button
+              class={classesTextButton}
+              type="button"
+              onClick={props.pickerToggle}
+              aria-expanded={props.pickerOpen()}
+            >
               {props.pickerOpen() ? "Hide screens" : "Screens"}
             </button>
           </Show>
         </div>
       </div>
-      <fieldset class="demo-chrome-toggle">
-        <legend class="visually-hidden">Demo chrome</legend>
-        <button type="button" aria-pressed={props.chrome() === "sidebar"} onClick={() => props.chromeSelect("sidebar")}>
+      <fieldset class={classesDemoChromeToggle}>
+        <legend class={classesVisuallyHidden}>Demo chrome</legend>
+        <button
+          type="button"
+          class={classesDemoChromeToggleButton}
+          aria-pressed={props.chrome() === "sidebar"}
+          onClick={() => props.chromeSelect("sidebar")}
+        >
           Sidebar
         </button>
-        <button type="button" aria-pressed={props.chrome() === "compact"} onClick={() => props.chromeSelect("compact")}>
+        <button
+          type="button"
+          class={classesDemoChromeToggleButton}
+          aria-pressed={props.chrome() === "compact"}
+          onClick={() => props.chromeSelect("compact")}
+        >
           Compact
         </button>
       </fieldset>
-      <div class="demo-nav-stepper">
-        <button class="text-button" type="button" disabled={!props.hasPrevious()} onClick={props.previousOpen}>
+      <div class={classesDemoNavRow}>
+        <button class={classesTextButton} type="button" disabled={!props.hasPrevious()} onClick={props.previousOpen}>
           Previous
         </button>
-        <button class="text-button" type="button" disabled={!props.hasNext()} onClick={props.nextOpen}>
+        <button class={classesTextButton} type="button" disabled={!props.hasNext()} onClick={props.nextOpen}>
           Next
         </button>
       </div>
       <Show when={!compact() || props.pickerOpen()}>
-        <label class="demo-search-label" for="demo-search">
+        <label class={classesDemoSearchLabel} for="demo-search">
           Filter screens
         </label>
         <input
+          class={classesInput}
           id="demo-search"
           type="search"
           value={props.query()}
           placeholder="Search screens"
           onInput={(event) => props.queryInput(event.currentTarget.value)}
         />
-        <nav class="demo-nav-list" aria-label="Demo screens">
+        <nav class={classesDemoNavList} aria-label="Demo screens">
           <For each={groups()}>
             {(group) => (
               <section>
@@ -81,10 +109,11 @@ export function DemoNav(props: DemoNavProps) {
                       <li>
                         <button
                           type="button"
+                          class={classesDemoNavListButton}
                           aria-current={scenario.id === props.currentId() ? "page" : undefined}
                           onClick={() => props.open(scenario.path)}
                         >
-                          <Icon path={demoScenarioIconPathGet(scenario.id)} />
+                          <Icon class={classesDemoNavIcon} path={demoScenarioIconPathGet(scenario.id)} />
                           <span>{scenario.label}</span>
                         </button>
                       </li>

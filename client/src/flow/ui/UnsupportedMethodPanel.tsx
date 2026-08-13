@@ -1,3 +1,9 @@
+import { classesBackButton } from "../../ui/classes/classesBackButton"
+import { classesHeading } from "../../ui/classes/classesHeading"
+import { classesIntro } from "../../ui/classes/classesIntro"
+import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
+import { classesStep } from "../../ui/classes/classesStep"
+
 type UnsupportedMethodPanelProps = {
   method: "password" | "passkey" | "identity_provider" | "mfa"
   providerName?: string
@@ -18,18 +24,18 @@ export function UnsupportedMethodPanel(props: UnsupportedMethodPanelProps) {
           : `Continue with ${props.providerName ?? "provider"}`
   return (
     <section aria-labelledby="login-title">
-      <div class="intro">
-        <p class="step">Selected method</p>
-        <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+      <div class={classesIntro}>
+        <p class={classesStep}>Selected method</p>
+        <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
           {title()}
         </h1>
       </div>
       <form onSubmit={props.submit} novalidate>
-        <button class="primary" type="submit" disabled={props.busy()}>
+        <button class={classesPrimaryButton} type="submit" disabled={props.busy()}>
           Continue in ZITADEL
         </button>
       </form>
-      <button class="back-button" type="button" onClick={props.showChooser} disabled={props.busy()}>
+      <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
         Back to methods
       </button>
     </section>

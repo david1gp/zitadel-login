@@ -1,3 +1,12 @@
+import { classesHeading } from "../../ui/classes/classesHeading"
+import { classesInput } from "../../ui/classes/classesInput"
+import { classesIntro } from "../../ui/classes/classesIntro"
+import { classesIntroCopy } from "../../ui/classes/classesIntroCopy"
+import { classesLabel } from "../../ui/classes/classesLabel"
+import { classesPasswordInputGroup } from "../../ui/classes/classesPasswordInputGroup"
+import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
+import { classesRevealButton } from "../../ui/classes/classesRevealButton"
+import { classesStep } from "../../ui/classes/classesStep"
 import { passwordChangeRequiredStateCreate } from "./passwordChangeRequiredStateCreate"
 
 type PasswordChangeRequiredPanelProps = {
@@ -35,21 +44,24 @@ export function PasswordChangeRequiredPanel(props: PasswordChangeRequiredPanelPr
 
   return (
     <section aria-labelledby="login-title">
-      <div class="intro">
-        <p class="step">Password change</p>
-        <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+      <div class={classesIntro}>
+        <p class={classesStep}>Password change</p>
+        <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
           Change your password
         </h1>
-        <p>
+        <p class={classesIntroCopy}>
           {props.expired()
             ? "Your password has expired. Set a new password to continue."
             : "Your password must be changed before you continue."}
         </p>
       </div>
       <form onSubmit={state.submit} novalidate>
-        <label for="current-password">Current password</label>
+        <label class={classesLabel} for="current-password">
+          Current password
+        </label>
         <input
           ref={state.currentPasswordInputRegister}
+          class={classesInput}
           id="current-password"
           name="current-password"
           type={state.showPassword() ? "text" : "password"}
@@ -60,10 +72,13 @@ export function PasswordChangeRequiredPanel(props: PasswordChangeRequiredPanelPr
           onInput={(event) => state.currentPasswordInput(event.currentTarget.value)}
           disabled={props.busy()}
         />
-        <label for="new-password">New password</label>
-        <div class="password-input-group">
+        <label class={classesLabel} for="new-password">
+          New password
+        </label>
+        <div class={classesPasswordInputGroup}>
           <input
             ref={state.newPasswordInputRegister}
+            class={classesInput}
             id="new-password"
             name="new-password"
             type={state.showPassword() ? "text" : "password"}
@@ -75,7 +90,7 @@ export function PasswordChangeRequiredPanel(props: PasswordChangeRequiredPanelPr
             disabled={props.busy()}
           />
           <button
-            class="text-button reveal-button"
+            class={classesRevealButton}
             type="button"
             onClick={state.toggleShowPassword}
             disabled={props.busy()}
@@ -84,8 +99,11 @@ export function PasswordChangeRequiredPanel(props: PasswordChangeRequiredPanelPr
             {state.showPassword() ? "Hide" : "Show"}
           </button>
         </div>
-        <label for="confirm-password">Confirm new password</label>
+        <label class={classesLabel} for="confirm-password">
+          Confirm new password
+        </label>
         <input
+          class={classesInput}
           id="confirm-password"
           name="confirm-password"
           type={state.showPassword() ? "text" : "password"}
@@ -96,7 +114,7 @@ export function PasswordChangeRequiredPanel(props: PasswordChangeRequiredPanelPr
           onInput={(event) => state.confirmationInput(event.currentTarget.value)}
           disabled={props.busy()}
         />
-        <button class="primary" type="submit" disabled={props.busy() || !state.valid()}>
+        <button class={classesPrimaryButton} type="submit" disabled={props.busy() || !state.valid()}>
           {props.busy() ? "Saving..." : "Change password"}
         </button>
       </form>

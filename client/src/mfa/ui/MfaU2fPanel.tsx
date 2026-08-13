@@ -1,9 +1,16 @@
 import { Show } from "solid-js"
 
 import type { PasskeyOptions } from "../../passkey/model/passkeyOptionsSchema"
+import { classesBackButton } from "../../ui/classes/classesBackButton"
+import { classesHeading } from "../../ui/classes/classesHeading"
+import { classesIntro } from "../../ui/classes/classesIntro"
+import { classesIntroCopy } from "../../ui/classes/classesIntroCopy"
+import { classesNoticeMessage } from "../../ui/classes/classesNoticeMessage"
+import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
+import { classesStep } from "../../ui/classes/classesStep"
 import { mfaFactorDetailGet } from "../model/mfaFactorDetailGet"
 import { mfaFactorLabelGet } from "../model/mfaFactorLabelGet"
-import { type PasskeyCredentialsGet, mfaU2fStateCreate } from "./mfaU2fStateCreate"
+import { mfaU2fStateCreate, type PasskeyCredentialsGet } from "./mfaU2fStateCreate"
 
 type MfaU2fPanelProps = {
   apiOrigin: () => string
@@ -57,46 +64,46 @@ export function MfaU2fPanel(props: MfaU2fPanelProps) {
       <Show
         when={state.isSupported()}
         fallback={
-          <div class="unsupported-panel">
-            <div class="intro">
-              <p class="step">2-Step Verification</p>
-              <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+          <div>
+            <div class={classesIntro}>
+              <p class={classesStep}>2-Step Verification</p>
+              <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                 {label()} not supported
               </h1>
-              <p class="notice-message">
+              <p class={classesNoticeMessage}>
                 {label()} authentication is not supported in this browser. Please use another 2-step verification
                 method.
               </p>
             </div>
             <Show when={props.showChooser}>
-              <button class="back-button" type="button" onClick={props.showChooser} disabled={props.busy()}>
+              <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
                 Back to 2-step choices
               </button>
             </Show>
-            <button class="back-button" type="button" onClick={props.showRootChooser} disabled={props.busy()}>
+            <button class={classesBackButton} type="button" onClick={props.showRootChooser} disabled={props.busy()}>
               Back to methods
             </button>
           </div>
         }
       >
-        <div class="intro">
-          <p class="step">2-Step Verification</p>
-          <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+        <div class={classesIntro}>
+          <p class={classesStep}>2-Step Verification</p>
+          <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
             {label()}
           </h1>
-          <p>{detail()}</p>
+          <p class={classesIntroCopy}>{detail()}</p>
         </div>
         <form onSubmit={state.submit} novalidate>
-          <button class="primary" type="submit" disabled={props.busy()}>
+          <button class={classesPrimaryButton} type="submit" disabled={props.busy()}>
             {props.busy() ? "Verifying..." : `Verify with ${label()}`}
           </button>
         </form>
         <Show when={props.showChooser}>
-          <button class="back-button" type="button" onClick={props.showChooser} disabled={props.busy()}>
+          <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
             Back to 2-step choices
           </button>
         </Show>
-        <button class="back-button" type="button" onClick={props.showRootChooser} disabled={props.busy()}>
+        <button class={classesBackButton} type="button" onClick={props.showRootChooser} disabled={props.busy()}>
           Back to methods
         </button>
       </Show>

@@ -1,3 +1,5 @@
+import { classesIdpIcon } from "../../ui/classes/classesIdpIcon"
+import { classesIdpIconWrapper } from "../../ui/classes/classesIdpIconWrapper"
 import { Icon } from "../../ui/Icon"
 import { identityProviderIconPathGet } from "../model/identityProviderIconPathGet"
 
@@ -8,8 +10,8 @@ type IdentityProviderIconProps = {
 
 export function IdentityProviderIcon(props: IdentityProviderIconProps) {
   return (
-    <span class="idp-icon-wrapper">
-      <Icon class="idp-icon" path={identityProviderIconPathGet(props.type, props.name)} />
+    <span class={classesIdpIconWrapper}>
+      <Icon class={classesIdpIcon} path={identityProviderIconPathGet(props.type, props.name)} />
     </span>
   )
 }

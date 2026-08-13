@@ -1,5 +1,16 @@
 import { Match, Show, Switch } from "solid-js"
-
+import { classesBackButton } from "../../ui/classes/classesBackButton"
+import { classesCodeInput } from "../../ui/classes/classesCodeInput"
+import { classesFieldHelp } from "../../ui/classes/classesFieldHelp"
+import { classesHeading } from "../../ui/classes/classesHeading"
+import { classesIntro } from "../../ui/classes/classesIntro"
+import { classesIntroCopy } from "../../ui/classes/classesIntroCopy"
+import { classesLabel } from "../../ui/classes/classesLabel"
+import { classesNoticeMessage } from "../../ui/classes/classesNoticeMessage"
+import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
+import { classesResendSection } from "../../ui/classes/classesResendSection"
+import { classesSecondaryButton } from "../../ui/classes/classesSecondaryButton"
+import { classesStep } from "../../ui/classes/classesStep"
 import { mfaSmsOtpStateCreate } from "./mfaSmsOtpStateCreate"
 
 type MfaSmsOtpPanelProps = {
@@ -42,44 +53,46 @@ export function MfaSmsOtpPanel(props: MfaSmsOtpPanelProps) {
     <div>
       <Switch>
         <Match when={state.stage() === "send"}>
-          <div class="intro">
-            <p class="step">2-Step Verification</p>
-            <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+          <div class={classesIntro}>
+            <p class={classesStep}>2-Step Verification</p>
+            <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
               SMS code
             </h1>
-            <p>Send a verification code to your mobile phone via SMS.</p>
+            <p class={classesIntroCopy}>Send a verification code to your mobile phone via SMS.</p>
           </div>
-          <button class="primary" type="button" onClick={state.sendCode} disabled={props.busy()}>
+          <button class={classesPrimaryButton} type="button" onClick={state.sendCode} disabled={props.busy()}>
             {props.busy() ? "Sending code..." : "Send code"}
           </button>
           <Show when={props.showChooser}>
-            <button class="back-button" type="button" onClick={props.showChooser} disabled={props.busy()}>
+            <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
               Back to 2-step choices
             </button>
           </Show>
-          <button class="back-button" type="button" onClick={props.showRootChooser} disabled={props.busy()}>
+          <button class={classesBackButton} type="button" onClick={props.showRootChooser} disabled={props.busy()}>
             Back to methods
           </button>
         </Match>
 
         <Match when={state.stage() === "code"}>
-          <div class="intro">
-            <p class="step">2-Step Verification</p>
-            <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+          <div class={classesIntro}>
+            <p class={classesStep}>2-Step Verification</p>
+            <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
               SMS verification code
             </h1>
-            <p>Enter the 6-20 digit code sent to your mobile phone.</p>
+            <p class={classesIntroCopy}>Enter the 6-20 digit code sent to your mobile phone.</p>
           </div>
           <Show when={state.notice()}>
-            <p class="notice-message" role="status">
+            <p class={classesNoticeMessage} role="status">
               {state.notice()}
             </p>
           </Show>
           <form onSubmit={state.submit} novalidate>
-            <label for="mfa-sms-code">Verification code</label>
+            <label class={classesLabel} for="mfa-sms-code">
+              Verification code
+            </label>
             <input
               ref={state.codeInputRegister}
-              class="code-input"
+              class={classesCodeInput}
               id="mfa-sms-code"
               name="code"
               type="text"
@@ -99,16 +112,16 @@ export function MfaSmsOtpPanel(props: MfaSmsOtpPanelProps) {
               disabled={props.busy()}
               aria-describedby="mfa-sms-code-help"
             />
-            <p id="mfa-sms-code-help" class="field-help">
+            <p id="mfa-sms-code-help" class={classesFieldHelp}>
               Enter 6 to 20 digits.
             </p>
-            <button class="primary" type="submit" disabled={props.busy() || !state.valid()}>
+            <button class={classesPrimaryButton} type="submit" disabled={props.busy() || !state.valid()}>
               {props.busy() ? "Verifying..." : "Verify"}
             </button>
           </form>
-          <div class="resend-section" style={{ "margin-top": "0.75rem" }}>
+          <div class={classesResendSection}>
             <button
-              class="secondary-button"
+              class={classesSecondaryButton}
               type="button"
               onClick={state.resendCode}
               disabled={props.busy() || state.countdown() > 0}
@@ -117,11 +130,11 @@ export function MfaSmsOtpPanel(props: MfaSmsOtpPanelProps) {
             </button>
           </div>
           <Show when={props.showChooser}>
-            <button class="back-button" type="button" onClick={props.showChooser} disabled={props.busy()}>
+            <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
               Back to 2-step choices
             </button>
           </Show>
-          <button class="back-button" type="button" onClick={props.showRootChooser} disabled={props.busy()}>
+          <button class={classesBackButton} type="button" onClick={props.showRootChooser} disabled={props.busy()}>
             Back to methods
           </button>
         </Match>
