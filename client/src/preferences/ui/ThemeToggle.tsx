@@ -15,17 +15,20 @@ export function ThemeToggle(props: ThemeToggleProps) {
       title={props.switchable() ? undefined : "Theme is set by the organization"}
     >
       <legend class="visually-hidden">Theme</legend>
-      {(["light", "dark", "system"] as const).map((value) => (
-        <button
-          type="button"
-          aria-pressed={props.preference() === value}
-          aria-label={`${value[0]?.toUpperCase()}${value.slice(1)} theme`}
-          onClick={() => props.select(value)}
-        >
-          <Icon path={themeIconPathGet(value, props.switchable())} />
-          <span>{`${value[0]?.toUpperCase()}${value.slice(1)}`}</span>
-        </button>
-      ))}
+      {(["light", "dark", "system"] as const).map((value) => {
+        const label = `${value[0]?.toUpperCase()}${value.slice(1)}`
+        return (
+          <button
+            type="button"
+            aria-pressed={props.preference() === value}
+            aria-label={`${label} theme`}
+            title={label}
+            onClick={() => props.select(value)}
+          >
+            <Icon path={themeIconPathGet(value, props.switchable())} />
+          </button>
+        )
+      })}
     </fieldset>
   )
 }
