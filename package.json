@@ -45,7 +45,7 @@
   "type": "module",
   "private": false,
   "license": "MIT",
-  "homepage": "https://github.com/david1gp/zitadel-login",
+  "homepage": "https://zitadel-login.pages.dev/demo",
   "author": {
     "name": "David Siewert",
     "url": "https://david-siewert.com/"
@@ -58,14 +58,16 @@
     "node": ">=22",
     "bun": ">=1.3.0"
   },
-  "description": "A native ZITADEL passwordless email-OTP Login App for Cloudflare Workers and Pages.",
+  "description": "A native ZITADEL Login App for Cloudflare Pages and Workers. SolidJS sign-in with email OTP, password, passkeys, IdPs, and MFA, plus a safe Login V2 fallback.",
   "keywords": [
     "zitadel",
     "zitadel-login",
     "authentication",
-    "passwordless-authentication",
     "passwordless",
     "email-otp",
+    "passkey",
+    "webauthn",
+    "mfa",
     "oidc",
     "login",
     "solidjs",
