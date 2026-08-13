@@ -72,6 +72,7 @@ function clientMockCreate(
     mfaMethods?: string[]
     forceMfa?: boolean
     secondFactors?: string[]
+    phoneVerified?: boolean
   } = {},
 ) {
   const calls: string[] = []
@@ -107,6 +108,15 @@ function clientMockCreate(
         },
       })
     },
+    userGet: async (_userId: string) =>
+      resultCreate({
+        user: {
+          userId: "user-1",
+          state: "USER_STATE_ACTIVE",
+          details: { resourceOwner: "org-1" },
+          human: { phone: { phone: "+15555550123", isVerified: options.phoneVerified ?? false } },
+        },
+      }),
     authenticationMethodsGet: async (_userId: string) => {
       calls.push("authenticationMethodsGet")
       return resultCreate({
@@ -322,6 +332,53 @@ describe("passkeyV2Verify domain", () => {
       },
       csrfToken: "B".repeat(43),
     })
+  })
+
+  test("includes SMS MFA after passkey when the phone is verified and policy permits it", async () => {
+    const mock = clientMockCreate({
+      userVerified: false,
+      phoneVerified: true,
+      mfaMethods: ["AUTHENTICATION_METHOD_TYPE_PASSKEY", "AUTHENTICATION_METHOD_TYPE_OTP_SMS"],
+      forceMfa: true,
+      secondFactors: ["SECOND_FACTOR_TYPE_OTP_SMS"],
+    })
+    const result = await passkeyV2Verify({
+      state: passkeyState,
+      credential: validCredentialCreate(),
+      expectedOrigin: origin,
+      client: mock.client,
+    })
+
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.data.state).toEqual(
+      expect.objectContaining({ stage: "mfa", mfaMethods: ["AUTHENTICATION_METHOD_TYPE_OTP_SMS"] }),
+    )
+    expect(result.data.transition).toEqual(
+      expect.objectContaining({
+        kind: "render",
+        screen: { name: "mfa", factors: ["AUTHENTICATION_METHOD_TYPE_OTP_SMS"] },
+      }),
+    )
+  })
+
+  test("does not offer SMS MFA after passkey when the phone is unverified", async () => {
+    const mock = clientMockCreate({
+      userVerified: false,
+      mfaMethods: ["AUTHENTICATION_METHOD_TYPE_PASSKEY", "AUTHENTICATION_METHOD_TYPE_OTP_SMS"],
+      forceMfa: true,
+      secondFactors: ["SECOND_FACTOR_TYPE_OTP_SMS"],
+    })
+    const result = await passkeyV2Verify({
+      state: passkeyState,
+      credential: validCredentialCreate(),
+      expectedOrigin: origin,
+      client: mock.client,
+    })
+
+    expect(result.success).toBe(false)
+    if (result.success) return
+    expect(result.errorMessage).toBe("authorization_unavailable")
   })
 
   test("returns passkey_unavailable on 5xx upstream ZITADEL error", async () => {

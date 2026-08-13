@@ -55,6 +55,7 @@ type NativeOptions = {
   verifyStatus?: number
   userVerified?: boolean
   forceMfa?: boolean
+  phoneVerified?: boolean
 }
 
 function nativeCreate(options: NativeOptions = {}) {
@@ -92,6 +93,18 @@ function nativeCreate(options: NativeOptions = {}) {
     if (url === `${identityOrigin}/v2/users/user-1/authentication_methods` && method === "GET") {
       return Response.json({
         authMethodTypes: options.methods ?? ["AUTHENTICATION_METHOD_TYPE_PASSKEY"],
+      })
+    }
+    if (url === `${identityOrigin}/v2/users/user-1` && method === "GET") {
+      return Response.json({
+        user: {
+          userId: "user-1",
+          state: "USER_STATE_ACTIVE",
+          details: { resourceOwner: "org-1" },
+          human: {
+            phone: { phone: "+15555550123", isVerified: options.phoneVerified ?? false },
+          },
+        },
       })
     }
     if (url === `${identityOrigin}/v2/sessions` && method === "POST") {

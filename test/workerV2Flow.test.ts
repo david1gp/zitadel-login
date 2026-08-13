@@ -44,6 +44,9 @@ type NativeOptions = {
   localAuthentication?: boolean
   ignoreUnknownUsernames?: boolean
   methods?: string[]
+  secondFactors?: string[]
+  forceMfa?: boolean
+  phoneVerified?: boolean
   users?: unknown[]
   verifyStatus?: number
 }
@@ -51,7 +54,8 @@ type NativeOptions = {
 function nativeCreate(options: NativeOptions = {}) {
   const calls: Array<{ method: string; url: string; body?: unknown }> = []
   let callbackCompleted = false
-  let verified = false
+  let emailVerified = false
+  let smsVerified = false
   let token = "created-token"
   const request = options.auth ?? authRequest
   const fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
@@ -69,6 +73,8 @@ function nativeCreate(options: NativeOptions = {}) {
         settings: {
           allowLocalAuthentication: options.localAuthentication ?? true,
           ignoreUnknownUsernames: options.ignoreUnknownUsernames ?? false,
+          forceMfa: options.forceMfa ?? false,
+          secondFactors: options.secondFactors ?? [],
         },
       })
     }
@@ -79,7 +85,10 @@ function nativeCreate(options: NativeOptions = {}) {
             userId: "user-1",
             state: "USER_STATE_ACTIVE",
             details: { resourceOwner: "org-1" },
-            human: { email: { email: "person@example.com", isVerified: true } },
+            human: {
+              email: { email: "person@example.com", isVerified: true },
+              phone: { phone: "+15551234567", isVerified: options.phoneVerified ?? false },
+            },
           },
         ],
       })
@@ -96,8 +105,13 @@ function nativeCreate(options: NativeOptions = {}) {
     if (url === `${identityOrigin}/v2/sessions/session-1` && method === "PATCH") {
       if (body?.checks?.otpEmail) {
         if (options.verifyStatus) return Response.json({}, { status: options.verifyStatus })
-        verified = true
+        emailVerified = true
         token = "verified-token"
+      } else if (body?.challenges?.otpSms) {
+        token = "sms-challenge-token"
+      } else if (body?.checks?.otpSms) {
+        smsVerified = true
+        token = "sms-verified-token"
       } else {
         token = "resent-token"
       }
@@ -112,7 +126,21 @@ function nativeCreate(options: NativeOptions = {}) {
           expirationDate: "2027-02-01T00:00:00Z",
           factors: {
             user: { id: "user-1", organizationId: "org-1" },
-            ...(verified ? { otpEmail: { verifiedAt: new Date(now * 1000).toISOString() } } : {}),
+            ...(emailVerified ? { otpEmail: { verifiedAt: new Date(now * 1000).toISOString() } } : {}),
+            ...(smsVerified ? { otpSms: { verifiedAt: new Date(now * 1000).toISOString() } } : {}),
+          },
+        },
+      })
+    }
+    if (url === `${identityOrigin}/v2/users/user-1` && method === "GET") {
+      return Response.json({
+        user: {
+          userId: "user-1",
+          state: "USER_STATE_ACTIVE",
+          details: { resourceOwner: "org-1" },
+          human: {
+            email: { email: "person@example.com", isVerified: true },
+            phone: { phone: "+15551234567", isVerified: options.phoneVerified ?? false },
           },
         },
       })
@@ -645,6 +673,79 @@ describe("Worker v2 flow foundation", () => {
     )
     expect(replayed.status).toBe(409)
     expect(await replayed.json()).toEqual({ success: false, op: "flowContinue", errorMessage: "flow_replayed" })
+  })
+
+  test("routes primary email OTP through enrolled SMS MFA before continuation", async () => {
+    const native = nativeCreate({
+      methods: ["AUTHENTICATION_METHOD_TYPE_OTP_EMAIL", "AUTHENTICATION_METHOD_TYPE_OTP_SMS"],
+      secondFactors: ["SECOND_FACTOR_TYPE_OTP_SMS"],
+      forceMfa: true,
+      phoneVerified: true,
+    })
+    const app = workerAppCreate({
+      fetch: native.fetch,
+      now: () => now,
+      randomBytes: (length) => new Uint8Array(length).fill(21),
+    })
+    const initialized = await flowInitialize(app)
+    const started = await app.request(
+      `${origin}/api/v2/email-otp/start?flow=${initialized.flow}`,
+      {
+        method: "POST",
+        headers: jsonHeaders(initialized.cookie),
+        body: JSON.stringify({ email: "person@example.com", csrfToken: initialized.csrfToken }),
+      },
+      bindings,
+    )
+    expect(started.status).toBe(202)
+    const verified = await app.request(
+      `${origin}/api/v2/email-otp/verify?flow=${initialized.flow}`,
+      {
+        method: "POST",
+        headers: jsonHeaders(cookieGet(started)),
+        body: JSON.stringify({ code: "123456", csrfToken: initialized.csrfToken }),
+      },
+      bindings,
+    )
+
+    expect(verified.status).toBe(200)
+    const verifiedBody = await verified.clone().json()
+    expect(verifiedBody).toEqual({
+      success: true,
+      data: {
+        kind: "render",
+        route: `/login/mfa?flow=${initialized.flow}`,
+        screen: { name: "mfa", factors: ["AUTHENTICATION_METHOD_TYPE_OTP_SMS"] },
+        csrfToken: initialized.csrfToken,
+      },
+    })
+
+    const mfaCookie = cookieGet(verified)
+    const challenged = await app.request(
+      `${origin}/api/v2/mfa/sms-otp/challenge?flow=${initialized.flow}`,
+      {
+        method: "POST",
+        headers: jsonHeaders(mfaCookie),
+        body: JSON.stringify({ method: "sms_otp", csrfToken: initialized.csrfToken }),
+      },
+      bindings,
+    )
+    expect(challenged.status).toBe(202)
+
+    const completed = await app.request(
+      `${origin}/api/v2/mfa/sms-otp/verify?flow=${initialized.flow}`,
+      {
+        method: "POST",
+        headers: jsonHeaders(cookieGet(challenged)),
+        body: JSON.stringify({ code: "654321", csrfToken: initialized.csrfToken }),
+      },
+      bindings,
+    )
+    expect(completed.status).toBe(200)
+    expect(await completed.json()).toEqual({
+      success: true,
+      data: { kind: "complete", path: `/api/v2/flow/continue?flow=${initialized.flow}` },
+    })
   })
 
   test("denies fallback after challenge mutation", async () => {

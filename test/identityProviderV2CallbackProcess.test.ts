@@ -81,6 +81,16 @@ describe("identityProviderV2CallbackProcess", () => {
           },
         })
       }
+      if (url === `${identityOrigin}/v2/users/user-1`) {
+        return Response.json({
+          user: {
+            userId: "user-1",
+            state: "USER_STATE_ACTIVE",
+            details: { resourceOwner: "org-1" },
+            human: { phone: { phone: "+15555550123", isVerified: false } },
+          },
+        })
+      }
       if (url === `${identityOrigin}/v2/users/user-1/authentication_methods`) {
         return Response.json({ authMethodTypes: [] })
       }
@@ -134,11 +144,21 @@ describe("identityProviderV2CallbackProcess", () => {
           },
         })
       }
+      if (url === `${identityOrigin}/v2/users/user-1`) {
+        return Response.json({
+          user: {
+            userId: "user-1",
+            state: "USER_STATE_ACTIVE",
+            details: { resourceOwner: "org-1" },
+            human: { phone: { phone: "+15555550123", isVerified: true } },
+          },
+        })
+      }
       if (url === `${identityOrigin}/v2/users/user-1/authentication_methods`) {
-        return Response.json({ authMethodTypes: ["AUTHENTICATION_METHOD_TYPE_TOTP"] })
+        return Response.json({ authMethodTypes: ["AUTHENTICATION_METHOD_TYPE_OTP_SMS"] })
       }
       if (url === `${identityOrigin}/v2/settings/login`) {
-        return Response.json({ settings: { forceMfa: true, secondFactors: ["SECOND_FACTOR_TYPE_OTP"] } })
+        return Response.json({ settings: { forceMfa: true, secondFactors: ["SECOND_FACTOR_TYPE_OTP_SMS"] } })
       }
       throw new Error(`Unexpected url: ${url}`)
     }
@@ -158,10 +178,65 @@ describe("identityProviderV2CallbackProcess", () => {
       expect(result.data.state.stage).toBe("mfa")
       if (result.data.state.stage === "mfa") {
         expect(result.data.state.userId).toBe("user-1")
-        expect(result.data.state.mfaMethods).toEqual(["AUTHENTICATION_METHOD_TYPE_TOTP"])
+        expect(result.data.state.mfaMethods).toEqual(["AUTHENTICATION_METHOD_TYPE_OTP_SMS"])
       }
       expect(result.data.transition.kind).toBe("render")
     }
+  })
+
+  test("does not offer SMS MFA after linked identity-provider authentication when the phone is unverified", async () => {
+    const mockFetch = async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === `${identityOrigin}/v2/idp_intents/intent-1`) {
+        return Response.json({
+          idpInformation: { idpId: "google-1", userId: "google-user-1", userName: "user@example.com" },
+          userId: "user-1",
+        })
+      }
+      if (url === `${identityOrigin}/v2/sessions`) {
+        return Response.json({ sessionId: "session-1", sessionToken: "token-1" })
+      }
+      if (url === `${identityOrigin}/v2/sessions/session-1?sessionToken=token-1`) {
+        return Response.json({
+          session: {
+            id: "session-1",
+            factors: {
+              user: { id: "user-1", organizationId: "org-1" },
+            },
+          },
+        })
+      }
+      if (url === `${identityOrigin}/v2/users/user-1`) {
+        return Response.json({
+          user: {
+            userId: "user-1",
+            state: "USER_STATE_ACTIVE",
+            details: { resourceOwner: "org-1" },
+            human: { phone: { phone: "+15555550123", isVerified: false } },
+          },
+        })
+      }
+      if (url === `${identityOrigin}/v2/users/user-1/authentication_methods`) {
+        return Response.json({ authMethodTypes: ["AUTHENTICATION_METHOD_TYPE_OTP_SMS"] })
+      }
+      if (url === `${identityOrigin}/v2/settings/login`) {
+        return Response.json({ settings: { forceMfa: true, secondFactors: ["SECOND_FACTOR_TYPE_OTP_SMS"] } })
+      }
+      throw new Error(`Unexpected url: ${url}`)
+    }
+
+    const client = zitadelClientCreate(bindings, mockFetch)
+
+    const result = await identityProviderV2CallbackProcess({
+      state: idpIntentState,
+      providerId: "google-1",
+      intentId: "intent-1",
+      intentToken: "token-1",
+      client,
+    })
+
+    expect(result.success).toBe(false)
+    if (!result.success) expect(result.errorMessage).toBe("authorization_unavailable")
   })
 
   test("processes unlinked user to idp_unlinked stage", async () => {

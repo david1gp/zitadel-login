@@ -1,5 +1,6 @@
 import type { FlowV2Cookie } from "../../flow/model/flowV2CookieSchema"
 import type { FlowV2Transition } from "../../flow/model/flowV2TransitionSchema"
+import { primaryFlowMfaPolicyEvaluate } from "../../flow/domain/primaryFlowMfaPolicyEvaluate"
 import { resultCreate } from "../../result/resultCreate"
 import { resultErrorCreate } from "../../result/resultErrorCreate"
 import { zitadelClientCreate } from "../../zitadel/zitadelClientCreate"
@@ -16,6 +17,15 @@ function resultStatusGet(result: { success: boolean; rawData?: unknown }): numbe
   if (result.success || typeof result.rawData !== "object" || result.rawData === null) return undefined
   if (!("status" in result.rawData) || typeof result.rawData.status !== "number") return undefined
   return result.rawData.status
+}
+
+function mfaTransitionCreate(state: Extract<FlowV2Cookie, { stage: "mfa" }>): FlowV2Transition {
+  return {
+    kind: "render",
+    route: `/login/mfa?flow=${state.flowHandle}`,
+    screen: { name: "mfa", factors: state.mfaMethods },
+    csrfToken: state.csrfToken,
+  }
 }
 
 export async function emailOtpV2Verify(input: Input) {
@@ -44,6 +54,46 @@ export async function emailOtpV2Verify(input: Input) {
     )
   ) {
     return resultErrorCreate(op, "continuation_not_owned")
+  }
+
+  const user = await input.client.userGet(input.state.userId)
+  if (!user.success) return resultErrorCreate(op, "verification_unavailable", { status: resultStatusGet(user) })
+  if (
+    user.data.user.userId !== input.state.userId ||
+    user.data.user.state !== "USER_STATE_ACTIVE" ||
+    user.data.user.details?.resourceOwner !== input.state.organizationId ||
+    !user.data.user.human
+  ) {
+    return resultErrorCreate(op, "authorization_unavailable")
+  }
+
+  const methods = await input.client.authenticationMethodsGet(input.state.userId)
+  if (!methods.success) {
+    return resultErrorCreate(op, "verification_unavailable", { status: resultStatusGet(methods) })
+  }
+  const settings = await input.client.loginSettingsGet(input.state.organizationId)
+  if (!settings.success) {
+    return resultErrorCreate(op, "verification_unavailable", { status: resultStatusGet(settings) })
+  }
+
+  const mfa = primaryFlowMfaPolicyEvaluate({
+    method: "email_otp",
+    methods: methods.data.authMethodTypes,
+    emailVerified: user.data.user.human.email?.isVerified === true,
+    phoneVerified: user.data.user.human.phone?.isVerified === true,
+    policy: settings.data.settings ?? {},
+  })
+  if (!mfa.supported) return resultErrorCreate(op, "authorization_unavailable")
+
+  if (mfa.required) {
+    const state: Extract<FlowV2Cookie, { stage: "mfa" }> = {
+      ...input.state,
+      stage: "mfa",
+      transitionCounter: input.state.transitionCounter + 1,
+      sessionToken: verified.data.sessionToken,
+      mfaMethods: mfa.methods,
+    }
+    return resultCreate({ state, transition: mfaTransitionCreate(state) })
   }
 
   const state: Extract<FlowV2Cookie, { stage: "verified" }> = {

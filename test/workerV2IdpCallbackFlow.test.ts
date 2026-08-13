@@ -84,6 +84,16 @@ describe("GET /api/v2/identity-provider/callback/:provider", () => {
           },
         })
       }
+      if (url === `${identityOrigin}/v2/users/user-1`) {
+        return Response.json({
+          user: {
+            userId: "user-1",
+            state: "USER_STATE_ACTIVE",
+            details: { resourceOwner: "org-1" },
+            human: { phone: { phone: "+15555550123", isVerified: false } },
+          },
+        })
+      }
       if (url === `${identityOrigin}/v2/users/user-1/authentication_methods`) {
         return Response.json({ authMethodTypes: [] })
       }
@@ -148,6 +158,16 @@ describe("GET /api/v2/identity-provider/callback/:provider", () => {
           session: {
             id: "session-1",
             factors: { user: { id: "user-1", organizationId: "org-1" } },
+          },
+        })
+      }
+      if (url === `${identityOrigin}/v2/users/user-1`) {
+        return Response.json({
+          user: {
+            userId: "user-1",
+            state: "USER_STATE_ACTIVE",
+            details: { resourceOwner: "org-1" },
+            human: { phone: { phone: "+15555550123", isVerified: false } },
           },
         })
       }
@@ -424,6 +444,16 @@ describe("GET /api/v2/identity-provider/callback/:provider", () => {
           session: {
             id: "session-1",
             factors: { user: { id: "user-1", organizationId: "org-1" } },
+          },
+        })
+      }
+      if (url === `${identityOrigin}/v2/users/user-1`) {
+        return Response.json({
+          user: {
+            userId: "user-1",
+            state: "USER_STATE_ACTIVE",
+            details: { resourceOwner: "org-1" },
+            human: { phone: { phone: "+15555550123", isVerified: false } },
           },
         })
       }

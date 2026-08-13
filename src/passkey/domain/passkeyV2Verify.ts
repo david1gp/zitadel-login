@@ -1,12 +1,10 @@
+import { primaryFlowMfaPolicyEvaluate } from "../../flow/domain/primaryFlowMfaPolicyEvaluate"
 import type { FlowV2Cookie } from "../../flow/model/flowV2CookieSchema"
 import type { FlowV2Transition } from "../../flow/model/flowV2TransitionSchema"
-import { primaryFlowMfaPolicyEvaluate } from "../../flow/domain/primaryFlowMfaPolicyEvaluate"
-
-import type { PasskeyCredentialAssertion } from "../model/passkeyVerifyRequestSchema"
-
 import { resultCreate } from "../../result/resultCreate"
 import { resultErrorCreate } from "../../result/resultErrorCreate"
 import type { zitadelClientCreate } from "../../zitadel/zitadelClientCreate"
+import type { PasskeyCredentialAssertion } from "../model/passkeyVerifyRequestSchema"
 
 type Input = {
   state: Extract<FlowV2Cookie, { stage: "passkey" }>
@@ -99,6 +97,17 @@ export async function passkeyV2Verify(input: Input) {
     return resultErrorCreate(op, "authorization_unavailable")
   }
 
+  const user = await input.client.userGet(input.state.userId)
+  if (!user.success) return resultErrorCreate(op, "passkey_unavailable", { status: resultStatusGet(user) })
+  if (
+    user.data.user.userId !== input.state.userId ||
+    user.data.user.state !== "USER_STATE_ACTIVE" ||
+    user.data.user.details?.resourceOwner !== input.state.organizationId ||
+    !user.data.user.human
+  ) {
+    return resultErrorCreate(op, "authorization_unavailable")
+  }
+
   const methods = await input.client.authenticationMethodsGet(input.state.userId)
   if (!methods.success) return resultErrorCreate(op, "passkey_unavailable", { status: resultStatusGet(methods) })
 
@@ -110,7 +119,7 @@ export async function passkeyV2Verify(input: Input) {
     method: "passkey",
     methods: methods.data.authMethodTypes,
     emailVerified: false,
-    phoneVerified: false,
+    phoneVerified: user.data.user.human.phone?.isVerified === true,
     userVerified,
     policy: settings.data.settings ?? {},
   })

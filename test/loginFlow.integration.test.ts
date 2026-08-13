@@ -229,6 +229,16 @@ describe("browser, Worker, and ZITADEL email OTP contract", () => {
         if (url === `${identityOrigin}/v2/users/user-v2/authentication_methods` && method === "GET") {
           return Response.json({ authMethodTypes: ["AUTHENTICATION_METHOD_TYPE_OTP_EMAIL"] })
         }
+        if (url === `${identityOrigin}/v2/users/user-v2` && method === "GET") {
+          return Response.json({
+            user: {
+              userId: "user-v2",
+              state: "USER_STATE_ACTIVE",
+              details: { resourceOwner: "org-test" },
+              human: { email: { email: "person@invalid.test", isVerified: true } },
+            },
+          })
+        }
         if (url === `${identityOrigin}/v2/sessions` && method === "POST") {
           token = "token-created"
           return Response.json({ sessionId: "session-v2", sessionToken: token }, { status: 201 })
