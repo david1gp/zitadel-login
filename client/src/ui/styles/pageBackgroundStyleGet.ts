@@ -1,10 +1,10 @@
 import type { JSX } from "solid-js"
 
 import type { PageBackgroundScreen } from "./pageBackgroundScreenSchema"
+import { stylesBgAsanoha } from "./stylesBgAsanoha"
 import { stylesBgCube } from "./stylesBgCube"
 import { stylesBgDotted } from "./stylesBgDotted"
 import { stylesBgDottedSparse } from "./stylesBgDottedSparse"
-import { stylesBgGrid } from "./stylesBgGrid"
 import { stylesBgGridBlueprint } from "./stylesBgGridBlueprint"
 import { stylesBgLeaf } from "./stylesBgLeaf"
 import { stylesBgSlash } from "./stylesBgSlash"
@@ -18,7 +18,7 @@ const pageBackgroundStyles = {
   loading: stylesBgDottedSparse,
   fatal: stylesBgSlash,
   email_otp: stylesBgWave,
-  password: stylesBgGrid,
+  password: stylesBgAsanoha,
   password_change: stylesBgGridBlueprint,
   passkey: stylesBgCube,
   identity_provider: stylesBgSlashSparse,
