@@ -1,1 +1,3 @@
-export const classesIdpIcon = "size-6 fill-current"
+import { iconSize } from "./iconSize"
+
+export const classesIdpIcon = `${iconSize} fill-current`

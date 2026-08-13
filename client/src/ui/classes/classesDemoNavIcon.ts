@@ -1,1 +1,3 @@
-export const classesDemoNavIcon = "size-4"
+import { iconSize } from "./iconSize"
+
+export const classesDemoNavIcon = iconSize

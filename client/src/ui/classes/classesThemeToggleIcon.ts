@@ -1,1 +1,3 @@
-export const classesThemeToggleIcon = "size-4"
+import { iconSize } from "./iconSize"
+
+export const classesThemeToggleIcon = iconSize
