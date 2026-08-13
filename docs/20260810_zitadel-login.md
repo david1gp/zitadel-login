@@ -23,7 +23,9 @@ Use ZITADEL’s native Session/Login APIs and existing SMTP path wherever they s
 11. **Completed** — Deploy Worker and Pages, configure ZITADEL, and run E2E against the designated test user.
 12. **Completed** — Run final verification and push the deployed/configured state to GitHub.
 13. **Completed** — Change fresh sign-ins to show a method chooser instead of auto-selecting preferred email OTP, listing only methods enabled by live ZITADEL policy and including email OTP.
-14. **In progress** — Deploy the completed method-chooser UI to production, verify the deployment, and generate a fresh valid PKCE authorization link for manual testing.
+14. **Completed** — Deploy the completed method-chooser UI to production, verify the deployment, and generate a fresh valid PKCE authorization link for manual testing.
+15. **Completed** — Correct the production bootstrap organization query, restore live ZITADEL branding/logo, and make ZITADEL the primary runtime source of truth for completed login methods.
+16. **In Progress** — Formatting and semantic commits completed; push pending.
 
 ## Paths
 
@@ -39,7 +41,12 @@ Use ZITADEL’s native Session/Login APIs and existing SMTP path wherever they s
 
 ## Decisions
 
-- Fresh sign-ins show only live-policy-enabled methods in a chooser, including email OTP; preserve explicit routes and continuations when the chooser is absent.
+- ZITADEL is the primary runtime source of truth for completed login-method availability; the chooser uses implemented methods intersected with live ZITADEL policy.
+- Bootstrap resolves the exact active configured organization and restores its live ZITADEL branding/logo rather than using the instance default or a static substitute.
+- A single default-off `ZITADEL_CUSTOM_LOGIN_ENABLED` emergency switch replaces six per-method rollout flags and can route the custom flow to native Login V2.
+- Failed bootstrap delegates without advertising login methods.
+- The live ZITADEL policy cache is bounded to 60 seconds.
+- Do not touch concurrent visual-demo files while completing this plan.
 - Package: `@adaptive-ds/zitadel-login`; public GitHub repository `david1gp/zitadel-login`.
 - Product flow: email OTP is a primary passwordless login option for users who cannot remember passwords, not a second-factor screen.
 - Keep existing ZITADEL Login V2 as fallback; provide a specialized native ZITADEL Login App rather than replacing every login flow.
@@ -55,7 +62,7 @@ Use ZITADEL’s native Session/Login APIs and existing SMTP path wherever they s
 - Existing active users with a verified email and enrolled OTP Email can authenticate with email OTP as their only Session check; ZITADEL accepts that Session for the OIDC callback.
 - Unknown, ambiguous, inactive, unverified, or unenrolled users fall back to Login V2 without consuming the authorization request.
 - Store short-lived orchestration state only in an authenticated, encrypted, host-only, HttpOnly, Secure, SameSite=Lax cookie; redirect callback URLs from the Worker rather than exposing them as JSON.
-- Required non-secret bindings: `ZITADEL_ORIGIN`, `ZITADEL_ORGANIZATION_ID`, `ZITADEL_ALLOWED_CLIENT_IDS`, `LOGIN_V2_FALLBACK_URL`, `PAGES_ORIGIN`, `SESSION_LIFETIME_SECONDS`.
+- Required non-secret bindings: `ZITADEL_ORIGIN`, `ZITADEL_ORGANIZATION_ID`, `ZITADEL_ALLOWED_CLIENT_IDS`, `LOGIN_V2_FALLBACK_URL`, `PAGES_ORIGIN`, `SESSION_LIFETIME_SECONDS`, `ZITADEL_CUSTOM_LOGIN_ENABLED`.
 - Required encrypted secrets: `ZITADEL_LOGIN_CLIENT_PAT`, `FLOW_COOKIE_KEY`.
 - Native ZITADEL delivery cannot accept the complete `email-generator` HTML template. Adapt its SignIn V1 wording/branding into ZITADEL’s `VerifyEmailOTP` message fields while retaining ZITADEL’s native HTML shell and SMTP delivery.
 - Passwordless bootstrap: administratively pre-enroll every active, verified-email human user, including administrators for now; exclude service users. Enroll future users during trusted provisioning or after prior password/passkey/IdP authentication. Preserve Login V2 fallback for unenrolled users. Administrator eligibility may be restricted later.
