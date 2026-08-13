@@ -1,3 +1,5 @@
+import { BrandLogo } from "./BrandLogo"
+
 type BrandHeaderProps = {
   assetUrl: () => string | undefined
   name: () => string
@@ -11,7 +13,7 @@ export function BrandHeader(props: BrandHeaderProps) {
         {props.assetUrl() ? (
           <img class="brand-logo" src={props.assetUrl()} alt={props.name()} onError={props.onAssetError} />
         ) : (
-          <span class="brand-fallback">{props.name()}</span>
+          <BrandLogo name={props.name} />
         )}
       </div>
     </header>

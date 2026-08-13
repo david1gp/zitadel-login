@@ -237,6 +237,16 @@ describe("application shell", () => {
     expect(JSON.parse(localStorage.getItem("zitadel-login:theme:v1") ?? "null").value).toBe("system")
   })
 
+  test("shows the local Contentoren mark when live branding has no logo", async () => {
+    history.replaceState(null, "", "/login")
+    render(() => <App apiOrigin="https://worker.example" />)
+
+    const logo = await screen.findByRole("img", { name: "Contentoren" })
+    expect(logo.tagName).toBe("svg")
+    expect(logo.classList.contains("brand-logo")).toBe(true)
+    expect(logo.querySelector("img")).toBeNull()
+  })
+
   test("restores only an opted-in normalized identifier", async () => {
     const requests: string[] = []
     globalThis.fetch = apiMockCreate(requests)
