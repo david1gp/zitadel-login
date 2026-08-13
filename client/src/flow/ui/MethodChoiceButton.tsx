@@ -6,6 +6,7 @@ type MethodChoiceButtonProps = {
   label: string
   detail: string
   iconPath: string
+  iconClass?: string
   disabled?: boolean
   current?: boolean
   onClick: () => void
@@ -20,7 +21,7 @@ export function MethodChoiceButton(props: MethodChoiceButtonProps) {
       aria-current={props.current ? "page" : undefined}
       onClick={props.onClick}
     >
-      <Icon path={props.iconPath} />
+      <Icon class={props.iconClass} path={props.iconPath} />
       <span class={classesMethodButtonCopy}>
         <span>{props.label}</span>
         <small>{props.detail}</small>

@@ -4,6 +4,7 @@ import type { RecentAccountSummary } from "../../session/model/recentAccountSumm
 import { RecentAccountChooser } from "../../session/ui/RecentAccountChooser"
 import { classesHeading } from "../../ui/classes/classesHeading"
 import { classesIntro } from "../../ui/classes/classesIntro"
+import { classesMethodChoiceIcon } from "../../ui/classes/classesMethodChoiceIcon"
 import { classesMethodChooserDivider } from "../../ui/classes/classesMethodChooserDivider"
 import { classesMethodList } from "../../ui/classes/classesMethodList"
 import { loginMethodIconPathGet } from "../model/loginMethodIconPathGet"
@@ -49,6 +50,7 @@ export function MethodChooser(props: MethodChooserProps) {
               label={method.label}
               detail={method.detail}
               iconPath={loginMethodIconPathGet(method.selection, method.identityProviderType)}
+              iconClass={classesMethodChoiceIcon}
               disabled={props.busy ? props.busy() : false}
               onClick={() => props.select(method.selection)}
             />
