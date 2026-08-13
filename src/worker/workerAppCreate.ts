@@ -225,9 +225,10 @@ async function payloadParse<T>(c: AppContext, schema: v.GenericSchema<unknown, T
 
 export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
   const dependencies: Dependencies = {
-    bootstrapCache: bootstrapCacheCreate(),
+    brandingCache: bootstrapCacheCreate(),
     delay: (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
     fetch,
+    liveSettingsCache: bootstrapCacheCreate(),
     monotonicNow: () => performance.now(),
     now: () => Math.floor(Date.now() / 1000),
     randomBytes: (length) => crypto.getRandomValues(new Uint8Array(length)),
