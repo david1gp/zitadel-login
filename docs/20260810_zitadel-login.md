@@ -26,6 +26,8 @@ Use ZITADEL’s native Session/Login APIs and existing SMTP path wherever they s
 14. **Completed** — Deploy the completed method-chooser UI to production, verify the deployment, and generate a fresh valid PKCE authorization link for manual testing.
 15. **Completed** — Correct the production bootstrap organization query, restore live ZITADEL branding/logo, and make ZITADEL the primary runtime source of truth for completed login methods.
 16. **Completed** — Formatting, semantic commits, and push completed.
+17. **Completed** — Split bootstrap caching so branding is cached for 10 minutes while login policy and active identity providers remain cached for 60 seconds.
+18. **Completed** — Formatting and the semantic commit containing only Task 17 split-cache changes are completed; push remains pending.
 
 ## Paths
 
@@ -43,9 +45,12 @@ Use ZITADEL’s native Session/Login APIs and existing SMTP path wherever they s
 
 - ZITADEL is the primary runtime source of truth for completed login-method availability; the chooser uses implemented methods intersected with live ZITADEL policy.
 - Bootstrap resolves the exact active configured organization and restores its live ZITADEL branding/logo rather than using the instance default or a static substitute.
+- Branding cache duration: 10 minutes.
+- Login policy and active identity provider cache duration: 60 seconds.
+- Cache keys are unambiguous and versioned.
+- Validation remains uncached.
 - A single default-off `ZITADEL_CUSTOM_LOGIN_ENABLED` emergency switch replaces six per-method rollout flags and can route the custom flow to native Login V2.
 - Failed bootstrap delegates without advertising login methods.
-- The live ZITADEL policy cache is bounded to 60 seconds.
 - Do not touch concurrent visual-demo files while completing this plan.
 - Package: `@adaptive-ds/zitadel-login`; public GitHub repository `david1gp/zitadel-login`.
 - Product flow: email OTP is a primary passwordless login option for users who cannot remember passwords, not a second-factor screen.
