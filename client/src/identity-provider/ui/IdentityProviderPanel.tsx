@@ -4,7 +4,6 @@ import { classesBackButton } from "../../ui/classes/classesBackButton"
 import { classesFieldHelp } from "../../ui/classes/classesFieldHelp"
 import { classesHeading } from "../../ui/classes/classesHeading"
 import { classesIdpIdentityBox } from "../../ui/classes/classesIdpIdentityBox"
-import { classesIdpProviderLabel } from "../../ui/classes/classesIdpProviderLabel"
 import { classesIntro } from "../../ui/classes/classesIntro"
 import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
 import { IdentityProviderIcon } from "./IdentityProviderIcon"
@@ -40,7 +39,6 @@ export function IdentityProviderPanel(props: IdentityProviderPanelProps) {
       </div>
       <div class={classesIdpIdentityBox}>
         <IdentityProviderIcon type={props.providerType()} name={props.providerName()} />
-        <span class={classesIdpProviderLabel}>{props.providerName()}</span>
       </div>
       <Show when={isFailure()}>
         <p class={classesFieldHelp} role="status">

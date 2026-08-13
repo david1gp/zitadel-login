@@ -6,7 +6,7 @@ import { IdentityProviderPanel } from "../client/src/identity-provider/ui/Identi
 afterEach(cleanup)
 
 describe("IdentityProviderPanel view component", () => {
-  test("renders provider name and icon with explicit continue button", () => {
+  test("renders provider icon with explicit continue button", () => {
     let submitted = false
 
     render(() => (
@@ -25,7 +25,7 @@ describe("IdentityProviderPanel view component", () => {
     ))
 
     expect(screen.getByRole("heading", { name: "Sign in with Google" })).toBeTruthy()
-    expect(screen.getByText("Google")).toBeTruthy()
+    expect(screen.queryByText("Google", { exact: true })).toBeNull()
 
     const submitBtn = screen.getByRole("button", { name: "Continue with Google" })
     expect(submitBtn).toBeTruthy()
