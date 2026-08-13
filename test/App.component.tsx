@@ -28,11 +28,11 @@ const bootstrap = {
   updatedAt: 1,
 }
 
-function apiMockCreate(requests: string[]) {
+function apiMockCreate(requests: string[], bootstrapView = bootstrap) {
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
     requests.push(`${init?.method ?? "GET"} ${url}`)
-    if (url.includes("/api/v2/bootstrap")) return Response.json({ success: true, data: bootstrap })
+    if (url.includes("/api/v2/bootstrap")) return Response.json({ success: true, data: bootstrapView })
     if (url.includes("/api/v2/flow/initialize")) {
       const isMfa = location.pathname.startsWith("/login/mfa")
       return Response.json({
@@ -123,6 +123,61 @@ describe("application shell", () => {
     expect(location.pathname).toBe("/login/idp/github-1")
     expect(location.search).toBe(`?flow=${validFlow}`)
     expect(requests).toHaveLength(2)
+    expect(screen.queryByRole("link", { name: "Terms of Service" })).toBeNull()
+  })
+
+  test("renders configured legal links outside the production login card", async () => {
+    const requests: string[] = []
+    const legalBootstrap = {
+      ...bootstrap,
+      legal: {
+        privacyPolicyUrl: "https://legal.example/privacy",
+        termsOfServiceUrl: "https://legal.example/terms",
+      },
+    }
+    globalThis.fetch = apiMockCreate(requests, legalBootstrap)
+    history.replaceState(null, "", "/login?authRequest=request-1")
+
+    const view = render(() => <App apiOrigin="https://worker.example" />)
+
+    await screen.findByRole("heading", { name: "Choose a method" })
+
+    const card = view.container.querySelector("section[aria-busy]")
+    const frame = card?.parentElement
+    const theme = view.container.querySelector("div.justify-end")
+    const legal = Array.from(view.container.querySelectorAll("p")).find((element) =>
+      element.textContent?.includes("By continuing"),
+    )
+    expect(card).toBeTruthy()
+    expect(frame).toBeTruthy()
+    expect(theme).toBeTruthy()
+    expect(legal).toBeTruthy()
+    expect(frame?.firstElementChild).toBe(theme)
+    expect(theme?.nextElementSibling).toBe(card)
+    expect(card?.nextElementSibling).toBe(legal)
+
+    const terms = screen.getByRole("link", { name: "Terms of Service" })
+    const privacy = screen.getByRole("link", { name: "Privacy Policy" })
+    expect(terms.getAttribute("href")).toBe("https://legal.example/terms")
+    expect(privacy.getAttribute("href")).toBe("https://legal.example/privacy")
+    expect(terms.getAttribute("target")).toBeNull()
+    expect(privacy.getAttribute("target")).toBeNull()
+  })
+
+  test("omits legal acknowledgement when either production URL is unavailable", async () => {
+    const requests: string[] = []
+    globalThis.fetch = apiMockCreate(requests, {
+      ...bootstrap,
+      legal: { termsOfServiceUrl: "https://legal.example/terms" },
+    })
+    history.replaceState(null, "", "/login?authRequest=request-1")
+
+    render(() => <App apiOrigin="https://worker.example" />)
+
+    await screen.findByRole("heading", { name: "Choose a method" })
+
+    expect(screen.queryByRole("link", { name: "Terms of Service" })).toBeNull()
+    expect(screen.queryByRole("link", { name: "Privacy Policy" })).toBeNull()
   })
 
   test("shows only live policy methods for a fresh sign-in despite a stored preference", async () => {

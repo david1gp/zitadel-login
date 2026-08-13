@@ -44,4 +44,22 @@ describe("workerBindingsParse MFA ownership gate", () => {
     })
     expect(malformed.success).toBe(false)
   })
+
+  test("accepts HTTPS legal URLs and rejects unsafe values", () => {
+    const configured = workerBindingsParse({
+      ...bindings,
+      TERMS_OF_SERVICE_URL: "https://legal.example/terms",
+      PRIVACY_POLICY_URL: "https://legal.example/privacy",
+    })
+    expect(configured.success).toBe(true)
+
+    const http = workerBindingsParse({ ...bindings, TERMS_OF_SERVICE_URL: "http://legal.example/terms" })
+    expect(http.success).toBe(false)
+
+    const credentials = workerBindingsParse({
+      ...bindings,
+      PRIVACY_POLICY_URL: "https://user:password@legal.example/privacy",
+    })
+    expect(credentials.success).toBe(false)
+  })
 })

@@ -10,6 +10,7 @@ import { type BootstrapView, bootstrapViewSchema } from "./bootstrapViewSchema"
 type Client = ReturnType<typeof zitadelClientCreate>
 type Branding = BootstrapView["branding"]
 type LiveSettings = Pick<BootstrapView, "capabilities" | "identityProviders" | "primaryMethods">
+type Legal = NonNullable<BootstrapView["legal"]>
 type CachedProjection<T> = { data: T; updatedAt: number }
 
 const brandingCacheLifetimeSeconds = 600
@@ -22,6 +23,7 @@ type BootstrapViewGetInput = {
   customLoginEnabled: boolean
   liveSettingsCache: ReturnType<typeof bootstrapCacheCreate<CachedProjection<LiveSettings>>>
   liveSettingsCacheKey: string
+  legal?: Legal
   now: number
   origin: string
   organization: {
@@ -188,6 +190,7 @@ export async function bootstrapViewGet(input: BootstrapViewGetInput): Promise<Re
   const view = {
     ...liveSettings.data.data,
     branding: branding.data.data,
+    ...(input.legal ? { legal: input.legal } : {}),
     organization: input.organization,
     updatedAt: Math.max(branding.data.updatedAt, liveSettings.data.updatedAt),
   }

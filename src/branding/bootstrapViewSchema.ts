@@ -44,6 +44,12 @@ export const bootstrapViewSchema = v.strictObject({
       ]),
     }),
   ),
+  legal: v.optional(
+    v.strictObject({
+      privacyPolicyUrl: v.optional(v.pipe(v.string(), v.url())),
+      termsOfServiceUrl: v.optional(v.pipe(v.string(), v.url())),
+    }),
+  ),
   organization: v.strictObject({
     id: v.pipe(v.string(), v.minLength(1), v.maxLength(200)),
     name: v.pipe(v.string(), v.minLength(1), v.maxLength(200)),

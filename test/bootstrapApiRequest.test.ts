@@ -24,6 +24,10 @@ describe("bootstrap browser API", () => {
             themeMode: "system",
           },
           identityProviders: [{ id: "github-1", name: "GitHub", type: "github" }],
+          legal: {
+            privacyPolicyUrl: "https://legal.example/privacy",
+            termsOfServiceUrl: "https://legal.example/terms",
+          },
           organization: { id: "org-1", name: "Contentoren" },
           primaryMethods: ["email_otp", "identity_provider"],
           updatedAt: 1,

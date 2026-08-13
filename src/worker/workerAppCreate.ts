@@ -439,6 +439,13 @@ export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
       customLoginEnabled: bindings.data.ZITADEL_CUSTOM_LOGIN_ENABLED,
       liveSettingsCache: dependencies.liveSettingsCache,
       liveSettingsCacheKey,
+      legal:
+        bindings.data.TERMS_OF_SERVICE_URL || bindings.data.PRIVACY_POLICY_URL
+          ? {
+              ...(bindings.data.PRIVACY_POLICY_URL ? { privacyPolicyUrl: bindings.data.PRIVACY_POLICY_URL } : {}),
+              ...(bindings.data.TERMS_OF_SERVICE_URL ? { termsOfServiceUrl: bindings.data.TERMS_OF_SERVICE_URL } : {}),
+            }
+          : undefined,
       now,
       organization: { id: organization.data.id, name: organization.data.name },
       origin: bindings.data.ZITADEL_ORIGIN,

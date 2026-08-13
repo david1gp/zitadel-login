@@ -28,6 +28,17 @@ const booleanBindingSchema = v.optional(
   "false",
 )
 
+const legalUrlBindingSchema = v.optional(
+  v.pipe(
+    v.string(),
+    v.url(),
+    v.check((value) => {
+      const url = new URL(value)
+      return url.protocol === "https:" && !url.username && !url.password
+    }, "Expected an HTTPS URL without credentials"),
+  ),
+)
+
 export const workerBindingsSchema = v.strictObject({
   ZITADEL_ORIGIN: originSchema,
   ZITADEL_ORGANIZATION_ID: v.pipe(v.string(), v.minLength(1), v.maxLength(200)),
@@ -69,6 +80,8 @@ export const workerBindingsSchema = v.strictObject({
   ZITADEL_CUSTOM_LOGIN_ENABLED: booleanBindingSchema,
   ZITADEL_PASSWORD_RESET_V2_ENABLED: booleanBindingSchema,
   ZITADEL_RECENT_ACCOUNT_V2_ENABLED: booleanBindingSchema,
+  TERMS_OF_SERVICE_URL: legalUrlBindingSchema,
+  PRIVACY_POLICY_URL: legalUrlBindingSchema,
   RATE_LIMITER: rateLimiterSchema,
 })
 

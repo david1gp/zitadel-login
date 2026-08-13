@@ -10,18 +10,17 @@ import { PasswordChangeRequiredPanel } from "../../password/ui/PasswordChangeReq
 import { PasswordPanel } from "../../password/ui/PasswordPanel"
 import { PasswordRecoveryRequestPanel } from "../../password-recovery/ui/PasswordRecoveryRequestPanel"
 import { PasswordResetPanel } from "../../password-recovery/ui/PasswordResetPanel"
-import { ThemeToggle } from "../../preferences/ui/ThemeToggle"
 import { classesCardTop } from "../../ui/classes/classesCardTop"
 import { classesContent } from "../../ui/classes/classesContent"
 import { classesErrorMessage } from "../../ui/classes/classesErrorMessage"
 import { classesHeading } from "../../ui/classes/classesHeading"
 import { classesIntro } from "../../ui/classes/classesIntro"
 import { classesLoadingState } from "../../ui/classes/classesLoadingState"
-import { classesLoginCard } from "../../ui/classes/classesLoginCard"
 import { classesNoticeMessage } from "../../ui/classes/classesNoticeMessage"
 import { classesOrganizationName } from "../../ui/classes/classesOrganizationName"
 import { classesPageShell } from "../../ui/classes/classesPageShell"
 import { classesSpinner } from "../../ui/classes/classesSpinner"
+import { LoginFrame } from "../../ui/LoginFrame"
 import { pageBackgroundStyleGet } from "../../ui/styles/pageBackgroundStyleGet"
 import { pageBackgroundScreenFromAppGet } from "../model/pageBackgroundScreenFromAppGet"
 import { appStateCreate } from "./appStateCreate"
@@ -43,7 +42,13 @@ export function App(props: AppProps) {
         }),
       )}
     >
-      <section class={classesLoginCard} aria-busy={state.busy()}>
+      <LoginFrame
+        busy={state.busy}
+        legal={() => state.bootstrap().legal}
+        preferredTheme={state.preferredTheme}
+        themeSwitchable={state.themeSwitchable}
+        themeSelect={state.themeSelect}
+      >
         <div class={classesCardTop}>
           <BrandHeader
             assetUrl={state.brandAssetUrl}
@@ -51,11 +56,6 @@ export function App(props: AppProps) {
             onAssetError={state.brandAssetFail}
           />
           <p class={classesOrganizationName}>{state.bootstrap().organization.name}</p>
-          <ThemeToggle
-            preference={state.preferredTheme}
-            switchable={state.themeSwitchable}
-            select={state.themeSelect}
-          />
         </div>
         <div class={classesContent}>
           <Switch>
@@ -227,7 +227,7 @@ export function App(props: AppProps) {
             </p>
           </Show>
         </div>
-      </section>
+      </LoginFrame>
     </main>
   )
 }

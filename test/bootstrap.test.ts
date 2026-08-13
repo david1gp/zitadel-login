@@ -142,7 +142,11 @@ describe("v2 bootstrap contract", () => {
       now: () => 1_800_000_000,
     })
 
-    const response = await app.fetch(bootstrapRequest(), bindings)
+    const response = await app.fetch(bootstrapRequest(), {
+      ...bindings,
+      TERMS_OF_SERVICE_URL: "https://legal.example/terms",
+      PRIVACY_POLICY_URL: "https://legal.example/privacy",
+    })
     const body = await response.json()
 
     expect(response.status).toBe(200)
@@ -169,6 +173,10 @@ describe("v2 bootstrap contract", () => {
           { id: "google-1", name: "Google", type: "google" },
           { id: "github-1", name: "GitHub", type: "github" },
         ],
+        legal: {
+          privacyPolicyUrl: "https://legal.example/privacy",
+          termsOfServiceUrl: "https://legal.example/terms",
+        },
         organization: { id: "org-contentoren", name: "Contentoren" },
         primaryMethods: ["email_otp", "password", "passkey", "identity_provider"],
         updatedAt: 1_800_000_000,

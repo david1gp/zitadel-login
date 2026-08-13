@@ -6,6 +6,8 @@ LOGIN_V2_FALLBACK_URL=https://your-zitadel.example/ui/v2/login
 PAGES_ORIGIN=http://localhost:5173
 SESSION_LIFETIME_SECONDS=900
 ZITADEL_CUSTOM_LOGIN_ENABLED=false
+TERMS_OF_SERVICE_URL=https://your-site.example/terms
+PRIVACY_POLICY_URL=https://your-site.example/privacy
 # ZITADEL_LOGIN_CLIENT_PAT is a ZITADEL machine-user PAT.
 ZITADEL_LOGIN_CLIENT_PAT=
 # FLOW_COOKIE_KEY is 32 random bytes encoded as unpadded base64url.

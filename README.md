@@ -96,6 +96,8 @@ Copy [`wrangler.example.jsonc`](./wrangler.example.jsonc) to `wrangler.jsonc` an
 | `SESSION_LIFETIME_SECONDS` | No | Flow/session lifetime from `60` through `1800` seconds; the example uses `900`. |
 | `ZITADEL_CUSTOM_LOGIN_ENABLED` | No | Strict `true`/`false` emergency switch for the custom Login App; defaults to `false`. |
 | `ZITADEL_PASSWORD_RESET_V2_ENABLED` | No | Strict `true`/`false` switch for standalone password recovery; defaults to `false`. |
+| `TERMS_OF_SERVICE_URL` | No | HTTPS URL sent to the browser for the Terms of Service link. Optional. |
+| `PRIVACY_POLICY_URL` | No | HTTPS URL sent to the browser for the Privacy Policy link. Optional. |
 | `ZITADEL_LOGIN_CLIENT_PAT` | Yes | ZITADEL machine-user PAT with the permissions required by the listed v2 APIs. Set as a Worker secret. |
 | `FLOW_COOKIE_KEY` | Yes | 32 random bytes as unpadded base64url, exactly 43 characters. Set as a Worker secret. |
 | `RECENT_ACCOUNT_COOKIE_KEY` | Optional | Same key format as `FLOW_COOKIE_KEY`. Set this to remember recent accounts. |

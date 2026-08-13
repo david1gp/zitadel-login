@@ -11,7 +11,6 @@ import { PasswordChangeRequiredPanel } from "../../password/ui/PasswordChangeReq
 import { PasswordPanel } from "../../password/ui/PasswordPanel"
 import { PasswordRecoveryRequestPanel } from "../../password-recovery/ui/PasswordRecoveryRequestPanel"
 import { PasswordResetPanel } from "../../password-recovery/ui/PasswordResetPanel"
-import { ThemeToggle } from "../../preferences/ui/ThemeToggle"
 import { classesCardTop } from "../../ui/classes/classesCardTop"
 import { classesContent } from "../../ui/classes/classesContent"
 import { classesDemoScenarioMeta } from "../../ui/classes/classesDemoScenarioMeta"
@@ -22,12 +21,12 @@ import { classesHeading } from "../../ui/classes/classesHeading"
 import { classesIntro } from "../../ui/classes/classesIntro"
 import { classesLoadingState } from "../../ui/classes/classesLoadingState"
 import { classesDemoDirectoryCard } from "../../ui/classes/classesDemoDirectoryCard"
-import { classesLoginCard } from "../../ui/classes/classesLoginCard"
 import { classesNoticeMessage } from "../../ui/classes/classesNoticeMessage"
 import { classesOrganizationName } from "../../ui/classes/classesOrganizationName"
 import { classesPageShell } from "../../ui/classes/classesPageShell"
 import { classesSpinner } from "../../ui/classes/classesSpinner"
 import { classMerge } from "../../ui/classMerge"
+import { LoginFrame } from "../../ui/LoginFrame"
 import { pageBackgroundStyleGet } from "../../ui/styles/pageBackgroundStyleGet"
 import { pageBackgroundScreenFromDemoGet } from "../model/pageBackgroundScreenFromDemoGet"
 import { DemoDirectory } from "./DemoDirectory"
@@ -62,9 +61,13 @@ export function DemoApp() {
         class={classMerge(classesPageShell, classesDemoStage)}
         style={pageBackgroundStyleGet(pageBackgroundScreenFromDemoGet(id()))}
       >
-        <section
-          class={classMerge(classesLoginCard, id() === "directory" && classesDemoDirectoryCard)}
-          aria-busy={state.busy()}
+        <LoginFrame
+          busy={state.busy}
+          cardClass={id() === "directory" && classesDemoDirectoryCard}
+          legal={() => state.bootstrap().legal}
+          preferredTheme={state.preferredTheme}
+          themeSwitchable={state.themeSwitchable}
+          themeSelect={state.themeSelect}
         >
           <div class={classesCardTop}>
             <BrandHeader
@@ -73,11 +76,6 @@ export function DemoApp() {
               onAssetError={state.brandAssetFail}
             />
             <p class={classesOrganizationName}>{state.bootstrap().organization.name}</p>
-            <ThemeToggle
-              preference={state.preferredTheme}
-              switchable={state.themeSwitchable}
-              select={state.themeSelect}
-            />
           </div>
           <div class={classesContent}>
             <Show when={showScenarioMeta(id())}>
@@ -292,7 +290,7 @@ export function DemoApp() {
               </p>
             </Show>
           </div>
-        </section>
+        </LoginFrame>
       </main>
     </div>
   )
