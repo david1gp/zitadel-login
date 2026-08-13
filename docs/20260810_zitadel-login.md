@@ -27,7 +27,7 @@ Use ZITADEL’s native Session/Login APIs and existing SMTP path wherever they s
 15. **Completed** — Correct the production bootstrap organization query, restore live ZITADEL branding/logo, and make ZITADEL the primary runtime source of truth for completed login methods.
 16. **Completed** — Formatting, semantic commits, and push completed.
 17. **Completed** — Split bootstrap caching so branding is cached for 10 minutes while login policy and active identity providers remain cached for 60 seconds.
-18. **Completed** — Formatting and the semantic commit containing only Task 17 split-cache changes are completed; push remains pending.
+18. **Completed** — Formatting, the semantic commit containing only Task 17 split-cache changes, and push are completed.
 
 ## Paths
 
