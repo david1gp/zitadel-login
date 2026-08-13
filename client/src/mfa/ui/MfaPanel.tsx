@@ -1,6 +1,8 @@
 import { For, Match, Show, Switch } from "solid-js"
 import type { LoginMethodSelection } from "../../flow/model/loginMethodSelectionSchema"
+import { MethodChoiceButton } from "../../flow/ui/MethodChoiceButton"
 import { mfaFactorDetailGet } from "../model/mfaFactorDetailGet"
+import { mfaFactorIconPathGet } from "../model/mfaFactorIconPathGet"
 import { mfaFactorLabelGet } from "../model/mfaFactorLabelGet"
 import type { MfaOptions } from "../model/mfaOptionsSchema"
 import { MfaEmailOtpPanel } from "./MfaEmailOtpPanel"
@@ -482,15 +484,13 @@ export function MfaPanel(props: MfaPanelProps) {
                     <For each={select().methods}>
                       {(method) => (
                         <li>
-                          <button
-                            class="method-button"
-                            type="button"
+                          <MethodChoiceButton
+                            label={mfaFactorLabelGet(method.type)}
+                            detail={mfaFactorDetailGet(method.type)}
+                            iconPath={mfaFactorIconPathGet(method.type)}
                             disabled={props.busy()}
                             onClick={() => state.selectFactor(method.type)}
-                          >
-                            <span>{mfaFactorLabelGet(method.type)}</span>
-                            <small>{mfaFactorDetailGet(method.type)}</small>
-                          </button>
+                          />
                         </li>
                       )}
                     </For>
@@ -516,15 +516,13 @@ export function MfaPanel(props: MfaPanelProps) {
                     <For each={enroll().methods}>
                       {(method) => (
                         <li>
-                          <button
-                            class="method-button"
-                            type="button"
+                          <MethodChoiceButton
+                            label={`Set up ${mfaFactorLabelGet(method.type)}`}
+                            detail={mfaFactorDetailGet(method.type)}
+                            iconPath={mfaFactorIconPathGet(method.type)}
                             disabled={props.busy()}
                             onClick={() => state.selectFactor(method.type)}
-                          >
-                            <span>Set up {mfaFactorLabelGet(method.type)}</span>
-                            <small>{mfaFactorDetailGet(method.type)}</small>
-                          </button>
+                          />
                         </li>
                       )}
                     </For>
@@ -572,15 +570,13 @@ export function MfaPanel(props: MfaPanelProps) {
                           <For each={skip().methods}>
                             {(method) => (
                               <li>
-                                <button
-                                  class="method-button"
-                                  type="button"
+                                <MethodChoiceButton
+                                  label={`Set up ${mfaFactorLabelGet(method.type)}`}
+                                  detail={mfaFactorDetailGet(method.type)}
+                                  iconPath={mfaFactorIconPathGet(method.type)}
                                   disabled={props.busy()}
                                   onClick={() => state.selectFactor(method.type)}
-                                >
-                                  <span>Set up {mfaFactorLabelGet(method.type)}</span>
-                                  <small>{mfaFactorDetailGet(method.type)}</small>
-                                </button>
+                                />
                               </li>
                             )}
                           </For>

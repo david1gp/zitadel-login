@@ -1,6 +1,8 @@
 import { For } from "solid-js"
 
+import { MethodChoiceButton } from "../../flow/ui/MethodChoiceButton"
 import { demoScenarioGroupsGet } from "../model/demoScenarioGroupsGet"
+import { demoScenarioIconPathGet } from "../model/demoScenarioIconPathGet"
 import type { DemoScenario } from "../model/demoScenarioSchema"
 
 type DemoDirectoryProps = {
@@ -30,15 +32,13 @@ export function DemoDirectory(props: DemoDirectoryProps) {
               <For each={group.scenarios}>
                 {(scenario) => (
                   <li>
-                    <button
-                      class="method-button"
-                      type="button"
-                      aria-current={scenario.id === props.currentId() ? "page" : undefined}
+                    <MethodChoiceButton
+                      label={scenario.label}
+                      detail={scenario.detail}
+                      iconPath={demoScenarioIconPathGet(scenario.id)}
+                      current={scenario.id === props.currentId()}
                       onClick={() => props.open(scenario.path)}
-                    >
-                      <span>{scenario.label}</span>
-                      <small>{scenario.detail}</small>
-                    </button>
+                    />
                   </li>
                 )}
               </For>

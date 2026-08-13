@@ -2,10 +2,17 @@ import { Show } from "solid-js"
 
 import type { RecentAccountSummary } from "../../session/model/recentAccountSummarySchema"
 import { RecentAccountChooser } from "../../session/ui/RecentAccountChooser"
+import { loginMethodIconPathGet } from "../model/loginMethodIconPathGet"
 import type { LoginMethodSelection } from "../model/loginMethodSelectionSchema"
+import { MethodChoiceButton } from "./MethodChoiceButton"
 
 type MethodChooserProps = {
-  methods: () => Array<{ selection: LoginMethodSelection; label: string; detail: string }>
+  methods: () => Array<{
+    selection: LoginMethodSelection
+    label: string
+    detail: string
+    identityProviderType?: string
+  }>
   select: (selection: LoginMethodSelection) => void
   headingRegister: (element: HTMLHeadingElement) => void
   recentAccounts?: () => RecentAccountSummary[]
@@ -35,15 +42,13 @@ export function MethodChooser(props: MethodChooserProps) {
       <ul class="method-list">
         {props.methods().map((method) => (
           <li>
-            <button
-              class="method-button"
-              type="button"
+            <MethodChoiceButton
+              label={method.label}
+              detail={method.detail}
+              iconPath={loginMethodIconPathGet(method.selection, method.identityProviderType)}
               disabled={props.busy ? props.busy() : false}
               onClick={() => props.select(method.selection)}
-            >
-              <span>{method.label}</span>
-              <small>{method.detail}</small>
-            </button>
+            />
           </li>
         ))}
       </ul>

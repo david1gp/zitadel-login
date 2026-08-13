@@ -91,6 +91,10 @@ button:disabled {
   background: transparent;
 }
 .theme-toggle button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   min-height: 30px;
   border: 0;
   border-radius: 999px;
@@ -99,6 +103,10 @@ button:disabled {
   background: transparent;
   font-size: 11px;
   font-weight: 750;
+}
+.theme-toggle .icon {
+  width: 14px;
+  height: 14px;
 }
 .theme-toggle button[aria-pressed="true"] {
   color: var(--brand-background);
@@ -241,16 +249,29 @@ input:not([type="checkbox"]):focus {
   list-style: none;
 }
 .method-button {
-  display: grid;
+  display: flex;
+  align-items: center;
+  gap: 14px;
   width: 100%;
   min-height: 66px;
-  align-content: center;
   border: 1px solid color-mix(in srgb, var(--brand-font) 25%, transparent);
   border-radius: 10px;
   padding: 12px 15px;
   color: var(--brand-font);
   background: transparent;
   text-align: left;
+}
+.method-button .icon,
+.icon {
+  display: block;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  fill: currentColor;
+}
+.method-button-copy {
+  display: grid;
+  min-width: 0;
 }
 .method-button:hover,
 .recent-account-button:hover:not(:disabled),
@@ -340,10 +361,10 @@ input:not([type="checkbox"]):focus {
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
-.method-button span {
+.method-button-copy span {
   font-weight: 800;
 }
-.method-button small {
+.method-button-copy small {
   margin-top: 3px;
   color: color-mix(in srgb, var(--brand-font) 70%, transparent);
 }
@@ -417,6 +438,7 @@ input:focus-visible {
 .idp-icon {
   width: 24px;
   height: 24px;
+  fill: currentColor;
 }
 .idp-provider-label {
   font-weight: 800;
@@ -640,6 +662,9 @@ input:focus-visible {
 }
 
 .demo-nav-list button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   min-height: 34px;
   border: 0;
@@ -649,6 +674,10 @@ input:focus-visible {
   background: transparent;
   text-align: left;
   font-size: 13px;
+}
+.demo-nav-list .icon {
+  width: 16px;
+  height: 16px;
 }
 
 .demo-nav-list button[aria-current="page"],

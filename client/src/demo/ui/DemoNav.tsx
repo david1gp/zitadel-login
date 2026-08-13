@@ -1,7 +1,9 @@
 import { For, Show } from "solid-js"
 
-import { demoScenarioGroupsGet } from "../model/demoScenarioGroupsGet"
+import { Icon } from "../../ui/Icon"
 import type { DemoChrome } from "../model/demoChromeSchema"
+import { demoScenarioGroupsGet } from "../model/demoScenarioGroupsGet"
+import { demoScenarioIconPathGet } from "../model/demoScenarioIconPathGet"
 import type { DemoScenario } from "../model/demoScenarioSchema"
 
 type DemoNavProps = {
@@ -82,7 +84,8 @@ export function DemoNav(props: DemoNavProps) {
                           aria-current={scenario.id === props.currentId() ? "page" : undefined}
                           onClick={() => props.open(scenario.path)}
                         >
-                          {scenario.label}
+                          <Icon path={demoScenarioIconPathGet(scenario.id)} />
+                          <span>{scenario.label}</span>
                         </button>
                       </li>
                     )}

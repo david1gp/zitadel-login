@@ -1,3 +1,6 @@
+import { Icon } from "../../ui/Icon"
+import { themeIconPathGet } from "../model/themeIconPathGet"
+
 type ThemeToggleProps = {
   preference: () => "light" | "dark" | "system"
   switchable: () => boolean
@@ -19,7 +22,8 @@ export function ThemeToggle(props: ThemeToggleProps) {
           aria-label={`${value[0]?.toUpperCase()}${value.slice(1)} theme`}
           onClick={() => props.select(value)}
         >
-          {`${value[0]?.toUpperCase()}${value.slice(1)}`}
+          <Icon path={themeIconPathGet(value, props.switchable())} />
+          <span>{`${value[0]?.toUpperCase()}${value.slice(1)}`}</span>
         </button>
       ))}
     </fieldset>

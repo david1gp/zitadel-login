@@ -5,8 +5,14 @@ export function loginMethodsGet(view: BootstrapView): Array<{
   selection: LoginMethodSelection
   label: string
   detail: string
+  identityProviderType?: string
 }> {
-  const available: Array<{ selection: LoginMethodSelection; label: string; detail: string }> = []
+  const available: Array<{
+    selection: LoginMethodSelection
+    label: string
+    detail: string
+    identityProviderType?: string
+  }> = []
   if (view.primaryMethods.includes("email_otp")) {
     available.push({ selection: { method: "email_otp" }, label: "Email code", detail: "Receive a one-time code" })
   }
@@ -26,6 +32,7 @@ export function loginMethodsGet(view: BootstrapView): Array<{
         selection: { method: "identity_provider", identityProviderId: provider.id },
         label: provider.name,
         detail: `Sign in with ${provider.name}`,
+        identityProviderType: provider.type,
       })
     }
   }
