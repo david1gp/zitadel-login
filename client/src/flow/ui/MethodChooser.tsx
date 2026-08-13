@@ -15,7 +15,7 @@ type MethodChooserProps = {
   methods: () => Array<{
     selection: LoginMethodSelection
     label: string
-    detail: string
+    detail?: string
     identityProviderType?: string
   }>
   select: (selection: LoginMethodSelection) => void

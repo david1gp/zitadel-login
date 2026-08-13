@@ -4,13 +4,13 @@ import type { LoginMethodSelection } from "./loginMethodSelectionSchema"
 export function loginMethodsGet(view: BootstrapView): Array<{
   selection: LoginMethodSelection
   label: string
-  detail: string
+  detail?: string
   identityProviderType?: string
 }> {
   const available: Array<{
     selection: LoginMethodSelection
     label: string
-    detail: string
+    detail?: string
     identityProviderType?: string
   }> = []
   if (view.primaryMethods.includes("email_otp")) {
@@ -31,7 +31,6 @@ export function loginMethodsGet(view: BootstrapView): Array<{
       available.push({
         selection: { method: "identity_provider", identityProviderId: provider.id },
         label: provider.name,
-        detail: `Sign in with ${provider.name}`,
         identityProviderType: provider.type,
       })
     }

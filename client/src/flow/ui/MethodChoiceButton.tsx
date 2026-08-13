@@ -4,7 +4,7 @@ import { Icon } from "../../ui/Icon"
 
 type MethodChoiceButtonProps = {
   label: string
-  detail: string
+  detail?: string
   iconPath: string
   iconClass?: string
   disabled?: boolean
@@ -24,7 +24,7 @@ export function MethodChoiceButton(props: MethodChoiceButtonProps) {
       <Icon class={props.iconClass} path={props.iconPath} />
       <span class={classesMethodButtonCopy}>
         <span>{props.label}</span>
-        <small>{props.detail}</small>
+        {props.detail && <small>{props.detail}</small>}
       </span>
     </button>
   )
