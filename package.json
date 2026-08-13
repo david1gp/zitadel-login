@@ -19,6 +19,7 @@
     "format:check": "biome format README.md client/index.html client src test ops/zitadel package.json tsconfig.json tsconfig.browser.json tsconfig.worker.json biome.json bunfig.toml cliff.toml wrangler.example.jsonc"
   },
   "dependencies": {
+    "@adaptive-ds/mdi": "0.1.1",
     "hono": "^4.12.28",
     "qrcode-generator": "^2.0.4",
     "solid-js": "^1.9.12",
