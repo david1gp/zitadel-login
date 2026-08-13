@@ -6,7 +6,7 @@ import { IdentityProviderPanel } from "../client/src/identity-provider/ui/Identi
 afterEach(cleanup)
 
 describe("IdentityProviderPanel view component", () => {
-  test("renders provider icon with explicit continue button", () => {
+  test("renders explicit continue button without a duplicate provider label", () => {
     let submitted = false
 
     render(() => (
