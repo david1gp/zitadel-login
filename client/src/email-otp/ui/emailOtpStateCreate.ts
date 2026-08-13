@@ -1,8 +1,8 @@
 import { createMemo } from "solid-js"
 
 import { loginIdentifierNormalize } from "../../preferences/model/loginIdentifierNormalize"
-import type { SignalObject } from "../../ui/SignalObject"
 import { createSignalObject } from "../../ui/createSignalObject"
+import type { SignalObject } from "../../ui/SignalObject"
 import { emailOtpV2ResendApiRequest } from "../api/emailOtpV2ResendApiRequest"
 import { emailOtpV2StartApiRequest } from "../api/emailOtpV2StartApiRequest"
 import { emailOtpV2VerifyApiRequest } from "../api/emailOtpV2VerifyApiRequest"

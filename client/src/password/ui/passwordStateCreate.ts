@@ -1,8 +1,8 @@
 import { createMemo, onCleanup } from "solid-js"
 
 import { loginIdentifierNormalize } from "../../preferences/model/loginIdentifierNormalize"
-import type { SignalObject } from "../../ui/SignalObject"
 import { createSignalObject } from "../../ui/createSignalObject"
+import type { SignalObject } from "../../ui/SignalObject"
 import { passwordV2VerifyApiRequest } from "../api/passwordV2VerifyApiRequest"
 
 export function passwordStateCreate(input: {

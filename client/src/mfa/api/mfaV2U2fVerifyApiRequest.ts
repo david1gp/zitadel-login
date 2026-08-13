@@ -1,7 +1,7 @@
 import * as v from "valibot"
 
 import { flowV2ErrorMessageGet } from "../../flow/model/flowV2ErrorMessageGet"
-import { flowV2TransitionSchema, type FlowV2Transition } from "../../flow/model/flowV2TransitionSchema"
+import { type FlowV2Transition, flowV2TransitionSchema } from "../../flow/model/flowV2TransitionSchema"
 import type { PasskeyCredentialAssertion } from "../../passkey/model/passkeyVerifyRequestSchema"
 import type { Result } from "../../result/Result"
 import { resultCreate } from "../../result/resultCreate"

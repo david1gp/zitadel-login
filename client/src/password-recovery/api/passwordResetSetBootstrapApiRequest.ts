@@ -5,8 +5,8 @@ import { resultCreate } from "../../result/resultCreate"
 import { resultErrorCreate } from "../../result/resultErrorCreate"
 import { passwordRecoveryErrorMessageGet } from "../model/passwordRecoveryErrorMessageGet"
 import {
-  passwordResetSetBootstrapViewSchema,
   type PasswordResetSetBootstrapView,
+  passwordResetSetBootstrapViewSchema,
 } from "../model/passwordResetSetBootstrapViewSchema"
 
 const responseSchema = v.strictObject({ success: v.literal(true), data: passwordResetSetBootstrapViewSchema })

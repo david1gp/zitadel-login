@@ -3,7 +3,7 @@ import * as v from "valibot"
 import type { Result } from "../../result/Result"
 import { resultCreate } from "../../result/resultCreate"
 import { resultErrorCreate } from "../../result/resultErrorCreate"
-import { themePreferenceSchema, type ThemePreference } from "./themePreferenceSchema"
+import { type ThemePreference, themePreferenceSchema } from "./themePreferenceSchema"
 
 export function themePreferenceLoad(storage: Storage): Result<ThemePreference | undefined> {
   const op = "themePreferenceLoad"

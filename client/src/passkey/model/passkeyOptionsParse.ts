@@ -3,7 +3,7 @@ import * as v from "valibot"
 import type { Result } from "../../result/Result"
 import { resultCreate } from "../../result/resultCreate"
 import { resultErrorCreate } from "../../result/resultErrorCreate"
-import { passkeyOptionsSchema, type PasskeyOptions } from "./passkeyOptionsSchema"
+import { type PasskeyOptions, passkeyOptionsSchema } from "./passkeyOptionsSchema"
 
 export function passkeyOptionsParse(raw: unknown): Result<PasskeyOptions> {
   const op = "passkeyOptionsParse"

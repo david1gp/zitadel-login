@@ -4,8 +4,8 @@ import type { Result } from "../../result/Result"
 import { resultCreate } from "../../result/resultCreate"
 import { resultErrorCreate } from "../../result/resultErrorCreate"
 import {
-  passwordRecoveryBootstrapViewSchema,
   type PasswordRecoveryBootstrapView,
+  passwordRecoveryBootstrapViewSchema,
 } from "../model/passwordRecoveryBootstrapViewSchema"
 import { passwordRecoveryErrorMessageGet } from "../model/passwordRecoveryErrorMessageGet"
 

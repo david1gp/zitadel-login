@@ -3,7 +3,7 @@ import * as v from "valibot"
 import type { Result } from "../../result/Result"
 import { resultCreate } from "../../result/resultCreate"
 import { resultErrorCreate } from "../../result/resultErrorCreate"
-import { loginPreferenceSchema, type LoginPreference } from "./loginPreferenceSchema"
+import { type LoginPreference, loginPreferenceSchema } from "./loginPreferenceSchema"
 
 export function loginPreferenceLoad(storage: Storage, organizationId: string): Result<LoginPreference | undefined> {
   const op = "loginPreferenceLoad"

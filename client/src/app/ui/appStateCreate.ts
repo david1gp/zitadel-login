@@ -4,8 +4,6 @@ import { bootstrapApiRequest } from "../../branding/api/bootstrapApiRequest"
 import { fallbackBootstrap } from "../../branding/model/fallbackBootstrap"
 import { brandingStateCreate } from "../../branding/ui/brandingStateCreate"
 import { emailOtpStateCreate } from "../../email-otp/ui/emailOtpStateCreate"
-import { identityProviderStateCreate } from "../../identity-provider/ui/identityProviderStateCreate"
-
 import { browserHistoryNavigate } from "../../flow/model/browserHistoryNavigate"
 import { browserLocationAssign } from "../../flow/model/browserLocationAssign"
 import { browserUrlRead } from "../../flow/model/browserUrlRead"
@@ -13,12 +11,11 @@ import type { LoginMethodSelection } from "../../flow/model/loginMethodSelection
 import { loginMethodsGet } from "../../flow/model/loginMethodsGet"
 import { loginRoutePathGet } from "../../flow/model/loginRoutePathGet"
 import { loginRouteRead } from "../../flow/model/loginRouteRead"
-
-import { passwordRecoveryRouteRead } from "../../password-recovery/model/passwordRecoveryRouteRead"
-
+import { identityProviderStateCreate } from "../../identity-provider/ui/identityProviderStateCreate"
 import { passkeyOptionsParse } from "../../passkey/model/passkeyOptionsParse"
-import { passkeyStateCreate, type PasskeyCredentialsGet } from "../../passkey/ui/passkeyStateCreate"
+import { type PasskeyCredentialsGet, passkeyStateCreate } from "../../passkey/ui/passkeyStateCreate"
 import { passwordStateCreate } from "../../password/ui/passwordStateCreate"
+import { passwordRecoveryRouteRead } from "../../password-recovery/model/passwordRecoveryRouteRead"
 
 import { browserStorageGet } from "../../preferences/model/browserStorageGet"
 import { loginPreferenceStateCreate } from "../../preferences/ui/loginPreferenceStateCreate"

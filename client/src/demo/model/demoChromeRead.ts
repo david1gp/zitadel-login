@@ -1,6 +1,6 @@
 import * as v from "valibot"
 
-import { demoChromeSchema, type DemoChrome } from "./demoChromeSchema"
+import { type DemoChrome, demoChromeSchema } from "./demoChromeSchema"
 
 export function demoChromeRead(search: string): DemoChrome {
   const parsed = v.safeParse(demoChromeSchema, new URLSearchParams(search).get("chrome"))

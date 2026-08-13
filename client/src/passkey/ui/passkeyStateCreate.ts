@@ -1,8 +1,8 @@
 import { onCleanup } from "solid-js"
 
 import { loginIdentifierNormalize } from "../../preferences/model/loginIdentifierNormalize"
-import type { SignalObject } from "../../ui/SignalObject"
 import { createSignalObject } from "../../ui/createSignalObject"
+import type { SignalObject } from "../../ui/SignalObject"
 import { passkeyV2ChallengeApiRequest } from "../api/passkeyV2ChallengeApiRequest"
 import { passkeyV2VerifyApiRequest } from "../api/passkeyV2VerifyApiRequest"
 import { passkeyAssertionSerialize } from "../model/passkeyAssertionSerialize"

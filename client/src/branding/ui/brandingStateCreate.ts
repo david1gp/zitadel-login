@@ -1,9 +1,8 @@
 import { createEffect, createMemo, onCleanup, onMount } from "solid-js"
-
-import type { SignalObject } from "../../ui/SignalObject"
-import { createSignalObject } from "../../ui/createSignalObject"
 import { themePreferenceLoad } from "../../preferences/model/themePreferenceLoad"
 import { themePreferenceSave } from "../../preferences/model/themePreferenceSave"
+import { createSignalObject } from "../../ui/createSignalObject"
+import type { SignalObject } from "../../ui/SignalObject"
 import type { BootstrapView } from "../model/bootstrapViewSchema"
 
 type Theme = "light" | "dark"

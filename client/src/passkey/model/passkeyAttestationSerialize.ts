@@ -17,7 +17,7 @@ function bufferToBase64Url(buffer: ArrayBuffer | Uint8Array): string {
 export function passkeyAttestationSerialize(credential: PublicKeyCredential): Result<PasskeyAttestation> {
   const op = "passkeyAttestationSerialize"
   const response = credential.response as AuthenticatorAttestationResponse | undefined
-  if (!response || !response.attestationObject || !response.clientDataJSON || !credential.rawId) {
+  if (!response?.attestationObject || !response.clientDataJSON || !credential.rawId) {
     return resultErrorCreate(op, "Failed to process the security key registration response.")
   }
 

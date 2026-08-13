@@ -10,7 +10,7 @@ const enrollScenarioIds = new Set([
 ])
 
 export function demoMfaPathGet(next: LoginMethodSelection | undefined, currentId: string): string {
-  if (!next || next.method !== "mfa") return "/demo/chooser"
+  if (next?.method !== "mfa") return "/demo/chooser"
   if (!next.factor) {
     if (enrollScenarioIds.has(currentId)) return "/demo/mfa/enroll"
     if (currentId === "mfa-skip-satisfied") return "/demo/mfa/satisfied"

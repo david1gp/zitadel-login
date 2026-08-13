@@ -2,7 +2,7 @@ import * as v from "valibot"
 import type { Result } from "../../result/Result"
 import { resultCreate } from "../../result/resultCreate"
 import { resultErrorCreate } from "../../result/resultErrorCreate"
-import { mfaOptionsSchema, type MfaOptions } from "../model/mfaOptionsSchema"
+import { type MfaOptions, mfaOptionsSchema } from "../model/mfaOptionsSchema"
 
 const responseEnvelopeSchema = v.variant("success", [
   v.strictObject({
