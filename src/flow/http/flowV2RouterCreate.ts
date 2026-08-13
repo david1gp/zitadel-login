@@ -7,15 +7,18 @@ import { emailOtpV2Resend } from "../../email-otp/domain/emailOtpV2Resend"
 import { emailOtpV2SessionIsVerified } from "../../email-otp/domain/emailOtpV2SessionIsVerified"
 import { emailOtpV2Start } from "../../email-otp/domain/emailOtpV2Start"
 import { emailOtpV2Verify } from "../../email-otp/domain/emailOtpV2Verify"
+import { csrfTokenMatches } from "../../http/csrfTokenMatches"
+import { rateLimitCheck } from "../../http/rateLimitCheck"
+import { requestPayloadParse } from "../../http/requestPayloadParse"
 import { identityProviderV2CallbackProcess } from "../../identity-provider/domain/identityProviderV2CallbackProcess"
 import { identityProviderV2IntentStart } from "../../identity-provider/domain/identityProviderV2IntentStart"
 import { identityProviderCallbackPayloadSchema } from "../../identity-provider/model/identityProviderCallbackPayloadSchema"
 import { identityProviderStartPayloadSchema } from "../../identity-provider/model/identityProviderStartPayloadSchema"
 import { mfaEnrollmentSkip } from "../../mfa/domain/mfaEnrollmentSkip"
 import { mfaOptionsGet } from "../../mfa/domain/mfaOptionsGet"
+import { mfaV2EmailOtpChallenge } from "../../mfa/domain/mfaV2EmailOtpChallenge"
 import { mfaV2EmailOtpEnrollmentActivate } from "../../mfa/domain/mfaV2EmailOtpEnrollmentActivate"
 import { mfaV2EmailOtpEnrollmentPrepare } from "../../mfa/domain/mfaV2EmailOtpEnrollmentPrepare"
-import { mfaV2EmailOtpChallenge } from "../../mfa/domain/mfaV2EmailOtpChallenge"
 import { mfaV2EmailOtpResend } from "../../mfa/domain/mfaV2EmailOtpResend"
 import { mfaV2EmailOtpVerify } from "../../mfa/domain/mfaV2EmailOtpVerify"
 import { mfaV2SmsOtpChallenge } from "../../mfa/domain/mfaV2SmsOtpChallenge"
@@ -28,9 +31,9 @@ import { mfaV2U2fChallenge } from "../../mfa/domain/mfaV2U2fChallenge"
 import { mfaV2U2fVerify } from "../../mfa/domain/mfaV2U2fVerify"
 import { mfaV2WebAuthnEnrollmentStart } from "../../mfa/domain/mfaV2WebAuthnEnrollmentStart"
 import { mfaV2WebAuthnEnrollmentVerify } from "../../mfa/domain/mfaV2WebAuthnEnrollmentVerify"
-import { mfaOptionsSchema } from "../../mfa/model/mfaOptionsSchema"
 import { mfaEmailOtpEnrollmentRequestSchema } from "../../mfa/model/mfaEmailOtpEnrollmentRequestSchema"
 import { mfaEmailOtpEnrollmentResponseSchema } from "../../mfa/model/mfaEmailOtpEnrollmentResponseSchema"
+import { mfaOptionsSchema } from "../../mfa/model/mfaOptionsSchema"
 import { mfaOtpChallengeRequestSchema } from "../../mfa/model/mfaOtpChallengeRequestSchema"
 import { mfaOtpVerifyRequestSchema } from "../../mfa/model/mfaOtpVerifyRequestSchema"
 import { mfaPasskeyEnrollmentStartRequestSchema } from "../../mfa/model/mfaPasskeyEnrollmentStartRequestSchema"
@@ -48,8 +51,8 @@ import { passkeyV2ChallengeCreate } from "../../passkey/domain/passkeyV2Challeng
 import { passkeyV2Verify } from "../../passkey/domain/passkeyV2Verify"
 import { passkeyChallengeRequestSchema } from "../../passkey/model/passkeyChallengeRequestSchema"
 import { passkeyVerifyRequestSchema } from "../../passkey/model/passkeyVerifyRequestSchema"
-import { passwordV2Verify } from "../../password/domain/passwordV2Verify"
 import { passwordChangeRequiredExecute } from "../../password/domain/passwordChangeRequiredExecute"
+import { passwordV2Verify } from "../../password/domain/passwordV2Verify"
 import { passwordChangeRequiredRequestSchema } from "../../password/model/passwordChangeRequiredRequestSchema"
 import { passwordChangeRequiredResponseSchema } from "../../password/model/passwordChangeRequiredResponseSchema"
 import { passwordVerifyRequestSchema } from "../../password/model/passwordVerifyRequestSchema"
@@ -85,6 +88,10 @@ type Dependencies = {
   }
 }
 
+async function payloadParse<T>(c: AppContext, schema: v.GenericSchema<unknown, T>, maximumLength = 4096) {
+  return requestPayloadParse(c.req, schema, { maximumLength })
+}
+
 const handleSchema = v.pipe(v.string(), v.regex(/^[A-Za-z0-9_-]{22}$/))
 const initializePayloadSchema = v.strictObject({
   authRequest: v.pipe(v.string(), v.minLength(1), v.maxLength(200), v.regex(/^[A-Za-z0-9._~-]+$/)),
@@ -104,26 +111,6 @@ function base64UrlEncode(value: Uint8Array): string {
   let binary = ""
   for (const byte of value) binary += String.fromCharCode(byte)
   return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "")
-}
-
-function base64UrlDecode(value: string): Uint8Array {
-  const base64 = value.replaceAll("-", "+").replaceAll("_", "/") + "=".repeat((4 - (value.length % 4)) % 4)
-  return Uint8Array.from(atob(base64), (character) => character.charCodeAt(0))
-}
-
-function bytesCopy(value: Uint8Array): Uint8Array<ArrayBuffer> {
-  const copy = new Uint8Array(value.byteLength)
-  copy.set(value)
-  return copy
-}
-
-function csrfTokenMatches(actual: string, expected: string): boolean {
-  if (actual.length !== expected.length) return false
-  let difference = 0
-  for (let index = 0; index < actual.length; index += 1) {
-    difference |= actual.charCodeAt(index) ^ expected.charCodeAt(index)
-  }
-  return difference === 0
 }
 
 function resultStatusGet(result: { success: boolean; rawData?: unknown }): number | undefined {
@@ -291,59 +278,17 @@ function callbackFlowHandleGet(c: AppContext) {
   return resultCreate(parsed.output)
 }
 
-async function payloadParse<T>(c: AppContext, schema: v.GenericSchema<unknown, T>, maximumLength = 4096) {
-  const op = "payloadParse"
-  if (!c.req.header("content-type")?.toLowerCase().startsWith("application/json")) {
-    return resultErrorCreate(op, "unsupported_media_type")
-  }
-  const length = Number(c.req.header("content-length") ?? "0")
-  if (!Number.isFinite(length) || length > maximumLength) return resultErrorCreate(op, "invalid_payload")
-  try {
-    const text = await c.req.text()
-    if (text.length > maximumLength) return resultErrorCreate(op, "invalid_payload")
-    const parsed = v.safeParse(schema, JSON.parse(text))
-    if (!parsed.success) return resultErrorCreate(op, "invalid_payload")
-    return resultCreate(parsed.output)
-  } catch {
-    return resultErrorCreate(op, "invalid_payload")
-  }
-}
-
-async function abuseKeyCreate(scope: string, value: string, keyValue: string) {
-  const op = "abuseKeyCreate"
-  try {
-    const key = await crypto.subtle.importKey(
-      "raw",
-      bytesCopy(base64UrlDecode(keyValue)),
-      { name: "HMAC", hash: "SHA-256" },
-      false,
-      ["sign"],
-    )
-    const signed = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${scope}\u0000${value}`))
-    return resultCreate(`${scope}:${base64UrlEncode(new Uint8Array(signed))}`)
-  } catch {
-    return resultErrorCreate(op, "rate_limiter_unavailable")
-  }
-}
-
 async function abuseLimitCheck(
   rateLimiter: WorkerRateLimiter,
   cookieKey: string,
   scope: string,
   values: Array<[string, string]>,
 ) {
-  const op = "abuseLimitCheck"
-  for (const [name, value] of values) {
-    const key = await abuseKeyCreate(`${scope}:${name}`, value, cookieKey)
-    if (!key.success) return key
-    try {
-      const outcome = await rateLimiter.limit({ key: key.data })
-      if (!outcome.success) return resultErrorCreate(op, "rate_limited")
-    } catch {
-      return resultErrorCreate(op, "rate_limiter_unavailable")
-    }
-  }
-  return resultCreate(undefined)
+  return rateLimitCheck(rateLimiter, cookieKey, scope, values, {
+    errorMessage: "rate_limiter_unavailable",
+    keyOperation: "abuseKeyCreate",
+    operation: "abuseLimitCheck",
+  })
 }
 
 function authRequestRedirectIsValid(value: string): boolean {

@@ -4,6 +4,9 @@ import * as v from "valibot"
 
 import { workerBindingsParse } from "../../config/workerBindingsParse"
 import type { WorkerBindingsInput, WorkerRateLimiter } from "../../config/workerBindingsSchema"
+import { csrfTokenMatches } from "../../http/csrfTokenMatches"
+import { rateLimitCheck } from "../../http/rateLimitCheck"
+import { requestPayloadParse } from "../../http/requestPayloadParse"
 import { resultCreate } from "../../result/resultCreate"
 import { resultErrorCreate } from "../../result/resultErrorCreate"
 import { zitadelClientCreate } from "../../zitadel/zitadelClientCreate"
@@ -22,10 +25,10 @@ import { passwordResetIngressQuerySchema } from "../model/passwordResetIngressQu
 import { passwordResetIngressResponseSchema } from "../model/passwordResetIngressResponseSchema"
 import { passwordResetRequestResponseSchema } from "../model/passwordResetRequestResponseSchema"
 import { passwordResetRequestSchema } from "../model/passwordResetRequestSchema"
-import { passwordResetSetRequestSchema } from "../model/passwordResetSetRequestSchema"
-import { passwordResetSetResponseSchema } from "../model/passwordResetSetResponseSchema"
 import { passwordResetSetBootstrapRequestSchema } from "../model/passwordResetSetBootstrapRequestSchema"
 import { passwordResetSetBootstrapResponseSchema } from "../model/passwordResetSetBootstrapResponseSchema"
+import { passwordResetSetRequestSchema } from "../model/passwordResetSetRequestSchema"
+import { passwordResetSetResponseSchema } from "../model/passwordResetSetResponseSchema"
 
 type AppEnvironment = { Bindings: WorkerBindingsInput }
 type AppContext = Context<AppEnvironment>
@@ -51,17 +54,6 @@ function base64UrlEncode(value: Uint8Array): string {
   return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "")
 }
 
-function base64UrlDecode(value: string): Uint8Array {
-  const base64 = value.replaceAll("-", "+").replaceAll("_", "/") + "=".repeat((4 - (value.length % 4)) % 4)
-  return Uint8Array.from(atob(base64), (character) => character.charCodeAt(0))
-}
-
-function bytesCopy(value: Uint8Array): Uint8Array<ArrayBuffer> {
-  const copy = new Uint8Array(value.byteLength)
-  copy.set(value)
-  return copy
-}
-
 function cookieValueGet(header: string | undefined): string | undefined {
   if (!header) return undefined
   for (const part of header.split(";")) {
@@ -81,50 +73,17 @@ function namedCookieValueGet(header: string | undefined, cookieName: string): st
   return values.length === 1 ? values[0] : undefined
 }
 
-function csrfTokenMatches(actual: string, expected: string): boolean {
-  if (actual.length !== expected.length) return false
-  let difference = 0
-  for (let index = 0; index < actual.length; index += 1) {
-    difference |= actual.charCodeAt(index) ^ expected.charCodeAt(index)
-  }
-  return difference === 0
-}
-
 function nativeErrorIdGet(rawData: unknown): string | undefined {
   if (typeof rawData !== "object" || rawData === null || !("id" in rawData)) return undefined
   return typeof rawData.id === "string" ? rawData.id : undefined
 }
 
-async function abuseKeyCreate(scope: string, value: string, keyValue: string) {
-  const op = "passwordResetAbuseKeyCreate"
-  try {
-    const key = await crypto.subtle.importKey(
-      "raw",
-      bytesCopy(base64UrlDecode(keyValue)),
-      { name: "HMAC", hash: "SHA-256" },
-      false,
-      ["sign"],
-    )
-    const signed = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${scope}\u0000${value}`))
-    return resultCreate(`${scope}:${base64UrlEncode(new Uint8Array(signed))}`)
-  } catch {
-    return resultErrorCreate(op, "rate_limiter_unavailable")
-  }
-}
-
 async function abuseLimitCheck(rateLimiter: WorkerRateLimiter, cookieKey: string, values: Array<[string, string]>) {
-  const op = "passwordResetAbuseLimitCheck"
-  for (const [name, value] of values) {
-    const key = await abuseKeyCreate(`password-reset-request:${name}`, value, cookieKey)
-    if (!key.success) return key
-    try {
-      const outcome = await rateLimiter.limit({ key: key.data })
-      if (!outcome.success) return resultErrorCreate(op, "rate_limited")
-    } catch {
-      return resultErrorCreate(op, "rate_limiter_unavailable")
-    }
-  }
-  return resultCreate(undefined)
+  return rateLimitCheck(rateLimiter, cookieKey, "password-reset-request", values, {
+    errorMessage: "rate_limiter_unavailable",
+    keyOperation: "passwordResetAbuseKeyCreate",
+    operation: "passwordResetAbuseLimitCheck",
+  })
 }
 
 async function resetSetAbuseLimitCheck(
@@ -132,18 +91,11 @@ async function resetSetAbuseLimitCheck(
   cookieKey: string,
   values: Array<[string, string]>,
 ) {
-  const op = "passwordResetSetAbuseLimitCheck"
-  for (const [name, value] of values) {
-    const key = await abuseKeyCreate(`password-reset-set:${name}`, value, cookieKey)
-    if (!key.success) return key
-    try {
-      const outcome = await rateLimiter.limit({ key: key.data })
-      if (!outcome.success) return resultErrorCreate(op, "rate_limited")
-    } catch {
-      return resultErrorCreate(op, "rate_limiter_unavailable")
-    }
-  }
-  return resultCreate(undefined)
+  return rateLimitCheck(rateLimiter, cookieKey, "password-reset-set", values, {
+    errorMessage: "rate_limiter_unavailable",
+    keyOperation: "passwordResetAbuseKeyCreate",
+    operation: "passwordResetSetAbuseLimitCheck",
+  })
 }
 
 function errorResponse(c: AppContext, code: string, status: 400 | 403 | 404 | 415 | 503) {
@@ -162,79 +114,35 @@ function errorResponse(c: AppContext, code: string, status: 400 | 403 | 404 | 41
 }
 
 async function payloadParse(c: AppContext) {
-  const op = "passwordRecoveryBootstrapPayloadParse"
-  if (c.req.header("content-type") !== "application/json") {
-    return resultErrorCreate(op, "unsupported_media_type")
-  }
-  const contentLength = Number(c.req.header("content-length") ?? "0")
-  if (!Number.isFinite(contentLength) || contentLength > 128) return resultErrorCreate(op, "invalid_payload")
-
-  try {
-    const text = await c.req.text()
-    if (text.length > 128) return resultErrorCreate(op, "invalid_payload")
-    const parsed = v.safeParse(passwordRecoveryBootstrapRequestSchema, JSON.parse(text))
-    if (!parsed.success) return resultErrorCreate(op, "invalid_payload")
-    return resultCreate(parsed.output)
-  } catch {
-    return resultErrorCreate(op, "invalid_payload")
-  }
+  return requestPayloadParse(c.req, passwordRecoveryBootstrapRequestSchema, {
+    contentType: "exact",
+    maximumLength: 128,
+    operation: "passwordRecoveryBootstrapPayloadParse",
+  })
 }
 
 async function resetPayloadParse(c: AppContext) {
-  const op = "passwordResetRequestPayloadParse"
-  if (c.req.header("content-type") !== "application/json") {
-    return resultErrorCreate(op, "unsupported_media_type")
-  }
-  const contentLength = Number(c.req.header("content-length") ?? "0")
-  if (!Number.isFinite(contentLength) || contentLength > 512) return resultErrorCreate(op, "invalid_payload")
-
-  try {
-    const text = await c.req.text()
-    if (text.length > 512) return resultErrorCreate(op, "invalid_payload")
-    const parsed = v.safeParse(passwordResetRequestSchema, JSON.parse(text))
-    if (!parsed.success) return resultErrorCreate(op, "invalid_payload")
-    return resultCreate(parsed.output)
-  } catch {
-    return resultErrorCreate(op, "invalid_payload")
-  }
+  return requestPayloadParse(c.req, passwordResetRequestSchema, {
+    contentType: "exact",
+    maximumLength: 512,
+    operation: "passwordResetRequestPayloadParse",
+  })
 }
 
 async function resetSetBootstrapPayloadParse(c: AppContext) {
-  const op = "passwordResetSetBootstrapPayloadParse"
-  if (c.req.header("content-type") !== "application/json") {
-    return resultErrorCreate(op, "unsupported_media_type")
-  }
-  const contentLength = Number(c.req.header("content-length") ?? "0")
-  if (!Number.isFinite(contentLength) || contentLength > 128) return resultErrorCreate(op, "invalid_payload")
-
-  try {
-    const text = await c.req.text()
-    if (text.length > 128) return resultErrorCreate(op, "invalid_payload")
-    const parsed = v.safeParse(passwordResetSetBootstrapRequestSchema, JSON.parse(text))
-    if (!parsed.success) return resultErrorCreate(op, "invalid_payload")
-    return resultCreate(parsed.output)
-  } catch {
-    return resultErrorCreate(op, "invalid_payload")
-  }
+  return requestPayloadParse(c.req, passwordResetSetBootstrapRequestSchema, {
+    contentType: "exact",
+    maximumLength: 128,
+    operation: "passwordResetSetBootstrapPayloadParse",
+  })
 }
 
 async function resetSetPayloadParse(c: AppContext) {
-  const op = "passwordResetSetPayloadParse"
-  if (c.req.header("content-type") !== "application/json") {
-    return resultErrorCreate(op, "unsupported_media_type")
-  }
-  const contentLength = Number(c.req.header("content-length") ?? "0")
-  if (!Number.isFinite(contentLength) || contentLength > 512) return resultErrorCreate(op, "invalid_payload")
-
-  try {
-    const text = await c.req.text()
-    if (text.length > 512) return resultErrorCreate(op, "invalid_payload")
-    const parsed = v.safeParse(passwordResetSetRequestSchema, JSON.parse(text))
-    if (!parsed.success) return resultErrorCreate(op, "invalid_payload")
-    return resultCreate(parsed.output)
-  } catch {
-    return resultErrorCreate(op, "invalid_payload")
-  }
+  return requestPayloadParse(c.req, passwordResetSetRequestSchema, {
+    contentType: "exact",
+    maximumLength: 512,
+    operation: "passwordResetSetPayloadParse",
+  })
 }
 
 function resetIngressQueryParse(url: URL) {

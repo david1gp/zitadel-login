@@ -11,6 +11,9 @@ import { flowCookieOpen } from "../flow/flowCookieOpen"
 import type { FlowCookie } from "../flow/flowCookieSchema"
 import { flowCookieSeal } from "../flow/flowCookieSeal"
 import { flowV2RouterCreate } from "../flow/http/flowV2RouterCreate"
+import { csrfTokenMatches } from "../http/csrfTokenMatches"
+import { rateLimitCheck } from "../http/rateLimitCheck"
+import { requestPayloadParse } from "../http/requestPayloadParse"
 import { passwordRecoveryRouterCreate } from "../password-recovery/http/passwordRecoveryRouterCreate"
 import type { Result } from "../result/Result"
 import { resultCreate } from "../result/resultCreate"
@@ -85,17 +88,6 @@ function cookieHeaderCreate(value: string, maxAge: number): string {
   return `${flowCookieName}=${value}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`
 }
 
-function base64UrlDecode(value: string): Uint8Array {
-  const base64 = value.replaceAll("-", "+").replaceAll("_", "/") + "=".repeat((4 - (value.length % 4)) % 4)
-  return Uint8Array.from(atob(base64), (character) => character.charCodeAt(0))
-}
-
-function bytesCopy(value: Uint8Array): Uint8Array<ArrayBuffer> {
-  const copy = new Uint8Array(value.byteLength)
-  copy.set(value)
-  return copy
-}
-
 function errorResponse(
   c: AppContext,
   status: 400 | 401 | 403 | 404 | 409 | 415 | 429 | 500 | 502 | 503,
@@ -126,20 +118,11 @@ async function abuseLimitCheck(
   scope: string,
   values: Array<[string, string]>,
 ): Promise<Result<void>> {
-  const op = "abuseLimitCheck"
-  for (const [name, value] of values) {
-    const key = await abuseKeyCreate(`${scope}:${name}`, value, cookieKey)
-    if (!key.success) return key
-
-    let outcome: { success: boolean }
-    try {
-      outcome = await rateLimiter.limit({ key: key.data })
-    } catch {
-      return resultErrorCreate(op, "rate_limiter_unavailable")
-    }
-    if (!outcome.success) return resultErrorCreate(op, "rate_limited")
-  }
-  return resultCreate(undefined)
+  return rateLimitCheck(rateLimiter, cookieKey, scope, values, {
+    errorMessage: "Unable to create abuse limit key",
+    keyOperation: "abuseKeyCreate",
+    operation: "abuseLimitCheck",
+  })
 }
 
 function callbackUrlIsSafe(callbackUrl: string, redirectUri: string): boolean {
@@ -168,59 +151,6 @@ function callbackUrlIsSafe(callbackUrl: string, redirectUri: string): boolean {
   } catch {
     return false
   }
-}
-
-async function abuseKeyCreate(scope: string, value: string, keyValue: string): Promise<Result<string>> {
-  const op = "abuseKeyCreate"
-  try {
-    const key = await crypto.subtle.importKey(
-      "raw",
-      bytesCopy(base64UrlDecode(keyValue)),
-      { name: "HMAC", hash: "SHA-256" },
-      false,
-      ["sign"],
-    )
-    const signed = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${scope}\u0000${value}`))
-    return resultCreate(`${scope}:${base64UrlEncode(new Uint8Array(signed))}`)
-  } catch {
-    return resultErrorCreate(op, "Unable to create abuse limit key")
-  }
-}
-
-function csrfTokenMatches(actual: string, expected: string): boolean {
-  if (actual.length !== expected.length) return false
-  let difference = 0
-  for (let index = 0; index < actual.length; index += 1) {
-    difference |= actual.charCodeAt(index) ^ expected.charCodeAt(index)
-  }
-  return difference === 0
-}
-
-async function payloadParse<T>(c: AppContext, schema: v.GenericSchema<unknown, T>): Promise<Result<T>> {
-  const op = "payloadParse"
-  if (!c.req.header("content-type")?.toLowerCase().startsWith("application/json")) {
-    return resultErrorCreate(op, "unsupported_media_type")
-  }
-  const contentLength = Number(c.req.header("content-length") ?? "0")
-  if (!Number.isFinite(contentLength) || contentLength > 4096) return resultErrorCreate(op, "invalid_payload")
-
-  let text: string
-  try {
-    text = await c.req.text()
-  } catch {
-    return resultErrorCreate(op, "invalid_payload")
-  }
-  if (text.length > 4096) return resultErrorCreate(op, "invalid_payload")
-
-  let input: unknown
-  try {
-    input = JSON.parse(text)
-  } catch {
-    return resultErrorCreate(op, "invalid_payload")
-  }
-  const parsed = v.safeParse(schema, input)
-  if (!parsed.success) return resultErrorCreate(op, "invalid_payload")
-  return resultCreate(parsed.output)
 }
 
 export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
@@ -532,7 +462,7 @@ export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
     if (!bindings.success) return errorResponse(c, 500, "service_unavailable", "The sign-in service is unavailable.")
     if (!mutationIsAllowed(c, bindings.data))
       return errorResponse(c, 403, "origin_rejected", "Request origin rejected.")
-    const payload = await payloadParse(c, startPayloadSchema)
+    const payload = await requestPayloadParse(c.req, startPayloadSchema)
     if (!payload.success) {
       const status = payload.errorMessage === "unsupported_media_type" ? 415 : 400
       return errorResponse(c, status, "invalid_payload", "Invalid request payload.")
@@ -608,7 +538,7 @@ export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
     if (!bindings.success) return errorResponse(c, 500, "service_unavailable", "The sign-in service is unavailable.")
     if (!mutationIsAllowed(c, bindings.data))
       return errorResponse(c, 403, "origin_rejected", "Request origin rejected.")
-    const payload = await payloadParse(c, csrfPayloadSchema)
+    const payload = await requestPayloadParse(c.req, csrfPayloadSchema)
     if (!payload.success) return errorResponse(c, 400, "invalid_payload", "Invalid request payload.")
     const state = await flowCookieGet(c, bindings.data)
     if (!state.success || state.data.stage !== "otp") {
@@ -644,7 +574,7 @@ export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
     if (!bindings.success) return errorResponse(c, 500, "service_unavailable", "The sign-in service is unavailable.")
     if (!mutationIsAllowed(c, bindings.data))
       return errorResponse(c, 403, "origin_rejected", "Request origin rejected.")
-    const payload = await payloadParse(c, verifyPayloadSchema)
+    const payload = await requestPayloadParse(c.req, verifyPayloadSchema)
     if (!payload.success) return errorResponse(c, 400, "invalid_payload", "Invalid request payload.")
     const state = await flowCookieGet(c, bindings.data)
     if (!state.success || state.data.stage !== "otp") {
@@ -700,7 +630,7 @@ export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
     if (!bindings.success) return errorResponse(c, 500, "service_unavailable", "The sign-in service is unavailable.")
     if (!mutationIsAllowed(c, bindings.data))
       return errorResponse(c, 403, "origin_rejected", "Request origin rejected.")
-    const payload = await payloadParse(c, csrfPayloadSchema)
+    const payload = await requestPayloadParse(c.req, csrfPayloadSchema)
     if (!payload.success) return errorResponse(c, 400, "invalid_payload", "Invalid request payload.")
     const state = await flowCookieGet(c, bindings.data)
     if (!state.success || state.data.stage !== "verified") {
