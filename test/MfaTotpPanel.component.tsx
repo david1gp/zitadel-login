@@ -29,6 +29,8 @@ describe("MfaTotpPanel component", () => {
     ))
 
     expect(screen.getByRole("heading", { name: "Authenticator code" })).toBeTruthy()
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1)
+    expect(screen.queryByText("2-Step Verification")).toBeNull()
 
     const input = screen.getByRole("textbox", { name: "Authenticator code" }) as HTMLInputElement
     expect(input).toBeTruthy()

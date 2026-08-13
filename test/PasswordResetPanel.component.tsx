@@ -43,6 +43,8 @@ describe("PasswordResetPanel", () => {
     expect(password.type).toBe("password")
     expect(password.getAttribute("autocomplete")).toBe("new-password")
     expect(confirmation.getAttribute("autocomplete")).toBe("new-password")
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1)
+    expect(screen.queryByText("Password reset")).toBeNull()
     expect(fetchMock.mock.calls[0]?.[0]?.toString()).toBe("https://login.example/api/v2/password/reset/set-bootstrap")
   })
 

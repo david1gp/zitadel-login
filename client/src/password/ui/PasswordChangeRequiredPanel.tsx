@@ -6,7 +6,6 @@ import { classesLabel } from "../../ui/classes/classesLabel"
 import { classesPasswordInputGroup } from "../../ui/classes/classesPasswordInputGroup"
 import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
 import { classesRevealButton } from "../../ui/classes/classesRevealButton"
-import { classesStep } from "../../ui/classes/classesStep"
 import { passwordChangeRequiredStateCreate } from "./passwordChangeRequiredStateCreate"
 
 type PasswordChangeRequiredPanelProps = {
@@ -45,7 +44,6 @@ export function PasswordChangeRequiredPanel(props: PasswordChangeRequiredPanelPr
   return (
     <section aria-labelledby="login-title">
       <div class={classesIntro}>
-        <p class={classesStep}>Password change</p>
         <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
           Change your password
         </h1>

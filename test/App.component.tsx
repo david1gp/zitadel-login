@@ -228,6 +228,7 @@ describe("application shell", () => {
     expect(document.documentElement.dataset.theme).toBe("dark")
     expect(document.documentElement.style.getPropertyValue("--brand-background")).toBe("#111111")
     expect(screen.getByRole("img", { name: "Contentoren" }).getAttribute("src")).toContain("logo-dark")
+    expect(screen.getByText("Contentoren", { selector: "p" })).toBeTruthy()
     expect(document.getElementById("zitadel-brand-font")?.textContent).toContain("font.woff2")
 
     fireEvent.click(screen.getByRole("button", { name: "Light theme" }))

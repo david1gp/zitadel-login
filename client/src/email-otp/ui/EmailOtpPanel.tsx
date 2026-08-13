@@ -13,7 +13,6 @@ import { classesLabel } from "../../ui/classes/classesLabel"
 import { classesNoticeMessage } from "../../ui/classes/classesNoticeMessage"
 import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
 import { classesRememberField } from "../../ui/classes/classesRememberField"
-import { classesStep } from "../../ui/classes/classesStep"
 import { classesTextButton } from "../../ui/classes/classesTextButton"
 
 type EmailOtpPanelProps = {
@@ -46,7 +45,6 @@ export function EmailOtpPanel(props: EmailOtpPanelProps) {
         fallback={
           <>
             <div class={classesIntro}>
-              <p class={classesStep}>Email code</p>
               <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                 Check your email
               </h1>
@@ -96,7 +94,6 @@ export function EmailOtpPanel(props: EmailOtpPanelProps) {
         }
       >
         <div class={classesIntro}>
-          <p class={classesStep}>Email code</p>
           <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
             Enter your email
           </h1>

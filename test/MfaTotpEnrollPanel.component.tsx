@@ -72,6 +72,9 @@ describe("MfaTotpEnrollPanel component", () => {
     panelRender({ fetchFn: fetchMock as unknown as typeof fetch })
 
     expect(fetchMock).not.toHaveBeenCalled()
+    expect(screen.getByRole("heading", { name: "Set up authenticator app" })).toBeTruthy()
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1)
+    expect(screen.queryByText("2-Step Verification")).toBeNull()
     expect(screen.getByRole("button", { name: "Start setup" })).toBeTruthy()
     expect(screen.queryByRole("img", { name: "QR code for authenticator app setup" })).toBeNull()
   })

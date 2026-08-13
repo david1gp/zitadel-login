@@ -12,7 +12,6 @@ import { classesPasswordInputGroup } from "../../ui/classes/classesPasswordInput
 import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
 import { classesRememberField } from "../../ui/classes/classesRememberField"
 import { classesRevealButton } from "../../ui/classes/classesRevealButton"
-import { classesStep } from "../../ui/classes/classesStep"
 
 type PasswordPanelProps = {
   identifier: () => string
@@ -43,7 +42,6 @@ export function PasswordPanel(props: PasswordPanelProps) {
         fallback={
           <div>
             <div class={classesIntro}>
-              <p class={classesStep}>Authentication</p>
               <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                 2-Step Verification Required
               </h1>
@@ -58,7 +56,6 @@ export function PasswordPanel(props: PasswordPanelProps) {
         }
       >
         <div class={classesIntro}>
-          <p class={classesStep}>Password</p>
           <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
             Sign in with password
           </h1>

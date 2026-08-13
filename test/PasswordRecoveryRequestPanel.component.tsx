@@ -36,6 +36,8 @@ describe("PasswordRecoveryRequestPanel", () => {
     expect(input.type).toBe("email")
     expect(input.getAttribute("autocomplete")).toBe("username")
     expect(screen.getByRole("heading", { name: "Reset your password" })).toBeTruthy()
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1)
+    expect(screen.queryByText("Password recovery")).toBeNull()
     expect(fetchMock.mock.calls[0]?.[0]?.toString()).toBe("https://login.example/api/v2/password/reset/bootstrap")
   })
 

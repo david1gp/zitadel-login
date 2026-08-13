@@ -10,7 +10,6 @@ import { classesNoticeMessage } from "../../ui/classes/classesNoticeMessage"
 import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
 import { classesResendSection } from "../../ui/classes/classesResendSection"
 import { classesSecondaryButton } from "../../ui/classes/classesSecondaryButton"
-import { classesStep } from "../../ui/classes/classesStep"
 import { mfaSmsOtpStateCreate } from "./mfaSmsOtpStateCreate"
 
 type MfaSmsOtpPanelProps = {
@@ -54,7 +53,6 @@ export function MfaSmsOtpPanel(props: MfaSmsOtpPanelProps) {
       <Switch>
         <Match when={state.stage() === "send"}>
           <div class={classesIntro}>
-            <p class={classesStep}>2-Step Verification</p>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
               SMS code
             </h1>
@@ -75,7 +73,6 @@ export function MfaSmsOtpPanel(props: MfaSmsOtpPanelProps) {
 
         <Match when={state.stage() === "code"}>
           <div class={classesIntro}>
-            <p class={classesStep}>2-Step Verification</p>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
               SMS verification code
             </h1>

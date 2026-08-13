@@ -7,7 +7,6 @@ import { classesIntro } from "../../ui/classes/classesIntro"
 import { classesIntroCopy } from "../../ui/classes/classesIntroCopy"
 import { classesNoticeMessage } from "../../ui/classes/classesNoticeMessage"
 import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
-import { classesStep } from "../../ui/classes/classesStep"
 import { mfaFactorDetailGet } from "../model/mfaFactorDetailGet"
 import { mfaFactorLabelGet } from "../model/mfaFactorLabelGet"
 import { mfaU2fStateCreate, type PasskeyCredentialsGet } from "./mfaU2fStateCreate"
@@ -66,7 +65,6 @@ export function MfaU2fPanel(props: MfaU2fPanelProps) {
         fallback={
           <div>
             <div class={classesIntro}>
-              <p class={classesStep}>2-Step Verification</p>
               <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                 {label()} not supported
               </h1>
@@ -87,7 +85,6 @@ export function MfaU2fPanel(props: MfaU2fPanelProps) {
         }
       >
         <div class={classesIntro}>
-          <p class={classesStep}>2-Step Verification</p>
           <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
             {label()}
           </h1>

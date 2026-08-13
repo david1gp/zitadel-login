@@ -6,7 +6,6 @@ import { classesHeading } from "../../ui/classes/classesHeading"
 import { classesIntro } from "../../ui/classes/classesIntro"
 import { classesIntroCopy } from "../../ui/classes/classesIntroCopy"
 import { classesMethodList } from "../../ui/classes/classesMethodList"
-import { classesStep } from "../../ui/classes/classesStep"
 import { demoScenarioGroupsGet } from "../model/demoScenarioGroupsGet"
 import { demoScenarioIconPathGet } from "../model/demoScenarioIconPathGet"
 import type { DemoScenario } from "../model/demoScenarioSchema"
@@ -24,7 +23,6 @@ export function DemoDirectory(props: DemoDirectoryProps) {
   return (
     <section aria-labelledby="login-title">
       <div class={classesIntro}>
-        <p class={classesStep}>Demo</p>
         <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
           Screen directory
         </h1>

@@ -10,7 +10,6 @@ import { classesLabel } from "../../ui/classes/classesLabel"
 import { classesMfaDescription } from "../../ui/classes/classesMfaDescription"
 import { classesNoticeMessage } from "../../ui/classes/classesNoticeMessage"
 import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
-import { classesStep } from "../../ui/classes/classesStep"
 import {
   mfaWebAuthnDisplayNameMaxLength,
   mfaWebAuthnEnrollStateCreate,
@@ -67,7 +66,6 @@ export function MfaWebAuthnEnrollPanel(props: MfaWebAuthnEnrollPanelProps) {
   return (
     <div>
       <div class={classesIntro}>
-        <p class={classesStep}>2-Step Verification</p>
         <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
           {title()}
         </h1>

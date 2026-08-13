@@ -78,6 +78,8 @@ describe("MfaU2fPanel component", () => {
     ))
 
     expect(await screen.findByRole("heading", { name: "Security key" })).toBeTruthy()
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1)
+    expect(screen.queryByText("2-Step Verification")).toBeNull()
     const button = screen.getByRole("button", { name: "Verify with Security key" })
     expect(button).toBeTruthy()
 

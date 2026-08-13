@@ -10,7 +10,6 @@ import { classesNoticeMessage } from "../../ui/classes/classesNoticeMessage"
 import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
 import { classesResendSection } from "../../ui/classes/classesResendSection"
 import { classesSecondaryButton } from "../../ui/classes/classesSecondaryButton"
-import { classesStep } from "../../ui/classes/classesStep"
 import { mfaEmailOtpStateCreate } from "./mfaEmailOtpStateCreate"
 
 type MfaEmailOtpPanelProps = {
@@ -58,7 +57,6 @@ export function MfaEmailOtpPanel(props: MfaEmailOtpPanelProps) {
       <Switch>
         <Match when={state.stage() === "send"}>
           <div class={classesIntro}>
-            <p class={classesStep}>2-Step Verification</p>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
               Email code
             </h1>
@@ -79,7 +77,6 @@ export function MfaEmailOtpPanel(props: MfaEmailOtpPanelProps) {
 
         <Match when={state.stage() === "enroll"}>
           <div class={classesIntro}>
-            <p class={classesStep}>2-Step Verification</p>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
               Set up email codes
             </h1>
@@ -105,7 +102,6 @@ export function MfaEmailOtpPanel(props: MfaEmailOtpPanelProps) {
 
         <Match when={state.stage() === "code"}>
           <div class={classesIntro}>
-            <p class={classesStep}>2-Step Verification</p>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
               Email verification code
             </h1>

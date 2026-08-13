@@ -9,7 +9,6 @@ import { classesLabel } from "../../ui/classes/classesLabel"
 import { classesLoadingState } from "../../ui/classes/classesLoadingState"
 import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
 import { classesSpinner } from "../../ui/classes/classesSpinner"
-import { classesStep } from "../../ui/classes/classesStep"
 import { passwordRecoveryRequestStateCreate } from "./passwordRecoveryRequestStateCreate"
 
 type PasswordRecoveryRequestPanelProps = {
@@ -46,7 +45,6 @@ export function PasswordRecoveryRequestPanel(props: PasswordRecoveryRequestPanel
         </Match>
         <Match when={state.step() === "sent"}>
           <div class={classesIntro}>
-            <p class={classesStep}>Password recovery</p>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
               Check your email
             </h1>
@@ -58,7 +56,6 @@ export function PasswordRecoveryRequestPanel(props: PasswordRecoveryRequestPanel
         </Match>
         <Match when={state.step() === "fatal"}>
           <div class={classesIntro}>
-            <p class={classesStep}>Password recovery</p>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
               Password recovery unavailable
             </h1>
@@ -69,7 +66,6 @@ export function PasswordRecoveryRequestPanel(props: PasswordRecoveryRequestPanel
         </Match>
         <Match when={state.step() === "email"}>
           <div class={classesIntro}>
-            <p class={classesStep}>Password recovery</p>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
               Reset your password
             </h1>

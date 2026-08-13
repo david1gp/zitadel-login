@@ -49,6 +49,8 @@ describe("MfaEmailOtpPanel component", () => {
     ))
 
     expect(screen.getByRole("heading", { name: "Email code" })).toBeTruthy()
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1)
+    expect(screen.queryByText("2-Step Verification")).toBeNull()
 
     const sendBtn = screen.getByRole("button", { name: "Send code" })
     fireEvent.click(sendBtn)

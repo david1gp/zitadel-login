@@ -24,6 +24,8 @@ describe("method chooser view", () => {
     ))
 
     expect(screen.getByRole("heading", { name: "Choose a method" })).toBeTruthy()
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1)
+    expect(screen.queryByText("Sign in")).toBeNull()
     expect(view.container.querySelector("input")).toBeNull()
     fireEvent.click(screen.getByRole("button", { name: /GitHub/ }))
     expect(selected).toBe("identity_provider")

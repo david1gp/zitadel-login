@@ -10,7 +10,6 @@ import { classesMfaNotice } from "../../ui/classes/classesMfaNotice"
 import { classesNoticeMessage } from "../../ui/classes/classesNoticeMessage"
 import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
 import { classesRememberField } from "../../ui/classes/classesRememberField"
-import { classesStep } from "../../ui/classes/classesStep"
 
 type PasskeyPanelProps = {
   identifier: () => string
@@ -40,7 +39,6 @@ export function PasskeyPanel(props: PasskeyPanelProps) {
         fallback={
           <div>
             <div class={classesIntro}>
-              <p class={classesStep}>Passkey</p>
               <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                 Passkey not supported
               </h1>
@@ -59,7 +57,6 @@ export function PasskeyPanel(props: PasskeyPanelProps) {
           fallback={
             <div>
               <div class={classesIntro}>
-                <p class={classesStep}>Authentication</p>
                 <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                   2-Step Verification Required
                 </h1>
@@ -74,7 +71,6 @@ export function PasskeyPanel(props: PasskeyPanelProps) {
           }
         >
           <div class={classesIntro}>
-            <p class={classesStep}>Passkey</p>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
               Sign in with passkey
             </h1>

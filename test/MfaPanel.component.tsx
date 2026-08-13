@@ -70,6 +70,8 @@ describe("MfaPanel component", () => {
     ))
 
     expect(await screen.findByRole("heading", { name: "Choose 2-step verification method" })).toBeTruthy()
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1)
+    expect(screen.queryByText("2-Step Verification")).toBeNull()
     expect(screen.getByRole("button", { name: /Authenticator app/ })).toBeTruthy()
     expect(screen.getByRole("button", { name: /Email code/ })).toBeTruthy()
 

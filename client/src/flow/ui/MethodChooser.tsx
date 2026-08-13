@@ -6,7 +6,6 @@ import { classesHeading } from "../../ui/classes/classesHeading"
 import { classesIntro } from "../../ui/classes/classesIntro"
 import { classesMethodChooserDivider } from "../../ui/classes/classesMethodChooserDivider"
 import { classesMethodList } from "../../ui/classes/classesMethodList"
-import { classesStep } from "../../ui/classes/classesStep"
 import { loginMethodIconPathGet } from "../model/loginMethodIconPathGet"
 import type { LoginMethodSelection } from "../model/loginMethodSelectionSchema"
 import { MethodChoiceButton } from "./MethodChoiceButton"
@@ -31,7 +30,6 @@ export function MethodChooser(props: MethodChooserProps) {
   return (
     <section aria-labelledby="login-title">
       <div class={classesIntro}>
-        <p class={classesStep}>Sign in</p>
         <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
           {hasRecentAccounts() ? "Choose an account or method" : "Choose a method"}
         </h1>

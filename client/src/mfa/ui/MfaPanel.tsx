@@ -10,7 +10,6 @@ import { classesMfaDescription } from "../../ui/classes/classesMfaDescription"
 import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
 import { classesSecondaryButton } from "../../ui/classes/classesSecondaryButton"
 import { classesSpinner } from "../../ui/classes/classesSpinner"
-import { classesStep } from "../../ui/classes/classesStep"
 import { mfaFactorDetailGet } from "../model/mfaFactorDetailGet"
 import { mfaFactorIconPathGet } from "../model/mfaFactorIconPathGet"
 import { mfaFactorLabelGet } from "../model/mfaFactorLabelGet"
@@ -183,7 +182,6 @@ export function MfaPanel(props: MfaPanelProps) {
         </Match>
         <Match when={!state.options()}>
           <div class={classesIntro}>
-            <p class={classesStep}>2-Step Verification</p>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
               2-Step Verification
             </h1>
@@ -344,7 +342,6 @@ export function MfaPanel(props: MfaPanelProps) {
                   >
                     <div>
                       <div class={classesIntro}>
-                        <p class={classesStep}>2-Step Verification</p>
                         <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                           {mfaFactorLabelGet(factorType())}
                         </h1>
@@ -473,7 +470,6 @@ export function MfaPanel(props: MfaPanelProps) {
                   >
                     <div>
                       <div class={classesIntro}>
-                        <p class={classesStep}>2-Step Verification</p>
                         <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                           {mfaFactorLabelGet(check().method.type)}
                         </h1>
@@ -507,7 +503,6 @@ export function MfaPanel(props: MfaPanelProps) {
               {(select) => (
                 <div>
                   <div class={classesIntro}>
-                    <p class={classesStep}>2-Step Verification</p>
                     <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                       Choose 2-step verification method
                     </h1>
@@ -543,7 +538,6 @@ export function MfaPanel(props: MfaPanelProps) {
               {(enroll) => (
                 <div>
                   <div class={classesIntro}>
-                    <p class={classesStep}>2-Step Verification</p>
                     <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                       Set up 2-step verification
                     </h1>
@@ -582,7 +576,6 @@ export function MfaPanel(props: MfaPanelProps) {
                   <Switch>
                     <Match when={skip().reason === "factor_satisfied"}>
                       <div class={classesIntro}>
-                        <p class={classesStep}>2-Step Verification</p>
                         <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                           2-Step verification satisfied
                         </h1>
@@ -599,7 +592,6 @@ export function MfaPanel(props: MfaPanelProps) {
                     </Match>
                     <Match when={skip().reason === "optional_setup"}>
                       <div class={classesIntro}>
-                        <p class={classesStep}>2-Step Verification</p>
                         <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                           Optional 2-step verification
                         </h1>
@@ -650,7 +642,6 @@ export function MfaPanel(props: MfaPanelProps) {
               {(fb) => (
                 <div>
                   <div class={classesIntro}>
-                    <p class={classesStep}>2-Step Verification</p>
                     <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
                       2-Step verification required
                     </h1>

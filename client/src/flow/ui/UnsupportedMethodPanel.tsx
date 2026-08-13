@@ -2,7 +2,6 @@ import { classesBackButton } from "../../ui/classes/classesBackButton"
 import { classesHeading } from "../../ui/classes/classesHeading"
 import { classesIntro } from "../../ui/classes/classesIntro"
 import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
-import { classesStep } from "../../ui/classes/classesStep"
 
 type UnsupportedMethodPanelProps = {
   method: "password" | "passkey" | "identity_provider" | "mfa"
@@ -25,7 +24,6 @@ export function UnsupportedMethodPanel(props: UnsupportedMethodPanelProps) {
   return (
     <section aria-labelledby="login-title">
       <div class={classesIntro}>
-        <p class={classesStep}>Selected method</p>
         <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
           {title()}
         </h1>

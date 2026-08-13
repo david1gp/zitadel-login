@@ -121,6 +121,9 @@ describe("MfaWebAuthnEnrollPanel component", () => {
 
     expect(fetchMock).not.toHaveBeenCalled()
     expect(createMock).not.toHaveBeenCalled()
+    expect(screen.getByRole("heading", { name: "Set up a security key" })).toBeTruthy()
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1)
+    expect(screen.queryByText("2-Step Verification")).toBeNull()
     expect(screen.getByRole("button", { name: "Register security key" })).toBeTruthy()
   })
 

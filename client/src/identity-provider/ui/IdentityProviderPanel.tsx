@@ -7,7 +7,6 @@ import { classesIdpIdentityBox } from "../../ui/classes/classesIdpIdentityBox"
 import { classesIdpProviderLabel } from "../../ui/classes/classesIdpProviderLabel"
 import { classesIntro } from "../../ui/classes/classesIntro"
 import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
-import { classesStep } from "../../ui/classes/classesStep"
 import { IdentityProviderIcon } from "./IdentityProviderIcon"
 
 type IdentityProviderPanelProps = {
@@ -25,7 +24,6 @@ export function IdentityProviderPanel(props: IdentityProviderPanelProps) {
   const isUnlinked = () => props.subroute() === "account-not-found"
   const isLinkingFailed = () => props.subroute() === "linking-failed" || props.subroute() === "registration-failed"
 
-  const stepText = () => (isUnlinked() ? "Account not found" : "Sign in")
   const headingText = () =>
     isUnlinked()
       ? "No account linked"
@@ -36,7 +34,6 @@ export function IdentityProviderPanel(props: IdentityProviderPanelProps) {
   return (
     <section aria-labelledby="login-title">
       <div class={classesIntro}>
-        <p class={classesStep}>{stepText()}</p>
         <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
           {headingText()}
         </h1>

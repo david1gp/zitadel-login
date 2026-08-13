@@ -8,7 +8,6 @@ import { classesLabel } from "../../ui/classes/classesLabel"
 import { classesMfaDescription } from "../../ui/classes/classesMfaDescription"
 import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
 import { classesSecondaryButton } from "../../ui/classes/classesSecondaryButton"
-import { classesStep } from "../../ui/classes/classesStep"
 import { classesTotpQr } from "../../ui/classes/classesTotpQr"
 import { classesTotpQrBackground } from "../../ui/classes/classesTotpQrBackground"
 import { classesTotpQrModules } from "../../ui/classes/classesTotpQrModules"
@@ -56,7 +55,6 @@ export function MfaTotpEnrollPanel(props: MfaTotpEnrollPanelProps) {
   return (
     <div>
       <div class={classesIntro}>
-        <p class={classesStep}>2-Step Verification</p>
         <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
           Set up authenticator app
         </h1>

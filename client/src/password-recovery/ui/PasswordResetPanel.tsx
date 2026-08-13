@@ -11,7 +11,6 @@ import { classesPasswordInputGroup } from "../../ui/classes/classesPasswordInput
 import { classesPrimaryButton } from "../../ui/classes/classesPrimaryButton"
 import { classesRevealButton } from "../../ui/classes/classesRevealButton"
 import { classesSpinner } from "../../ui/classes/classesSpinner"
-import { classesStep } from "../../ui/classes/classesStep"
 import { passwordResetStateCreate } from "./passwordResetStateCreate"
 
 type PasswordResetPanelProps = {
@@ -48,7 +47,6 @@ export function PasswordResetPanel(props: PasswordResetPanelProps) {
         </Match>
         <Match when={state.step() === "invalid_link"}>
           <div class={classesIntro}>
-            <p class={classesStep}>Password reset</p>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
               This reset link is no longer valid
             </h1>
@@ -59,7 +57,6 @@ export function PasswordResetPanel(props: PasswordResetPanelProps) {
         </Match>
         <Match when={state.step() === "complete"}>
           <div class={classesIntro}>
-            <p class={classesStep}>Password reset</p>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
               Your password was changed
             </h1>
@@ -71,7 +68,6 @@ export function PasswordResetPanel(props: PasswordResetPanelProps) {
         </Match>
         <Match when={state.step() === "ready"}>
           <div class={classesIntro}>
-            <p class={classesStep}>Password reset</p>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
               Choose a new password
             </h1>
