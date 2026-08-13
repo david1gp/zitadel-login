@@ -15,6 +15,10 @@ describe("DemoApp scenario metadata", () => {
     render(() => <DemoApp />)
 
     expect(screen.getByText("Directory · All screens", { selector: "p" })).toBeTruthy()
+    expect(screen.queryByLabelText("Filter screens")).toBeNull()
+    expect(screen.queryByPlaceholderText("Search screens")).toBeNull()
+    const github = screen.getByRole("link", { name: "GitHub project" })
+    expect(github.getAttribute("href")).toBe("https://github.com/david1gp/zitadel-login")
   })
 
   test("does not render account-not-found metadata above the login screen", () => {

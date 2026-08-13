@@ -21,6 +21,7 @@ import { classesErrorMessage } from "../../ui/classes/classesErrorMessage"
 import { classesHeading } from "../../ui/classes/classesHeading"
 import { classesIntro } from "../../ui/classes/classesIntro"
 import { classesLoadingState } from "../../ui/classes/classesLoadingState"
+import { classesDemoDirectoryCard } from "../../ui/classes/classesDemoDirectoryCard"
 import { classesLoginCard } from "../../ui/classes/classesLoginCard"
 import { classesNoticeMessage } from "../../ui/classes/classesNoticeMessage"
 import { classesOrganizationName } from "../../ui/classes/classesOrganizationName"
@@ -46,11 +47,9 @@ export function DemoApp() {
       <DemoNav
         chrome={state.chrome}
         chromeSelect={state.chromeSelect}
-        query={state.query}
-        queryInput={state.queryInput}
         pickerOpen={state.pickerOpen}
         pickerToggle={state.pickerToggle}
-        scenarios={state.filteredScenarios}
+        scenarios={state.scenarios}
         currentId={id}
         open={state.scenarioOpen}
         previousOpen={state.previousOpen}
@@ -63,7 +62,10 @@ export function DemoApp() {
         class={classMerge(classesPageShell, classesDemoStage)}
         style={pageBackgroundStyleGet(pageBackgroundScreenFromDemoGet(id()))}
       >
-        <section class={classesLoginCard} aria-busy={state.busy()}>
+        <section
+          class={classMerge(classesLoginCard, id() === "directory" && classesDemoDirectoryCard)}
+          aria-busy={state.busy()}
+        >
           <div class={classesCardTop}>
             <BrandHeader
               assetUrl={state.brandAssetUrl}
@@ -88,7 +90,7 @@ export function DemoApp() {
                 <Switch>
                   <Match when={scenarioId === "directory"}>
                     <DemoDirectory
-                      scenarios={state.filteredScenarios}
+                      scenarios={state.scenarios}
                       currentId={id}
                       open={state.scenarioOpen}
                       headingRegister={state.headingRegister}

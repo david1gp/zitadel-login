@@ -6,8 +6,6 @@ import { demoMethodPathGet } from "../client/src/demo/model/demoMethodPathGet"
 import { demoPathIsActive } from "../client/src/demo/model/demoPathIsActive"
 import { demoScenarioRead } from "../client/src/demo/model/demoScenarioRead"
 import { demoScenarios } from "../client/src/demo/model/demoScenarios"
-import { demoScenariosFilter } from "../client/src/demo/model/demoScenariosFilter"
-import { demoSearchRead } from "../client/src/demo/model/demoSearchRead"
 import { demoUrlGet } from "../client/src/demo/model/demoUrlGet"
 
 describe("demo routing", () => {
@@ -29,19 +27,13 @@ describe("demo routing", () => {
     expect(demoScenarioRead("/demo/missing").id).toBe("directory")
   })
 
-  test("keeps chrome and search in the shareable demo URL", () => {
-    expect(demoUrlGet({ path: "/demo/password", chrome: "sidebar", query: "" })).toBe("/demo/password")
-    expect(demoUrlGet({ path: "/demo/password", chrome: "compact", query: "totp", picker: true })).toBe(
-      "/demo/password?chrome=compact&q=totp&picker=1",
+  test("keeps chrome in the shareable demo URL", () => {
+    expect(demoUrlGet({ path: "/demo/password", chrome: "sidebar" })).toBe("/demo/password")
+    expect(demoUrlGet({ path: "/demo/password", chrome: "compact", picker: true })).toBe(
+      "/demo/password?chrome=compact&picker=1",
     )
     expect(demoChromeRead("?chrome=compact")).toBe("compact")
     expect(demoChromeRead("")).toBe("sidebar")
-    expect(demoSearchRead("?q=passkey")).toBe("passkey")
-  })
-
-  test("filters the directory by group, label, or detail", () => {
-    const matches = demoScenariosFilter(demoScenarios, "chooser with recent")
-    expect(matches.map((scenario) => scenario.id)).toEqual(["chooser-recent"])
   })
 
   test("maps method and MFA choices onto demo paths", () => {

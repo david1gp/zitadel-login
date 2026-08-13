@@ -24,8 +24,6 @@ import { demoRecentAccounts } from "../model/demoRecentAccounts"
 import { demoScenarioRead } from "../model/demoScenarioRead"
 import type { DemoScenario } from "../model/demoScenarioSchema"
 import { demoScenarios } from "../model/demoScenarios"
-import { demoScenariosFilter } from "../model/demoScenariosFilter"
-import { demoSearchRead } from "../model/demoSearchRead"
 import { demoUrlGet } from "../model/demoUrlGet"
 
 export function demoAppStateCreate(browserWindow: Window = window) {
@@ -33,13 +31,11 @@ export function demoAppStateCreate(browserWindow: Window = window) {
     const next = demoScenarioRead(browserWindow.location.pathname)
     scenario.set(next)
     chrome.set(demoChromeRead(browserWindow.location.search))
-    query.set(demoSearchRead(browserWindow.location.search))
     pickerOpen.set(demoPickerRead(browserWindow.location.search))
   }
 
   const scenario = createSignalObject<DemoScenario>(demoScenarioRead(browserWindow.location.pathname))
   const chrome = createSignalObject<DemoChrome>(demoChromeRead(browserWindow.location.search))
-  const query = createSignalObject(demoSearchRead(browserWindow.location.search))
   const pickerOpen = createSignalObject(demoPickerRead(browserWindow.location.search))
   const bootstrap = createSignalObject(demoBootstrap)
   const error = createSignalObject("")
@@ -63,11 +59,7 @@ export function demoAppStateCreate(browserWindow: Window = window) {
   const fetchFn = demoFetchCreate(() => scenario.get().id)
 
   const urlWrite = (path: string, replace = false) => {
-    browserHistoryNavigate(
-      browserWindow,
-      demoUrlGet({ path, chrome: chrome.get(), query: query.get(), picker: pickerOpen.get() }),
-      replace,
-    )
+    browserHistoryNavigate(browserWindow, demoUrlGet({ path, chrome: chrome.get(), picker: pickerOpen.get() }), replace)
   }
 
   const snapshotApply = () => {
@@ -103,7 +95,6 @@ export function demoAppStateCreate(browserWindow: Window = window) {
   })
 
   const methods = createMemo(() => loginMethodsGet(bootstrap.get()))
-  const filteredScenarios = createMemo(() => demoScenariosFilter(demoScenarios, query.get()))
   const currentIndex = createMemo(() => demoScenarios.findIndex((entry) => entry.id === scenario.get().id))
 
   const emailValid = createMemo(() => {
@@ -114,11 +105,6 @@ export function demoAppStateCreate(browserWindow: Window = window) {
 
   const chromeSelect = (value: DemoChrome) => {
     chrome.set(value)
-    urlWrite(scenario.get().path, true)
-  }
-
-  const queryInput = (value: string) => {
-    query.set(value)
     urlWrite(scenario.get().path, true)
   }
 
@@ -144,9 +130,8 @@ export function demoAppStateCreate(browserWindow: Window = window) {
   return {
     scenario: scenario.get,
     chrome: chrome.get,
-    query: query.get,
     pickerOpen: pickerOpen.get,
-    filteredScenarios,
+    scenarios: () => demoScenarios,
     methods,
     recentAccounts: () => (scenario.get().id === "chooser-recent" ? demoRecentAccounts : []),
     bootstrap: bootstrap.get,
@@ -167,7 +152,6 @@ export function demoAppStateCreate(browserWindow: Window = window) {
     errorRegister: focusState.errorRegister,
     focusHeading: focusState.focusHeading,
     chromeSelect,
-    queryInput,
     pickerToggle,
     scenarioOpen,
     previousOpen: () => neighborOpen(-1),

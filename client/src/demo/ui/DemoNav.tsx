@@ -8,8 +8,6 @@ import { classesDemoNavKicker } from "../../ui/classes/classesDemoNavKicker"
 import { classesDemoNavList } from "../../ui/classes/classesDemoNavList"
 import { classesDemoNavListButton } from "../../ui/classes/classesDemoNavListButton"
 import { classesDemoNavRow } from "../../ui/classes/classesDemoNavRow"
-import { classesDemoSearchLabel } from "../../ui/classes/classesDemoSearchLabel"
-import { classesInput } from "../../ui/classes/classesInput"
 import { classesTextButton } from "../../ui/classes/classesTextButton"
 import { classesVisuallyHidden } from "../../ui/classes/classesVisuallyHidden"
 import { Icon } from "../../ui/Icon"
@@ -17,12 +15,11 @@ import type { DemoChrome } from "../model/demoChromeSchema"
 import { demoScenarioGroupsGet } from "../model/demoScenarioGroupsGet"
 import { demoScenarioIconPathGet } from "../model/demoScenarioIconPathGet"
 import type { DemoScenario } from "../model/demoScenarioSchema"
+import { DemoGithubLink } from "./DemoGithubLink"
 
 type DemoNavProps = {
   chrome: () => DemoChrome
   chromeSelect: (value: DemoChrome) => void
-  query: () => string
-  queryInput: (value: string) => void
   pickerOpen: () => boolean
   pickerToggle: () => void
   scenarios: () => DemoScenario[]
@@ -44,6 +41,7 @@ export function DemoNav(props: DemoNavProps) {
       <div class={classesDemoNavRow}>
         <p class={classesDemoNavKicker}>UI demo</p>
         <div class={classesDemoNavRow}>
+          <DemoGithubLink />
           <button class={classesTextButton} type="button" onClick={props.showDirectory}>
             Directory
           </button>
@@ -87,17 +85,6 @@ export function DemoNav(props: DemoNavProps) {
         </button>
       </div>
       <Show when={!compact() || props.pickerOpen()}>
-        <label class={classesDemoSearchLabel} for="demo-search">
-          Filter screens
-        </label>
-        <input
-          class={classesInput}
-          id="demo-search"
-          type="search"
-          value={props.query()}
-          placeholder="Search screens"
-          onInput={(event) => props.queryInput(event.currentTarget.value)}
-        />
         <nav class={classesDemoNavList} aria-label="Demo screens">
           <For each={groups()}>
             {(group) => (
