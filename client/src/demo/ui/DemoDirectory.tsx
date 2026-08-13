@@ -2,10 +2,10 @@ import { For } from "solid-js"
 
 import { MethodChoiceButton } from "../../flow/ui/MethodChoiceButton"
 import { classesDemoDirectoryGroup } from "../../ui/classes/classesDemoDirectoryGroup"
+import { classesDemoDirectoryList } from "../../ui/classes/classesDemoDirectoryList"
 import { classesHeading } from "../../ui/classes/classesHeading"
 import { classesIntro } from "../../ui/classes/classesIntro"
 import { classesIntroCopy } from "../../ui/classes/classesIntroCopy"
-import { classesMethodList } from "../../ui/classes/classesMethodList"
 import { demoScenarioGroupsGet } from "../model/demoScenarioGroupsGet"
 import { demoScenarioIconPathGet } from "../model/demoScenarioIconPathGet"
 import type { DemoScenario } from "../model/demoScenarioSchema"
@@ -32,7 +32,7 @@ export function DemoDirectory(props: DemoDirectoryProps) {
         {(group) => (
           <section class={classesDemoDirectoryGroup}>
             <h2>{group.group}</h2>
-            <ul class={classesMethodList}>
+            <ul class={classesDemoDirectoryList}>
               <For each={group.scenarios}>
                 {(scenario) => (
                   <li>
