@@ -1,8 +1,9 @@
+import tailwindcss from "@tailwindcss/vite"
 import { defineConfig } from "vitest/config"
 import solid from "vite-plugin-solid"
 
 export default defineConfig({
-  plugins: [solid()],
+  plugins: [solid(), tailwindcss()],
   root: new URL("..", import.meta.url).pathname,
   test: {
     environment: "happy-dom",
