@@ -1,9 +1,11 @@
 @import "tailwindcss";
 
 @source "./**/*.{ts,tsx}";
+@source "../index.html";
 
 @theme {
   --color-background: var(--brand-background);
+  --color-card: var(--brand-card);
   --color-foreground: var(--brand-font);
   --color-primary: var(--brand-primary);
   --color-primary-foreground: var(--brand-background);
@@ -45,9 +47,14 @@
 @layer base {
   :root {
     --brand-background: #f5f3ed;
+    --brand-card: #f7f8f7;
     --brand-font: #15201d;
     --brand-primary: #1d5c4b;
     --brand-warn: #a9362b;
+  }
+
+  :root[data-theme="dark"] {
+    --brand-card: var(--brand-background);
   }
 
   :root[data-theme="light"] .page-shell {
@@ -89,7 +96,6 @@
   body {
     margin: 0;
     min-width: 320px;
-    min-height: 100vh;
   }
 
   button,
