@@ -62,11 +62,13 @@
     pointer-events: none;
     content: "";
     background:
-      radial-gradient(circle at 10% 8%, color-mix(in srgb, var(--brand-primary) 22%, transparent), transparent 38%),
-      radial-gradient(circle at 90% 92%, color-mix(in srgb, var(--brand-primary) 14%, transparent), transparent 42%),
+      radial-gradient(ellipse at 7% 8%, color-mix(in srgb, var(--brand-primary) 30%, transparent) 0%, transparent 42%),
+      radial-gradient(ellipse at 92% 10%, color-mix(in srgb, #ff7868 24%, transparent) 0%, transparent 40%),
+      radial-gradient(ellipse at 91% 92%, color-mix(in srgb, #5686e8 22%, transparent) 0%, transparent 44%),
+      radial-gradient(ellipse at 10% 94%, color-mix(in srgb, #f2bd45 20%, transparent) 0%, transparent 42%),
       linear-gradient(
         145deg,
-        color-mix(in srgb, white 42%, transparent),
+        color-mix(in srgb, white 34%, transparent),
         transparent 48%,
         color-mix(in srgb, var(--brand-primary) 8%, transparent)
       );
