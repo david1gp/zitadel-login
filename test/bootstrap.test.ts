@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
+import { bootstrapCacheCreate } from "../src/branding/bootstrapCacheCreate"
 import type { WorkerBindingsInput } from "../src/config/workerBindingsSchema"
 import { workerAppCreate } from "../src/worker/workerAppCreate"
 
@@ -345,7 +346,143 @@ describe("v2 bootstrap contract", () => {
     expect(expired.status).toBe(200)
     expect(disabled.status).toBe(200)
     expect((await disabled.json()).data.primaryMethods).toEqual([])
-    expect(calls).toBe(17)
+    expect(calls).toBe(15)
+  })
+
+  test("reuses branding through ten minutes while refreshing live settings after sixty seconds", async () => {
+    let now = 1_800_000_000
+    let currentBrandingSettings = brandingSettings
+    let currentLoginSettings = loginSettings
+    let currentIdentityProviders = identityProviders
+    let brandingCalls = 0
+    let liveSettingsCalls = 0
+    const app = workerAppCreate({
+      fetch: async (input) => {
+        const url = requestUrl(input)
+        if (url.endsWith(`/v2/oidc/auth_requests/${authRequest.id}`)) return jsonResponse({ authRequest })
+        if (url.endsWith("/v2/organizations/_search")) return jsonResponse(configuredOrganization)
+        if (url.endsWith("/v2/settings/branding")) {
+          brandingCalls += 1
+          return jsonResponse(currentBrandingSettings)
+        }
+        if (url.endsWith("/v2/settings/login")) {
+          liveSettingsCalls += 1
+          return jsonResponse(currentLoginSettings)
+        }
+        if (url.endsWith("/v2/settings/login/idps")) {
+          liveSettingsCalls += 1
+          return jsonResponse(currentIdentityProviders)
+        }
+        throw new Error(`Unexpected native call: ${url}`)
+      },
+      now: () => now,
+    })
+
+    const first = await app.fetch(bootstrapRequest(), bindings)
+    now += 59
+    const cached = await app.fetch(bootstrapRequest(), bindings)
+    currentBrandingSettings = {
+      settings: {
+        ...brandingSettings.settings,
+        lightTheme: { ...brandingSettings.settings.lightTheme, primaryColor: "#abcdef" },
+      },
+    }
+    currentLoginSettings = { settings: { ...loginSettings.settings, allowLocalAuthentication: false } }
+    currentIdentityProviders = { identityProviders: [] }
+    now += 1
+    const refreshedLive = await app.fetch(bootstrapRequest(), bindings)
+    now += 539
+    const cachedBranding = await app.fetch(bootstrapRequest(), bindings)
+    now += 1
+    const refreshedBranding = await app.fetch(bootstrapRequest(), bindings)
+
+    expect(first.status).toBe(200)
+    expect(cached.status).toBe(200)
+    expect(refreshedLive.status).toBe(200)
+    expect(cachedBranding.status).toBe(200)
+    expect(refreshedBranding.status).toBe(200)
+    expect((await refreshedLive.json()).data).toMatchObject({
+      branding: { light: { colors: { primary: "#112233" } } },
+      identityProviders: [],
+      primaryMethods: [],
+    })
+    expect((await cachedBranding.json()).data.branding.light.colors.primary).toBe("#112233")
+    expect((await refreshedBranding.json()).data).toMatchObject({
+      branding: { light: { colors: { primary: "#abcdef" } } },
+      identityProviders: [],
+      primaryMethods: [],
+    })
+    expect(brandingCalls).toBe(2)
+    expect(liveSettingsCalls).toBe(6)
+  })
+
+  test("does not collide cache entries for typed origin and organization values", async () => {
+    const cacheDependencies = {
+      brandingCache: bootstrapCacheCreate(),
+      liveSettingsCache: bootstrapCacheCreate(),
+    }
+    const firstBindings = {
+      ...bindings,
+      ZITADEL_ORIGIN: "https://identity.example:8443",
+      ZITADEL_ORGANIZATION_ID: "org:one",
+      LOGIN_V2_FALLBACK_URL: "https://identity.example:8443/ui/v2/login",
+    }
+    const secondBindings = {
+      ...bindings,
+      ZITADEL_ORIGIN: "https://identity.example",
+      ZITADEL_ORGANIZATION_ID: "8443:org:one",
+    }
+    const app = workerAppCreate({
+      ...cacheDependencies,
+      fetch: async (input, init) => {
+        const url = requestUrl(input)
+        const headers = new Headers(init?.headers)
+        const organizationId = headers.get("x-zitadel-orgid")
+        if (url.endsWith("/v2/organizations/_search")) {
+          const request = JSON.parse(String(init?.body)) as { queries: [{ idQuery: { id: string } }] }
+          return jsonResponse({
+            result: [{ id: request.queries[0].idQuery.id, name: "Organization", state: "ORGANIZATION_STATE_ACTIVE" }],
+          })
+        }
+        if (url.endsWith("/v2/settings/branding"))
+          return jsonResponse({
+            settings: {
+              ...brandingSettings.settings,
+              lightTheme: {
+                ...brandingSettings.settings.lightTheme,
+                primaryColor: organizationId === firstBindings.ZITADEL_ORGANIZATION_ID ? "#112233" : "#abcdef",
+              },
+            },
+          })
+        if (url.endsWith("/v2/settings/login"))
+          return jsonResponse({
+            settings: {
+              ...loginSettings.settings,
+              allowLocalAuthentication: organizationId === firstBindings.ZITADEL_ORGANIZATION_ID,
+              allowExternalIdp: organizationId === firstBindings.ZITADEL_ORGANIZATION_ID,
+            },
+          })
+        if (url.endsWith("/v2/settings/login/idps")) return jsonResponse(identityProviders)
+        throw new Error(`Unexpected native call: ${url}`)
+      },
+    })
+
+    const request = new Request("https://worker.example/api/v2/bootstrap", {
+      headers: { origin: bindings.PAGES_ORIGIN },
+    })
+    const first = await app.fetch(request, firstBindings)
+    const second = await app.fetch(request, secondBindings)
+
+    expect(first.status).toBe(200)
+    expect(second.status).toBe(200)
+    expect((await first.json()).data).toMatchObject({
+      branding: { light: { colors: { primary: "#112233" } } },
+      primaryMethods: ["email_otp", "password", "passkey", "identity_provider"],
+    })
+    expect((await second.json()).data).toMatchObject({
+      branding: { light: { colors: { primary: "#abcdef" } } },
+      primaryMethods: [],
+    })
   })
 
   test("fails closed on malformed upstream branding without returning upstream data", async () => {

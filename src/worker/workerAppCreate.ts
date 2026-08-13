@@ -4,6 +4,7 @@ import * as v from "valibot"
 
 import { bootstrapCacheCreate } from "../branding/bootstrapCacheCreate"
 import { bootstrapViewGet } from "../branding/bootstrapViewGet"
+import type { BootstrapView } from "../branding/bootstrapViewSchema"
 import { workerBindingsParse } from "../config/workerBindingsParse"
 import type { WorkerBindings, WorkerBindingsInput, WorkerRateLimiter } from "../config/workerBindingsSchema"
 import { flowCookieOpen } from "../flow/flowCookieOpen"
@@ -19,7 +20,6 @@ import { zitadelClientCreate } from "../zitadel/zitadelClientCreate"
 const flowCookieName = "__Host-zitadel-login-flow"
 const rateLimitRetryAfterSeconds = 60
 const bootstrapCacheVersion = "v3"
-const bootstrapCacheLifetimeSeconds = 60
 const callbackQueryParameterNames = new Set(["code", "state", "error", "error_description", "error_uri"])
 const authRequestQuerySchema = v.strictObject({
   authRequest: v.pipe(v.string(), v.minLength(1), v.maxLength(200), v.regex(/^[A-Za-z0-9._~-]+$/)),
@@ -45,9 +45,15 @@ type Logger = {
 }
 
 type Dependencies = {
-  bootstrapCache: ReturnType<typeof bootstrapCacheCreate>
+  brandingCache: ReturnType<typeof bootstrapCacheCreate<{ data: BootstrapView["branding"]; updatedAt: number }>>
   delay: (milliseconds: number) => Promise<void>
   fetch: Fetch
+  liveSettingsCache: ReturnType<
+    typeof bootstrapCacheCreate<{
+      data: Pick<BootstrapView, "capabilities" | "identityProviders" | "primaryMethods">
+      updatedAt: number
+    }>
+  >
   monotonicNow: () => number
   now: () => number
   randomBytes: (length: number) => Uint8Array
@@ -480,22 +486,28 @@ export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
       return bootstrapResultResponse(c, resultErrorCreate("bootstrap", "Bootstrap organization is unavailable"), 403)
     }
 
-    const cacheKey = [
-      bootstrapCacheVersion,
-      bindings.data.ZITADEL_ORIGIN,
-      bindings.data.ZITADEL_ORGANIZATION_ID,
-      Number(bindings.data.ZITADEL_CUSTOM_LOGIN_ENABLED),
-      Number(bindings.data.ZITADEL_PASSWORD_RESET_V2_ENABLED),
-    ].join(":")
+    const brandingCacheKey = JSON.stringify({
+      type: "zitadel-login-bootstrap-branding",
+      version: bootstrapCacheVersion,
+      origin: bindings.data.ZITADEL_ORIGIN,
+      organizationId: bindings.data.ZITADEL_ORGANIZATION_ID,
+    })
+    const liveSettingsCacheKey = JSON.stringify({
+      type: "zitadel-login-bootstrap-policy",
+      version: bootstrapCacheVersion,
+      origin: bindings.data.ZITADEL_ORIGIN,
+      organizationId: bindings.data.ZITADEL_ORGANIZATION_ID,
+      customLoginEnabled: bindings.data.ZITADEL_CUSTOM_LOGIN_ENABLED,
+      passwordResetV2Enabled: bindings.data.ZITADEL_PASSWORD_RESET_V2_ENABLED,
+    })
     const now = dependencies.now()
-    const cached = dependencies.bootstrapCache.get(cacheKey, now)
-    if (cached) {
-      return bootstrapResultResponse(c, resultCreate(query.output.updatedAt === cached.updatedAt ? null : cached), 200)
-    }
-
     const view = await bootstrapViewGet({
+      brandingCache: dependencies.brandingCache,
+      brandingCacheKey,
       client,
       customLoginEnabled: bindings.data.ZITADEL_CUSTOM_LOGIN_ENABLED,
+      liveSettingsCache: dependencies.liveSettingsCache,
+      liveSettingsCacheKey,
       now,
       organization: { id: organization.data.id, name: organization.data.name },
       origin: bindings.data.ZITADEL_ORIGIN,
@@ -507,7 +519,6 @@ export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
       dependencies.logger.error("bootstrap_settings_failed")
       return bootstrapResultResponse(c, view, 502)
     }
-    dependencies.bootstrapCache.set(cacheKey, view.data, now + bootstrapCacheLifetimeSeconds)
     return bootstrapResultResponse(
       c,
       resultCreate(query.output.updatedAt === view.data.updatedAt ? null : view.data),

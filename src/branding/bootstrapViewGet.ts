@@ -4,13 +4,24 @@ import type { Result } from "../result/Result"
 import { resultCreate } from "../result/resultCreate"
 import { resultErrorCreate } from "../result/resultErrorCreate"
 import { zitadelClientCreate } from "../zitadel/zitadelClientCreate"
+import { bootstrapCacheCreate } from "./bootstrapCacheCreate"
 import { type BootstrapView, bootstrapViewSchema } from "./bootstrapViewSchema"
 
 type Client = ReturnType<typeof zitadelClientCreate>
+type Branding = BootstrapView["branding"]
+type LiveSettings = Pick<BootstrapView, "capabilities" | "identityProviders" | "primaryMethods">
+type CachedProjection<T> = { data: T; updatedAt: number }
+
+const brandingCacheLifetimeSeconds = 600
+const liveSettingsCacheLifetimeSeconds = 60
 
 type BootstrapViewGetInput = {
+  brandingCache: ReturnType<typeof bootstrapCacheCreate<CachedProjection<Branding>>>
+  brandingCacheKey: string
   client: Client
   customLoginEnabled: boolean
+  liveSettingsCache: ReturnType<typeof bootstrapCacheCreate<CachedProjection<LiveSettings>>>
+  liveSettingsCacheKey: string
   now: number
   origin: string
   organization: {
@@ -91,58 +102,94 @@ function themeGet(
 
 export async function bootstrapViewGet(input: BootstrapViewGetInput): Promise<Result<BootstrapView>> {
   const op = "bootstrapViewGet"
-  const [branding, loginSettings, identityProviders] = await Promise.all([
-    input.client.brandingSettingsGet(input.organization.id),
-    input.client.loginSettingsGet(input.organization.id),
-    input.client.activeIdentityProvidersGet(input.organization.id),
+  const brandingCached = input.brandingCache.get(input.brandingCacheKey, input.now)
+  const liveSettingsCached = input.liveSettingsCache.get(input.liveSettingsCacheKey, input.now)
+  const [branding, liveSettings] = await Promise.all([
+    brandingCached
+      ? Promise.resolve(resultCreate(brandingCached))
+      : input.client.brandingSettingsGet(input.organization.id).then((result) => {
+          if (!result.success) return result
+          const settings = result.data.settings
+          const light = themeGet(settings?.lightTheme, fallbackColors.light, input.origin)
+          const dark = themeGet(settings?.darkTheme, fallbackColors.dark, input.origin)
+          const projected = {
+            data: {
+              dark,
+              disableWatermark: settings?.disableWatermark === true,
+              ...(assetUrlGet(settings?.fontUrl, input.origin)
+                ? { fontUrl: assetUrlGet(settings?.fontUrl, input.origin) }
+                : {}),
+              light,
+              themeMode: themeModeGet(settings?.themeMode),
+            },
+            updatedAt: input.now,
+          }
+          const parsed = v.safeParse(bootstrapViewSchema.entries.branding, projected.data)
+          if (!parsed.success) return resultErrorCreate(op, v.summarize(parsed.issues))
+          input.brandingCache.set(
+            input.brandingCacheKey,
+            { data: parsed.output, updatedAt: projected.updatedAt },
+            input.now + brandingCacheLifetimeSeconds,
+          )
+          return resultCreate({ data: parsed.output, updatedAt: projected.updatedAt })
+        }),
+    liveSettingsCached
+      ? Promise.resolve(resultCreate(liveSettingsCached))
+      : Promise.all([
+          input.client.loginSettingsGet(input.organization.id),
+          input.client.activeIdentityProvidersGet(input.organization.id),
+        ]).then(([loginSettings, identityProviders]) => {
+          if (!loginSettings.success || !identityProviders.success)
+            return resultErrorCreate(op, "Bootstrap settings are unavailable")
+
+          const login = loginSettings.data.settings
+          const providers = identityProviders.data.identityProviders
+            .map((provider) => {
+              const type = idpTypeGet(provider.type)
+              if (!type) return undefined
+              return { id: provider.id, name: provider.name, type }
+            })
+            .filter((provider): provider is NonNullable<typeof provider> => provider !== undefined)
+
+          const primaryMethods: BootstrapView["primaryMethods"] = []
+          if (input.customLoginEnabled) {
+            if (login?.allowLocalAuthentication === true) {
+              primaryMethods.push("email_otp")
+              primaryMethods.push("password")
+              if (login.passkeysType === "PASSKEYS_TYPE_ALLOWED") primaryMethods.push("passkey")
+            }
+            if (login?.allowExternalIdp === true && providers.length > 0) primaryMethods.push("identity_provider")
+          }
+          const projected = {
+            data: {
+              capabilities: {
+                passwordRecovery:
+                  (input.capabilities?.passwordResetV2 ?? false) &&
+                  login?.allowLocalAuthentication === true &&
+                  login.hidePasswordReset !== true,
+              },
+              identityProviders: input.customLoginEnabled && login?.allowExternalIdp === true ? providers : [],
+              primaryMethods,
+            },
+            updatedAt: input.now,
+          }
+          input.liveSettingsCache.set(
+            input.liveSettingsCacheKey,
+            projected,
+            input.now + liveSettingsCacheLifetimeSeconds,
+          )
+          return resultCreate(projected)
+        }),
   ])
-  if (!branding.success || !loginSettings.success || !identityProviders.success)
+  if (!branding.success || !liveSettings.success) {
     return resultErrorCreate(op, "Bootstrap settings are unavailable")
-
-  const brandingSettings = branding.data.settings
-  const login = loginSettings.data.settings
-  const providers = identityProviders.data.identityProviders
-    .map((provider) => {
-      const type = idpTypeGet(provider.type)
-      if (!type) return undefined
-      return { id: provider.id, name: provider.name, type }
-    })
-    .filter((provider): provider is NonNullable<typeof provider> => provider !== undefined)
-
-  const caps = {
-    passwordResetV2: input.capabilities?.passwordResetV2 ?? false,
   }
 
-  const primaryMethods: BootstrapView["primaryMethods"] = []
-  if (input.customLoginEnabled) {
-    if (login?.allowLocalAuthentication === true) {
-      primaryMethods.push("email_otp")
-      primaryMethods.push("password")
-      if (login.passkeysType === "PASSKEYS_TYPE_ALLOWED") primaryMethods.push("passkey")
-    }
-    if (login?.allowExternalIdp === true && providers.length > 0) primaryMethods.push("identity_provider")
-  }
-
-  const light = themeGet(brandingSettings?.lightTheme, fallbackColors.light, input.origin)
-  const dark = themeGet(brandingSettings?.darkTheme, fallbackColors.dark, input.origin)
   const view = {
-    capabilities: {
-      passwordRecovery:
-        caps.passwordResetV2 && login?.allowLocalAuthentication === true && login.hidePasswordReset !== true,
-    },
-    branding: {
-      dark,
-      disableWatermark: brandingSettings?.disableWatermark === true,
-      ...(assetUrlGet(brandingSettings?.fontUrl, input.origin)
-        ? { fontUrl: assetUrlGet(brandingSettings?.fontUrl, input.origin) }
-        : {}),
-      light,
-      themeMode: themeModeGet(brandingSettings?.themeMode),
-    },
-    identityProviders: input.customLoginEnabled && login?.allowExternalIdp === true ? providers : [],
+    ...liveSettings.data.data,
+    branding: branding.data.data,
     organization: input.organization,
-    primaryMethods,
-    updatedAt: input.now,
+    updatedAt: Math.max(branding.data.updatedAt, liveSettings.data.updatedAt),
   }
   const parsed = v.safeParse(bootstrapViewSchema, view)
   if (!parsed.success) return resultErrorCreate(op, "Bootstrap data is invalid")

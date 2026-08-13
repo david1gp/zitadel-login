@@ -1,15 +1,13 @@
-import type { BootstrapView } from "./bootstrapViewSchema"
-
-type CacheEntry = {
-  data: BootstrapView
+type CacheEntry<T> = {
+  data: T
   expiresAt: number
 }
 
-export function bootstrapCacheCreate(maxEntries = 8) {
-  const entries = new Map<string, CacheEntry>()
+export function bootstrapCacheCreate<T>(maxEntries = 8) {
+  const entries = new Map<string, CacheEntry<T>>()
 
   return {
-    get(key: string, now: number): BootstrapView | undefined {
+    get(key: string, now: number): T | undefined {
       const entry = entries.get(key)
       if (!entry) return undefined
       if (entry.expiresAt <= now) {
@@ -20,7 +18,7 @@ export function bootstrapCacheCreate(maxEntries = 8) {
       entries.set(key, entry)
       return entry.data
     },
-    set(key: string, data: BootstrapView, expiresAt: number): void {
+    set(key: string, data: T, expiresAt: number): void {
       entries.delete(key)
       entries.set(key, { data, expiresAt })
       while (entries.size > maxEntries) {
