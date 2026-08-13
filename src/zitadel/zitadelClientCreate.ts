@@ -371,6 +371,23 @@ export function zitadelClientCreate(bindings: WorkerBindings, fetchImplementatio
     return resultCreate(parsed.output)
   }
 
+  function sessionRequest<T>(
+    op: string,
+    schema: v.GenericSchema<unknown, T>,
+    body: Record<string, unknown>,
+    options: { method: "POST" | "PATCH"; sessionId?: string; lifetime?: boolean },
+  ) {
+    const path =
+      options.sessionId === undefined ? "/v2/sessions" : `/v2/sessions/${encodeURIComponent(options.sessionId)}`
+    return request(op, path, schema, {
+      method: options.method,
+      body: JSON.stringify({
+        ...body,
+        ...(options.lifetime ? { lifetime: `${bindings.SESSION_LIFETIME_SECONDS}s` } : {}),
+      }),
+    })
+  }
+
   return {
     activeIdentityProvidersGet(organizationId: string) {
       return request("activeIdentityProvidersGet", "/v2/settings/login/idps", identityProvidersResponseSchema, {
@@ -401,9 +418,10 @@ export function zitadelClientCreate(bindings: WorkerBindings, fetchImplementatio
       )
     },
     idpIntentSessionCreate(userId: string, idpIntentId: string, idpIntentToken: string) {
-      return request("idpIntentSessionCreate", "/v2/sessions", sessionCreateResponseSchema, {
-        method: "POST",
-        body: JSON.stringify({
+      return sessionRequest(
+        "idpIntentSessionCreate",
+        sessionCreateResponseSchema,
+        {
           checks: {
             user: { userId },
             idpIntent: {
@@ -411,9 +429,9 @@ export function zitadelClientCreate(bindings: WorkerBindings, fetchImplementatio
               idpIntentToken,
             },
           },
-          lifetime: `${bindings.SESSION_LIFETIME_SECONDS}s`,
-        }),
-      })
+        },
+        { method: "POST", lifetime: true },
+      )
     },
     authRequestGet(authRequestId: string) {
       return request(
@@ -729,37 +747,40 @@ export function zitadelClientCreate(bindings: WorkerBindings, fetchImplementatio
       )
     },
     sessionCreate(userId: string) {
-      return request("sessionCreate", "/v2/sessions", sessionCreateResponseSchema, {
-        method: "POST",
-        body: JSON.stringify({
-          checks: { user: { userId } },
-          lifetime: `${bindings.SESSION_LIFETIME_SECONDS}s`,
-        }),
-      })
+      return sessionRequest(
+        "sessionCreate",
+        sessionCreateResponseSchema,
+        { checks: { user: { userId } } },
+        {
+          method: "POST",
+          lifetime: true,
+        },
+      )
     },
     emailOtpSessionCreate(userId: string) {
-      return request("emailOtpSessionCreate", "/v2/sessions", sessionCreateResponseSchema, {
-        method: "POST",
-        body: JSON.stringify({
+      return sessionRequest(
+        "emailOtpSessionCreate",
+        sessionCreateResponseSchema,
+        {
           checks: { user: { userId } },
           challenges: { otpEmail: { sendCode: {} } },
-          lifetime: `${bindings.SESSION_LIFETIME_SECONDS}s`,
-        }),
-      })
+        },
+        { method: "POST", lifetime: true },
+      )
     },
     passwordSessionCreate(userId: string, password: string) {
-      return request("passwordSessionCreate", "/v2/sessions", sessionCreateResponseSchema, {
-        method: "POST",
-        body: JSON.stringify({
-          checks: { user: { userId }, password: { password } },
-          lifetime: `${bindings.SESSION_LIFETIME_SECONDS}s`,
-        }),
-      })
+      return sessionRequest(
+        "passwordSessionCreate",
+        sessionCreateResponseSchema,
+        { checks: { user: { userId }, password: { password } } },
+        { method: "POST", lifetime: true },
+      )
     },
     passkeySessionCreate(userId: string, domain: string) {
-      return request("passkeySessionCreate", "/v2/sessions", passkeySessionCreateResponseSchema, {
-        method: "POST",
-        body: JSON.stringify({
+      return sessionRequest(
+        "passkeySessionCreate",
+        passkeySessionCreateResponseSchema,
+        {
           checks: { user: { userId } },
           challenges: {
             webAuthN: {
@@ -767,27 +788,27 @@ export function zitadelClientCreate(bindings: WorkerBindings, fetchImplementatio
               userVerificationRequirement: "USER_VERIFICATION_REQUIREMENT_REQUIRED",
             },
           },
-          lifetime: `${bindings.SESSION_LIFETIME_SECONDS}s`,
-        }),
-      })
+        },
+        { method: "POST", lifetime: true },
+      )
     },
     passkeySessionChallenge(sessionId: string, sessionToken: string, domain: string) {
-      return request(
+      return sessionRequest(
         "passkeySessionChallenge",
-        `/v2/sessions/${encodeURIComponent(sessionId)}`,
         passkeySessionChallengeResponseSchema,
         {
-          method: "PATCH",
-          body: JSON.stringify({
-            sessionToken,
-            challenges: {
-              webAuthN: {
-                domain,
-                userVerificationRequirement: "USER_VERIFICATION_REQUIREMENT_REQUIRED",
-              },
+          sessionToken,
+          challenges: {
+            webAuthN: {
+              domain,
+              userVerificationRequirement: "USER_VERIFICATION_REQUIREMENT_REQUIRED",
             },
-            lifetime: `${bindings.SESSION_LIFETIME_SECONDS}s`,
-          }),
+          },
+        },
+        {
+          method: "PATCH",
+          sessionId,
+          lifetime: true,
         },
       )
     },
@@ -799,116 +820,104 @@ export function zitadelClientCreate(bindings: WorkerBindings, fetchImplementatio
         | "USER_VERIFICATION_REQUIREMENT_DISCOURAGED"
         | "USER_VERIFICATION_REQUIREMENT_REQUIRED" = "USER_VERIFICATION_REQUIREMENT_DISCOURAGED",
     ) {
-      return request(
+      return sessionRequest(
         "u2fSessionChallenge",
-        `/v2/sessions/${encodeURIComponent(sessionId)}`,
         passkeySessionChallengeResponseSchema,
         {
-          method: "PATCH",
-          body: JSON.stringify({
-            sessionToken,
-            challenges: {
-              webAuthN: {
-                domain,
-                userVerificationRequirement,
-              },
+          sessionToken,
+          challenges: {
+            webAuthN: {
+              domain,
+              userVerificationRequirement,
             },
-            lifetime: `${bindings.SESSION_LIFETIME_SECONDS}s`,
-          }),
+          },
+        },
+        {
+          method: "PATCH",
+          sessionId,
+          lifetime: true,
         },
       )
     },
     passkeySessionVerify(sessionId: string, sessionToken: string, credentialAssertionData: unknown) {
-      return request(
+      return sessionRequest(
         "passkeySessionVerify",
-        `/v2/sessions/${encodeURIComponent(sessionId)}`,
         sessionSetResponseSchema,
+        { sessionToken, checks: { webAuthN: { credentialAssertionData } } },
         {
           method: "PATCH",
-          body: JSON.stringify({
-            sessionToken,
-            checks: { webAuthN: { credentialAssertionData } },
-            lifetime: `${bindings.SESSION_LIFETIME_SECONDS}s`,
-          }),
+          sessionId,
+          lifetime: true,
         },
       )
     },
     sessionChallenge(sessionId: string) {
-      return request("sessionChallenge", `/v2/sessions/${encodeURIComponent(sessionId)}`, sessionSetResponseSchema, {
-        method: "PATCH",
-        body: JSON.stringify({ challenges: { otpEmail: { sendCode: {} } } }),
-      })
+      return sessionRequest(
+        "sessionChallenge",
+        sessionSetResponseSchema,
+        { challenges: { otpEmail: { sendCode: {} } } },
+        { method: "PATCH", sessionId },
+      )
     },
     sessionVerify(sessionId: string, code: string) {
-      return request("sessionVerify", `/v2/sessions/${encodeURIComponent(sessionId)}`, sessionSetResponseSchema, {
-        method: "PATCH",
-        body: JSON.stringify({ checks: { otpEmail: { code } } }),
-      })
+      return sessionRequest(
+        "sessionVerify",
+        sessionSetResponseSchema,
+        { checks: { otpEmail: { code } } },
+        { method: "PATCH", sessionId },
+      )
     },
     emailOtpSessionChallenge(sessionId: string, sessionToken: string) {
-      return request(
+      return sessionRequest(
         "emailOtpSessionChallenge",
-        `/v2/sessions/${encodeURIComponent(sessionId)}`,
         sessionSetResponseSchema,
+        { sessionToken, challenges: { otpEmail: { sendCode: {} } } },
         {
           method: "PATCH",
-          body: JSON.stringify({
-            sessionToken,
-            challenges: { otpEmail: { sendCode: {} } },
-            lifetime: `${bindings.SESSION_LIFETIME_SECONDS}s`,
-          }),
+          sessionId,
+          lifetime: true,
         },
       )
     },
     smsOtpSessionChallenge(sessionId: string, sessionToken: string) {
-      return request(
+      return sessionRequest(
         "smsOtpSessionChallenge",
-        `/v2/sessions/${encodeURIComponent(sessionId)}`,
         sessionSetResponseSchema,
+        { sessionToken, challenges: { otpSms: {} } },
         {
           method: "PATCH",
-          body: JSON.stringify({
-            sessionToken,
-            challenges: { otpSms: {} },
-            lifetime: `${bindings.SESSION_LIFETIME_SECONDS}s`,
-          }),
+          sessionId,
+          lifetime: true,
         },
       )
     },
     smsOtpSessionVerify(sessionId: string, sessionToken: string, code: string) {
-      return request("smsOtpSessionVerify", `/v2/sessions/${encodeURIComponent(sessionId)}`, sessionSetResponseSchema, {
-        method: "PATCH",
-        body: JSON.stringify({
-          sessionToken,
-          checks: { otpSms: { code } },
-          lifetime: `${bindings.SESSION_LIFETIME_SECONDS}s`,
-        }),
-      })
+      return sessionRequest(
+        "smsOtpSessionVerify",
+        sessionSetResponseSchema,
+        { sessionToken, checks: { otpSms: { code } } },
+        { method: "PATCH", sessionId, lifetime: true },
+      )
     },
     emailOtpSessionVerify(sessionId: string, sessionToken: string, code: string) {
-      return request(
+      return sessionRequest(
         "emailOtpSessionVerify",
-        `/v2/sessions/${encodeURIComponent(sessionId)}`,
         sessionSetResponseSchema,
+        { sessionToken, checks: { otpEmail: { code } } },
         {
           method: "PATCH",
-          body: JSON.stringify({
-            sessionToken,
-            checks: { otpEmail: { code } },
-            lifetime: `${bindings.SESSION_LIFETIME_SECONDS}s`,
-          }),
+          sessionId,
+          lifetime: true,
         },
       )
     },
     totpSessionVerify(sessionId: string, sessionToken: string, code: string) {
-      return request("totpSessionVerify", `/v2/sessions/${encodeURIComponent(sessionId)}`, sessionSetResponseSchema, {
-        method: "PATCH",
-        body: JSON.stringify({
-          sessionToken,
-          checks: { totp: { code } },
-          lifetime: `${bindings.SESSION_LIFETIME_SECONDS}s`,
-        }),
-      })
+      return sessionRequest(
+        "totpSessionVerify",
+        sessionSetResponseSchema,
+        { sessionToken, checks: { totp: { code } } },
+        { method: "PATCH", sessionId, lifetime: true },
+      )
     },
     sessionGet(sessionId: string, sessionToken: string) {
       const query = new URLSearchParams({ sessionToken })
