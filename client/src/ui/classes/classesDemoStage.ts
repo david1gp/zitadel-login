@@ -1,1 +1,6 @@
-export const classesDemoStage = "min-h-screen"
+import { classArr } from "../classArr"
+
+export const classesDemoStage = classArr(
+  "min-h-screen",
+  "group-data-[chrome=sidebar]:lg:min-h-0 group-data-[chrome=sidebar]:lg:overflow-y-auto",
+)
