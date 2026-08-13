@@ -69,7 +69,9 @@ export function App(props: AppProps) {
             <Match when={state.status() === "loading" || state.status() === "continuing"}>
               <div class={classesLoadingState} role="status">
                 <span class={classesSpinner} aria-hidden="true" />
-                <p>{state.status() === "continuing" ? "Continuing sign-in..." : "Loading sign-in..."}</p>
+                <h1 ref={state.headingRegister} id="login-title" tabindex="-1">
+                  {state.status() === "continuing" ? "Continuing sign-in..." : "Loading sign-in..."}
+                </h1>
               </div>
             </Match>
             <Match when={state.status() === "fatal"}>

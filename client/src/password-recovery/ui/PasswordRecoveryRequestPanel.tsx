@@ -39,7 +39,9 @@ export function PasswordRecoveryRequestPanel(props: PasswordRecoveryRequestPanel
         <Match when={state.step() === "loading"}>
           <div class={classesLoadingState} role="status">
             <span class={classesSpinner} aria-hidden="true" />
-            <p>Loading password recovery...</p>
+            <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+              Loading password recovery...
+            </h1>
           </div>
         </Match>
         <Match when={state.step() === "sent"}>

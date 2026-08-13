@@ -85,7 +85,9 @@ export function DemoApp() {
                   <Match when={scenarioId === "loading" || scenarioId === "continuing"}>
                     <div class={classesLoadingState} role="status">
                       <span class={classesSpinner} aria-hidden="true" />
-                      <p>{scenarioId === "continuing" ? "Continuing sign-in..." : "Loading sign-in..."}</p>
+                      <h1 ref={state.headingRegister} id="login-title" tabindex="-1">
+                        {scenarioId === "continuing" ? "Continuing sign-in..." : "Loading sign-in..."}
+                      </h1>
                     </div>
                   </Match>
                   <Match when={scenarioId === "fatal"}>

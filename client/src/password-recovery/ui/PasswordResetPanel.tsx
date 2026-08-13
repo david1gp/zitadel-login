@@ -41,7 +41,9 @@ export function PasswordResetPanel(props: PasswordResetPanelProps) {
         <Match when={state.step() === "loading"}>
           <div class={classesLoadingState} role="status">
             <span class={classesSpinner} aria-hidden="true" />
-            <p>Checking your reset link...</p>
+            <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+              Checking your reset link...
+            </h1>
           </div>
         </Match>
         <Match when={state.step() === "invalid_link"}>

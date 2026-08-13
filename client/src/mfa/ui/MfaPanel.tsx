@@ -176,7 +176,9 @@ export function MfaPanel(props: MfaPanelProps) {
         <Match when={state.loading()}>
           <div class={classesLoadingState} role="status">
             <span class={classesSpinner} aria-hidden="true" />
-            <p>Loading 2-step verification options...</p>
+            <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
+              Loading 2-step verification options...
+            </h1>
           </div>
         </Match>
         <Match when={!state.options()}>
