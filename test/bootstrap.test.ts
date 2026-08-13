@@ -124,7 +124,9 @@ describe("v2 bootstrap contract", () => {
         headersAssert(init)
         if (url.endsWith(`/v2/oidc/auth_requests/${authRequest.id}`)) return jsonResponse({ authRequest })
         if (url.endsWith("/v2/organizations/_search")) {
-          expect(JSON.parse(String(init?.body))).toEqual({ queries: [{ query: { defaultQuery: {} } }] })
+          expect(JSON.parse(String(init?.body))).toEqual({
+            queries: [{ idQuery: { id: bindings.ZITADEL_ORGANIZATION_ID } }],
+          })
           return jsonResponse(defaultOrganization)
         }
         if (url.endsWith("/v2/settings/branding")) {
@@ -179,6 +181,57 @@ describe("v2 bootstrap contract", () => {
     expect(calls).toContain("https://identity.example/v2/settings/branding")
     expect(calls).toContain("https://identity.example/v2/settings/login")
     expect(calls).toContain("https://identity.example/v2/settings/login/idps")
+  })
+
+  test("rejects an organization response that does not match the configured ID", async () => {
+    const app = workerAppCreate({
+      fetch: async (input) => {
+        const url = requestUrl(input)
+        if (url.endsWith(`/v2/oidc/auth_requests/${authRequest.id}`)) return jsonResponse({ authRequest })
+        if (url.endsWith("/v2/organizations/_search"))
+          return jsonResponse({
+            result: [{ id: "org-instance-default", name: "Instance Default", state: "ORGANIZATION_STATE_ACTIVE" }],
+          })
+        throw new Error(`Unexpected native call: ${url}`)
+      },
+      logger: { warn: () => undefined, error: () => undefined },
+    })
+
+    const response = await app.fetch(bootstrapRequest(), bindings)
+
+    expect(response.status).toBe(403)
+    expect(await response.json()).toEqual({
+      success: false,
+      op: "bootstrap",
+      errorMessage: "Bootstrap is temporarily unavailable.",
+    })
+  })
+
+  test("rejects a configured organization without an explicit active state before public settings calls", async () => {
+    let settingsCalls = 0
+    const app = workerAppCreate({
+      fetch: async (input) => {
+        const url = requestUrl(input)
+        if (url.endsWith(`/v2/oidc/auth_requests/${authRequest.id}`)) return jsonResponse({ authRequest })
+        if (url.endsWith("/v2/organizations/_search"))
+          return jsonResponse({
+            result: [{ id: bindings.ZITADEL_ORGANIZATION_ID, name: "Contentoren" }],
+          })
+        settingsCalls += 1
+        throw new Error(`Unexpected public settings call: ${url}`)
+      },
+      logger: { warn: () => undefined, error: () => undefined },
+    })
+
+    const response = await app.fetch(bootstrapRequest(), bindings)
+
+    expect(response.status).toBe(403)
+    expect(await response.json()).toEqual({
+      success: false,
+      op: "bootstrap",
+      errorMessage: "Bootstrap is temporarily unavailable.",
+    })
+    expect(settingsCalls).toBe(0)
   })
 
   test("uses the bounded cache and returns null for an unchanged public projection", async () => {

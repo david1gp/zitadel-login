@@ -427,15 +427,14 @@ export function zitadelClientCreate(bindings: WorkerBindings, fetchImplementatio
         headers: { "x-zitadel-orgid": organizationId },
       })
     },
-    defaultOrganizationGet() {
-      return request("defaultOrganizationGet", "/v2/organizations/_search", organizationsResponseSchema, {
+    organizationGet(organizationId: string) {
+      return request("organizationGet", "/v2/organizations/_search", organizationsResponseSchema, {
         method: "POST",
-        body: JSON.stringify({ queries: [{ query: { defaultQuery: {} } }] }),
+        body: JSON.stringify({ queries: [{ idQuery: { id: organizationId } }] }),
       }).then((result) => {
         if (!result.success) return result
         const organization = result.data.result[0]
-        if (!organization)
-          return resultErrorCreate("defaultOrganizationGet", "ZITADEL returned no default organization")
+        if (!organization) return resultErrorCreate("organizationGet", "ZITADEL returned no configured organization")
         return resultCreate(organization)
       })
     },

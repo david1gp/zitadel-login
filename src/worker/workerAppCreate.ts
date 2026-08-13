@@ -484,11 +484,11 @@ export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
     }
 
     const client = zitadelClientCreate(bindings.data, dependencies.fetch)
-    const defaultOrganization = await client.defaultOrganizationGet()
+    const organization = await client.organizationGet(bindings.data.ZITADEL_ORGANIZATION_ID)
     if (
-      !defaultOrganization.success ||
-      defaultOrganization.data.id !== bindings.data.ZITADEL_ORGANIZATION_ID ||
-      (defaultOrganization.data.state !== undefined && defaultOrganization.data.state !== "ORGANIZATION_STATE_ACTIVE")
+      !organization.success ||
+      organization.data.id !== bindings.data.ZITADEL_ORGANIZATION_ID ||
+      organization.data.state !== "ORGANIZATION_STATE_ACTIVE"
     ) {
       dependencies.logger.warn("bootstrap_organization_rejected")
       return bootstrapResultResponse(c, resultErrorCreate("bootstrap", "Bootstrap organization is unavailable"), 403)
@@ -497,7 +497,7 @@ export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
     const view = await bootstrapViewGet({
       client,
       now,
-      organization: { id: defaultOrganization.data.id, name: defaultOrganization.data.name },
+      organization: { id: organization.data.id, name: organization.data.name },
       origin: bindings.data.ZITADEL_ORIGIN,
       capabilities: {
         loginV2: bindings.data.ZITADEL_LOGIN_V2_ENABLED,
