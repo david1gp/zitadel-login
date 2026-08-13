@@ -25,7 +25,7 @@ Use ZITADEL’s native Session/Login APIs and existing SMTP path wherever they s
 13. **Completed** — Change fresh sign-ins to show a method chooser instead of auto-selecting preferred email OTP, listing only methods enabled by live ZITADEL policy and including email OTP.
 14. **Completed** — Deploy the completed method-chooser UI to production, verify the deployment, and generate a fresh valid PKCE authorization link for manual testing.
 15. **Completed** — Correct the production bootstrap organization query, restore live ZITADEL branding/logo, and make ZITADEL the primary runtime source of truth for completed login methods.
-16. **In Progress** — Formatting and semantic commits completed; push pending.
+16. **Completed** — Formatting, semantic commits, and push completed.
 
 ## Paths
 
