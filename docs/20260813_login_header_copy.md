@@ -7,6 +7,7 @@
 
 - Preserve the existing organization source, `bootstrap().organization.name`.
 - Keep one semantic H1 in each login view; remove nearby metadata and eyebrow copy when they repeat the heading's meaning.
+- Error and status scenarios follow the same rule: scenario metadata must not repeat any visible H1, regardless of differing group prefixes.
 - Apply the header change to both production and demo shells.
 
 # Approach
@@ -23,6 +24,9 @@
 - [x] 4. Audit all login screens for repeated scenario metadata, eyebrow, and H1 copy.
 - [x] 5. Remove redundant copy consistently across all affected login screens.
 - [x] 6. Verify all demo scenarios with automated checks and browser UI review.
+- [x] 7. Compare rendered scenario metadata against H1 text across every demo route and identify remaining semantic duplicates.
+- [x] 8. Remove all remaining duplicate scenario metadata, including identity-provider error states.
+- [x] 9. Reverify every demo route by rendered text and publish the refreshed review URL.
 
 # Paths
 
@@ -57,3 +61,4 @@
 - `test/MfaTotpEnrollPanel.component.tsx`
 - `test/MfaU2fPanel.component.tsx`
 - `test/MfaWebAuthnEnrollPanel.component.tsx`
+- `test/DemoApp.component.tsx`
