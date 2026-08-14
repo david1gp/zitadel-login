@@ -1,5 +1,6 @@
 import { Show } from "solid-js"
 
+import { ttc } from "../../i18n/model/ttc"
 import type { PasskeyOptions } from "../../passkey/model/passkeyOptionsSchema"
 import { classesBackButton } from "../../ui/classes/classesBackButton"
 import { classesHeading } from "../../ui/classes/classesHeading"
@@ -66,42 +67,43 @@ export function MfaU2fPanel(props: MfaU2fPanelProps) {
           <div>
             <div class={classesIntro}>
               <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-                {label()} not supported
+                {ttc("{method} not supported").replace("{method}", ttc(label()))}
               </h1>
               <p class={classesNoticeMessage}>
-                {label()} authentication is not supported in this browser. Please use another 2-step verification
-                method.
+                {ttc(
+                  "{method} authentication is not supported in this browser. Please use another 2-step verification method.",
+                ).replace("{method}", ttc(label()))}
               </p>
             </div>
             <Show when={props.showChooser}>
               <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
-                Back to 2-step choices
+                {ttc("Back to 2-step choices")}
               </button>
             </Show>
             <button class={classesBackButton} type="button" onClick={props.showRootChooser} disabled={props.busy()}>
-              Back to methods
+              {ttc("Back to methods")}
             </button>
           </div>
         }
       >
         <div class={classesIntro}>
           <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-            {label()}
+            {ttc(label())}
           </h1>
-          <p class={classesIntroCopy}>{detail()}</p>
+          <p class={classesIntroCopy}>{ttc(detail())}</p>
         </div>
         <form onSubmit={state.submit} novalidate>
           <button class={classesPrimaryButton} type="submit" disabled={props.busy()}>
-            {props.busy() ? "Verifying..." : `Verify with ${label()}`}
+            {props.busy() ? ttc("Verifying...") : ttc("Verify with {method}").replace("{method}", ttc(label()))}
           </button>
         </form>
         <Show when={props.showChooser}>
           <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
-            Back to 2-step choices
+            {ttc("Back to 2-step choices")}
           </button>
         </Show>
         <button class={classesBackButton} type="button" onClick={props.showRootChooser} disabled={props.busy()}>
-          Back to methods
+          {ttc("Back to methods")}
         </button>
       </Show>
     </div>

@@ -3,6 +3,7 @@ import { Match, Show, Switch } from "solid-js"
 import { BrandHeader } from "../../branding/ui/BrandHeader"
 import { EmailOtpPanel } from "../../email-otp/ui/EmailOtpPanel"
 import { MethodChooser } from "../../flow/ui/MethodChooser"
+import { ttc } from "../../i18n/model/ttc"
 import { IdentityProviderPanel } from "../../identity-provider/ui/IdentityProviderPanel"
 import { MfaPanel } from "../../mfa/ui/MfaPanel"
 import { PasskeyPanel } from "../../passkey/ui/PasskeyPanel"
@@ -83,14 +84,14 @@ export function App(props: AppProps) {
               <div class={classesLoadingState} role="status">
                 <span class={classesSpinner} aria-hidden="true" />
                 <h1 ref={state.headingRegister} id="login-title" tabindex="-1">
-                  {state.status() === "continuing" ? "Continuing sign-in..." : "Loading sign-in..."}
+                  {state.status() === "continuing" ? ttc("Continuing sign-in...") : ttc("Loading sign-in...")}
                 </h1>
               </div>
             </Match>
             <Match when={state.status() === "fatal"}>
               <div class={classesIntro}>
                 <h1 ref={state.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-                  Start sign-in again
+                  {ttc("Start sign-in again")}
                 </h1>
               </div>
             </Match>
@@ -220,12 +221,12 @@ export function App(props: AppProps) {
           </Switch>
           <Show when={state.error()}>
             <div ref={state.errorRegister} id="error-message" class={classesErrorMessage} role="alert" tabindex="-1">
-              {state.error()}
+              {ttc(state.error())}
             </div>
           </Show>
           <Show when={state.notice() && state.emailStep() !== "code"}>
             <p class={classesNoticeMessage} role="status">
-              {state.notice()}
+              {ttc(state.notice())}
             </p>
           </Show>
         </div>

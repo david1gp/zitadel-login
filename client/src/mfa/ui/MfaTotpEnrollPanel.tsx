@@ -1,4 +1,5 @@
 import { For, Match, Show, Switch } from "solid-js"
+import { ttc } from "../../i18n/model/ttc"
 import { classesBackButton } from "../../ui/classes/classesBackButton"
 import { classesCodeInput } from "../../ui/classes/classesCodeInput"
 import { classesFieldHelp } from "../../ui/classes/classesFieldHelp"
@@ -56,22 +57,26 @@ export function MfaTotpEnrollPanel(props: MfaTotpEnrollPanelProps) {
     <div>
       <div class={classesIntro}>
         <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-          Set up authenticator app
+          {ttc("Set up authenticator app")}
         </h1>
       </div>
       <Switch>
         <Match when={state.stage() === "start"}>
           <p class={classesMfaDescription}>
-            Use an authenticator app such as 1Password, Google Authenticator, or Aegis to generate 6-digit codes.
+            {ttc(
+              "Use an authenticator app such as 1Password, Google Authenticator, or Aegis to generate 6-digit codes.",
+            )}
           </p>
           <button class={classesPrimaryButton} type="button" onClick={() => void state.start()} disabled={props.busy()}>
-            {props.busy() ? "Starting setup..." : "Start setup"}
+            {props.busy() ? ttc("Starting setup...") : ttc("Start setup")}
           </button>
         </Match>
 
         <Match when={state.stage() === "unavailable"}>
           <p class={classesMfaDescription}>
-            Authenticator setup could not be prepared here. The setup details cannot be restored after a reload.
+            {ttc(
+              "Authenticator setup could not be prepared here. The setup details cannot be restored after a reload.",
+            )}
           </p>
           <button
             class={classesPrimaryButton}
@@ -79,20 +84,20 @@ export function MfaTotpEnrollPanel(props: MfaTotpEnrollPanelProps) {
             onClick={() => props.fallbackContinue()}
             disabled={props.busy()}
           >
-            Continue in ZITADEL
+            {ttc("Continue in ZITADEL")}
           </button>
         </Match>
 
         <Match when={state.stage() === "setup"}>
           <p class={classesMfaDescription}>
-            Scan the code with your authenticator app, then enter the 6-digit code it shows.
+            {ttc("Scan the code with your authenticator app, then enter the 6-digit code it shows.")}
           </p>
           <Show when={state.qr()}>
             {(qr) => (
               <svg
                 class={classesTotpQr}
                 role="img"
-                aria-label="QR code for authenticator app setup"
+                aria-label={ttc("QR code for authenticator app setup")}
                 viewBox={`0 0 ${qr().viewBoxSize} ${qr().viewBoxSize}`}
                 shape-rendering="crispEdges"
               >
@@ -103,7 +108,7 @@ export function MfaTotpEnrollPanel(props: MfaTotpEnrollPanelProps) {
           </Show>
           <div class={classesTotpSecret} role="group" aria-labelledby="totp-secret-label">
             <p id="totp-secret-label" class={classesTotpSecretLabel}>
-              Setup key (if you cannot scan)
+              {ttc("Setup key (if you cannot scan)")}
             </p>
             <Show
               when={state.secretVisible()}
@@ -114,7 +119,7 @@ export function MfaTotpEnrollPanel(props: MfaTotpEnrollPanelProps) {
                   onClick={state.secretVisibleToggle}
                   aria-describedby="totp-secret-label"
                 >
-                  Show setup key
+                  {ttc("Show setup key")}
                 </button>
               }
             >
@@ -122,13 +127,13 @@ export function MfaTotpEnrollPanel(props: MfaTotpEnrollPanelProps) {
                 <For each={state.secretGroups()}>{(group) => <span>{group}</span>}</For>
               </p>
               <button class={classesSecondaryButton} type="button" onClick={state.secretVisibleToggle}>
-                Hide setup key
+                {ttc("Hide setup key")}
               </button>
             </Show>
           </div>
           <form onSubmit={state.submit} novalidate>
             <label class={classesLabel} for="totp-enroll-code">
-              Authenticator code
+              {ttc("Authenticator code")}
             </label>
             <input
               ref={state.codeInputRegister}
@@ -152,22 +157,22 @@ export function MfaTotpEnrollPanel(props: MfaTotpEnrollPanelProps) {
               aria-describedby="totp-enroll-code-help"
             />
             <p id="totp-enroll-code-help" class={classesFieldHelp}>
-              Enter 6 digits.
+              {ttc("Enter 6 digits.")}
             </p>
             <button class={classesPrimaryButton} type="submit" disabled={props.busy() || !state.valid()}>
-              {props.busy() ? "Verifying..." : "Activate"}
+              {props.busy() ? ttc("Verifying...") : ttc("Activate")}
             </button>
           </form>
         </Match>
       </Switch>
       <Show when={!props.setupUnavailable && props.showChooser}>
         <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
-          Back to 2-step choices
+          {ttc("Back to 2-step choices")}
         </button>
       </Show>
       <Show when={!props.setupUnavailable}>
         <button class={classesBackButton} type="button" onClick={props.showRootChooser} disabled={props.busy()}>
-          Back to methods
+          {ttc("Back to methods")}
         </button>
       </Show>
     </div>

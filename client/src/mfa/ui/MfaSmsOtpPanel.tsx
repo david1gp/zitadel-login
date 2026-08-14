@@ -1,4 +1,5 @@
 import { Match, Show, Switch } from "solid-js"
+import { ttc } from "../../i18n/model/ttc"
 import { classesBackButton } from "../../ui/classes/classesBackButton"
 import { classesCodeInput } from "../../ui/classes/classesCodeInput"
 import { classesFieldHelp } from "../../ui/classes/classesFieldHelp"
@@ -54,38 +55,38 @@ export function MfaSmsOtpPanel(props: MfaSmsOtpPanelProps) {
         <Match when={state.stage() === "send"}>
           <div class={classesIntro}>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-              SMS code
+              {ttc("SMS code")}
             </h1>
-            <p class={classesIntroCopy}>Send a verification code to your mobile phone via SMS.</p>
+            <p class={classesIntroCopy}>{ttc("Send a verification code to your mobile phone via SMS.")}</p>
           </div>
           <button class={classesPrimaryButton} type="button" onClick={state.sendCode} disabled={props.busy()}>
-            {props.busy() ? "Sending code..." : "Send code"}
+            {props.busy() ? ttc("Sending code...") : ttc("Send code")}
           </button>
           <Show when={props.showChooser}>
             <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
-              Back to 2-step choices
+              {ttc("Back to 2-step choices")}
             </button>
           </Show>
           <button class={classesBackButton} type="button" onClick={props.showRootChooser} disabled={props.busy()}>
-            Back to methods
+            {ttc("Back to methods")}
           </button>
         </Match>
 
         <Match when={state.stage() === "code"}>
           <div class={classesIntro}>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-              SMS verification code
+              {ttc("SMS verification code")}
             </h1>
-            <p class={classesIntroCopy}>Enter the 6-20 digit code sent to your mobile phone.</p>
+            <p class={classesIntroCopy}>{ttc("Enter the 6-20 digit code sent to your mobile phone.")}</p>
           </div>
           <Show when={state.notice()}>
             <p class={classesNoticeMessage} role="status">
-              {state.notice()}
+              {ttc(state.notice())}
             </p>
           </Show>
           <form onSubmit={state.submit} novalidate>
             <label class={classesLabel} for="mfa-sms-code">
-              Verification code
+              {ttc("Verification code")}
             </label>
             <input
               ref={state.codeInputRegister}
@@ -110,10 +111,10 @@ export function MfaSmsOtpPanel(props: MfaSmsOtpPanelProps) {
               aria-describedby="mfa-sms-code-help"
             />
             <p id="mfa-sms-code-help" class={classesFieldHelp}>
-              Enter 6 to 20 digits.
+              {ttc("Enter 6 to 20 digits.")}
             </p>
             <button class={classesPrimaryButton} type="submit" disabled={props.busy() || !state.valid()}>
-              {props.busy() ? "Verifying..." : "Verify"}
+              {props.busy() ? ttc("Verifying...") : ttc("Verify")}
             </button>
           </form>
           <div class={classesResendSection}>
@@ -123,16 +124,18 @@ export function MfaSmsOtpPanel(props: MfaSmsOtpPanelProps) {
               onClick={state.resendCode}
               disabled={props.busy() || state.countdown() > 0}
             >
-              {state.countdown() > 0 ? `Resend code (${state.countdown()}s)` : "Resend code"}
+              {state.countdown() > 0
+                ? ttc("Resend code ({seconds}s)").replace("{seconds}", String(state.countdown()))
+                : ttc("Resend code")}
             </button>
           </div>
           <Show when={props.showChooser}>
             <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
-              Back to 2-step choices
+              {ttc("Back to 2-step choices")}
             </button>
           </Show>
           <button class={classesBackButton} type="button" onClick={props.showRootChooser} disabled={props.busy()}>
-            Back to methods
+            {ttc("Back to methods")}
           </button>
         </Match>
       </Switch>

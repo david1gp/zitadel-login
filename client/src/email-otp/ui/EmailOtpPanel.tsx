@@ -1,5 +1,6 @@
 import { Show } from "solid-js"
 
+import { ttc } from "../../i18n/model/ttc"
 import { classesBackButton } from "../../ui/classes/classesBackButton"
 import { classesCheckbox } from "../../ui/classes/classesCheckbox"
 import { classesCodeActions } from "../../ui/classes/classesCodeActions"
@@ -48,15 +49,15 @@ export function EmailOtpPanel(props: EmailOtpPanelProps) {
           <>
             <div class={classesIntro}>
               <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-                Check your email
+                {ttc("Check your email")}
               </h1>
               <p class={classesIntroCopy}>
-                Enter the code sent for <strong>{props.maskedEmail()}</strong>.
+                {ttc("Enter the code sent for {email}.").replace("{email}", props.maskedEmail())}
               </p>
             </div>
             <form onSubmit={props.codeSubmit} novalidate>
               <label class={classesLabel} for="code">
-                Verification code
+                {ttc("Verification code")}
               </label>
               <input
                 ref={props.codeInputRegister}
@@ -75,10 +76,10 @@ export function EmailOtpPanel(props: EmailOtpPanelProps) {
                 aria-describedby="code-help resend-status"
               />
               <p id="code-help" class={classesFieldHelp}>
-                Enter 6 to 20 digits.
+                {ttc("Enter 6 to 20 digits.")}
               </p>
               <button class={classesPrimaryButton} type="submit" disabled={props.busy() || props.code().length < 6}>
-                {props.busy() ? "Verifying..." : "Continue"}
+                {props.busy() ? ttc("Verifying...") : ttc("Continue")}
               </button>
             </form>
             <div class={classesCodeActions}>
@@ -89,31 +90,34 @@ export function EmailOtpPanel(props: EmailOtpPanelProps) {
                 disabled={props.busy() || !props.resendAllowed()}
                 aria-describedby={props.resendCountdown() > 0 ? "email-otp-resend-countdown" : undefined}
               >
-                Send a new code
+                {ttc("Send a new code")}
               </button>
               <button class={classesTextButton} type="button" onClick={props.emailChange} disabled={props.busy()}>
-                Change email
+                {ttc("Change email")}
               </button>
             </div>
             <Show when={props.resendCountdown() > 0}>
               <p id="email-otp-resend-countdown" class={classesFieldHelp} aria-live="polite" aria-atomic="true">
-                Another code can be sent in {props.resendCountdown()} seconds.
+                {ttc("Another code can be sent in {seconds} seconds.").replace(
+                  "{seconds}",
+                  String(props.resendCountdown()),
+                )}
               </p>
             </Show>
             <p id="resend-status" class={classesNoticeMessage} role="status">
-              {props.notice()}
+              {ttc(props.notice())}
             </p>
           </>
         }
       >
         <div class={classesIntro}>
           <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-            Enter your email
+            {ttc("Enter your email")}
           </h1>
         </div>
         <form onSubmit={props.emailSubmit} novalidate>
           <label class={classesLabel} for="email">
-            Email address
+            {ttc("Email address")}
           </label>
           <input
             ref={props.emailInputRegister}
@@ -137,15 +141,15 @@ export function EmailOtpPanel(props: EmailOtpPanelProps) {
               onChange={(event) => props.rememberIdentifierChange(event)}
               disabled={props.busy()}
             />
-            Remember this email
+            {ttc("Remember this email")}
           </label>
           <button class={classesPrimaryButton} type="submit" disabled={props.busy() || !props.valid()}>
-            {props.busy() ? "Sending..." : "Send code"}
+            {props.busy() ? ttc("Sending...") : ttc("Send code")}
           </button>
         </form>
       </Show>
       <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
-        Back to methods
+        {ttc("Back to methods")}
       </button>
     </section>
   )

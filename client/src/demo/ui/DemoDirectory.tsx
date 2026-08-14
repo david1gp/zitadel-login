@@ -1,6 +1,7 @@
 import { For } from "solid-js"
 
 import { MethodChoiceButton } from "../../flow/ui/MethodChoiceButton"
+import { ttc } from "../../i18n/model/ttc"
 import { classesDemoDirectoryGroup } from "../../ui/classes/classesDemoDirectoryGroup"
 import { classesDemoDirectoryList } from "../../ui/classes/classesDemoDirectoryList"
 import { classesHeading } from "../../ui/classes/classesHeading"
@@ -24,21 +25,21 @@ export function DemoDirectory(props: DemoDirectoryProps) {
     <section aria-labelledby="login-title">
       <div class={classesIntro}>
         <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-          Screen directory
+          {ttc("Screen directory")}
         </h1>
-        <p class={classesIntroCopy}>Open any login screen with fake data. Actions stay inside /demo.</p>
+        <p class={classesIntroCopy}>{ttc("Open any login screen with fake data. Actions stay inside /demo.")}</p>
       </div>
       <For each={groups()}>
         {(group) => (
           <section class={classesDemoDirectoryGroup}>
-            <h2>{group.group}</h2>
+            <h2>{ttc(group.group)}</h2>
             <ul class={classesDemoDirectoryList}>
               <For each={group.scenarios}>
                 {(scenario) => (
                   <li>
                     <MethodChoiceButton
-                      label={scenario.label}
-                      detail={scenario.detail}
+                      label={ttc(scenario.label)}
+                      detail={ttc(scenario.detail)}
                       iconPath={demoScenarioIconPathGet(scenario.id)}
                       current={scenario.id === props.currentId()}
                       onClick={() => props.open(scenario.path)}

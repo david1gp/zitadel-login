@@ -1,5 +1,6 @@
 import { For, Show } from "solid-js"
 
+import { ttc } from "../../i18n/model/ttc"
 import { classesAccountAvatar } from "../../ui/classes/classesAccountAvatar"
 import { classesAccountAvatarContainer } from "../../ui/classes/classesAccountAvatarContainer"
 import { classesAccountAvatarFallback } from "../../ui/classes/classesAccountAvatarFallback"
@@ -36,7 +37,7 @@ export function RecentAccountChooser(props: RecentAccountChooserProps) {
 
   return (
     <div class={classesRecentAccountSection}>
-      <p class={classesRecentAccountHeading}>Recent accounts</p>
+      <p class={classesRecentAccountHeading}>{ttc("Recent accounts")}</p>
       <ul class={classesRecentAccountList}>
         <For each={state.accounts()}>
           {(account) => (
@@ -67,7 +68,7 @@ export function RecentAccountChooser(props: RecentAccountChooserProps) {
                 <span class={classesAccountDetails}>
                   <span class={classesAccountLabel}>{account.label}</span>
                   <Show when={account.reauthenticationRequired}>
-                    <span class={classesAccountReauthBadge}>Reauthentication required</span>
+                    <span class={classesAccountReauthBadge}>{ttc("Reauthentication required")}</span>
                   </Show>
                 </span>
               </button>
@@ -78,7 +79,7 @@ export function RecentAccountChooser(props: RecentAccountChooserProps) {
       <Show when={props.useAnotherAccount}>
         <div class={classesRecentAccountDivider}>
           <button type="button" class={classesTextButton} disabled={props.busy()} onClick={props.useAnotherAccount}>
-            Use another method or account
+            {ttc("Use another method or account")}
           </button>
         </div>
       </Show>

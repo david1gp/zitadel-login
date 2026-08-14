@@ -1,5 +1,6 @@
 import { Match, Show, Switch } from "solid-js"
 
+import { ttc } from "../../i18n/model/ttc"
 import type { PasskeyOptions } from "../../passkey/model/passkeyOptionsSchema"
 import { classesBackButton } from "../../ui/classes/classesBackButton"
 import { classesFieldHelp } from "../../ui/classes/classesFieldHelp"
@@ -60,27 +61,26 @@ export function MfaWebAuthnEnrollPanel(props: MfaWebAuthnEnrollPanelProps) {
     setupUnavailable: props.setupUnavailable,
   })
 
-  const title = () => (props.method() === "passkey" ? "Set up a passkey" : "Set up a security key")
-  const action = () => (props.method() === "passkey" ? "Create passkey" : "Register security key")
-
   return (
     <div>
       <div class={classesIntro}>
         <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-          {title()}
+          {ttc(props.method() === "passkey" ? "Set up a passkey" : "Set up a security key")}
         </h1>
       </div>
       <Switch>
         <Match when={!state.isSupported()}>
           <p class={classesNoticeMessage}>
-            {props.method() === "passkey"
-              ? "Passkey registration is not supported in this browser."
-              : "Security key registration is not supported in this browser."}
+            {ttc(
+              props.method() === "passkey"
+                ? "Passkey registration is not supported in this browser."
+                : "Security key registration is not supported in this browser.",
+            )}
           </p>
         </Match>
         <Match when={state.stage() === "unavailable"}>
           <p class={classesMfaDescription}>
-            This registration cannot be resumed after a reload. Continue in ZITADEL to finish setup.
+            {ttc("This registration cannot be resumed after a reload. Continue in ZITADEL to finish setup.")}
           </p>
           <button
             class={classesPrimaryButton}
@@ -88,18 +88,20 @@ export function MfaWebAuthnEnrollPanel(props: MfaWebAuthnEnrollPanelProps) {
             onClick={() => props.fallbackContinue()}
             disabled={props.busy()}
           >
-            Continue in ZITADEL
+            {ttc("Continue in ZITADEL")}
           </button>
         </Match>
         <Match when={state.stage() === "start"}>
           <p class={classesMfaDescription}>
-            {props.method() === "passkey"
-              ? "Register a passkey with biometrics or a device PIN, then verify it once to continue."
-              : "Register a hardware security key, then verify it once to continue."}
+            {ttc(
+              props.method() === "passkey"
+                ? "Register a passkey with biometrics or a device PIN, then verify it once to continue."
+                : "Register a hardware security key, then verify it once to continue.",
+            )}
           </p>
           <form onSubmit={state.submit} novalidate>
             <label class={classesLabel} for="webauthn-enroll-name">
-              Name (optional)
+              {ttc("Name (optional)")}
             </label>
             <input
               class={classesInput}
@@ -117,22 +119,24 @@ export function MfaWebAuthnEnrollPanel(props: MfaWebAuthnEnrollPanelProps) {
               aria-describedby="webauthn-enroll-name-help"
             />
             <p id="webauthn-enroll-name-help" class={classesFieldHelp}>
-              Helps you recognize this device later.
+              {ttc("Helps you recognize this device later.")}
             </p>
             <button class={classesPrimaryButton} type="submit" disabled={props.busy()}>
-              {props.busy() ? "Registering..." : action()}
+              {props.busy()
+                ? ttc("Registering...")
+                : ttc(props.method() === "passkey" ? "Create passkey" : "Register security key")}
             </button>
           </form>
         </Match>
       </Switch>
       <Show when={!props.setupUnavailable && props.showChooser}>
         <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
-          Back to 2-step choices
+          {ttc("Back to 2-step choices")}
         </button>
       </Show>
       <Show when={!props.setupUnavailable}>
         <button class={classesBackButton} type="button" onClick={props.showRootChooser} disabled={props.busy()}>
-          Back to methods
+          {ttc("Back to methods")}
         </button>
       </Show>
     </div>

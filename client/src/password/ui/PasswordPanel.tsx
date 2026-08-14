@@ -1,5 +1,7 @@
 import { Show } from "solid-js"
 
+import { ttc } from "../../i18n/model/ttc"
+
 import { classesBackButton } from "../../ui/classes/classesBackButton"
 import { classesCheckbox } from "../../ui/classes/classesCheckbox"
 import { classesForgotPasswordButton } from "../../ui/classes/classesForgotPasswordButton"
@@ -43,26 +45,28 @@ export function PasswordPanel(props: PasswordPanelProps) {
           <div>
             <div class={classesIntro}>
               <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-                2-Step Verification Required
+                {ttc("2-Step Verification Required")}
               </h1>
               <p class={classesMfaNotice}>
-                Multi-factor authentication (MFA) is required for this account. MFA support will be enabled in Task 5.
+                {ttc(
+                  "Multi-factor authentication (MFA) is required for this account. MFA support will be enabled in Task 5.",
+                )}
               </p>
             </div>
             <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
-              Back to methods
+              {ttc("Back to methods")}
             </button>
           </div>
         }
       >
         <div class={classesIntro}>
           <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-            Sign in with password
+            {ttc("Sign in with password")}
           </h1>
         </div>
         <form onSubmit={props.submit} novalidate>
           <label class={classesLabel} for="identifier">
-            Username or email
+            {ttc("Username or email")}
           </label>
           <input
             ref={props.identifierInputRegister}
@@ -79,7 +83,7 @@ export function PasswordPanel(props: PasswordPanelProps) {
             disabled={props.busy()}
           />
           <label class={classesLabel} for="password">
-            Password
+            {ttc("Password")}
           </label>
           <div class={classesPasswordInputGroup}>
             <input
@@ -100,9 +104,9 @@ export function PasswordPanel(props: PasswordPanelProps) {
               type="button"
               onClick={props.toggleShowPassword}
               disabled={props.busy()}
-              aria-label={props.showPassword() ? "Hide password" : "Show password"}
+              aria-label={props.showPassword() ? ttc("Hide password") : ttc("Show password")}
             >
-              {props.showPassword() ? "Hide" : "Show"}
+              {props.showPassword() ? ttc("Hide") : ttc("Show")}
             </button>
           </div>
           <Show when={props.passwordRecoveryAvailable()}>
@@ -112,7 +116,7 @@ export function PasswordPanel(props: PasswordPanelProps) {
               onClick={props.passwordRecoveryStart}
               disabled={props.busy()}
             >
-              Forgot password?
+              {ttc("Forgot password?")}
             </button>
           </Show>
           <label class={classesRememberField}>
@@ -123,14 +127,14 @@ export function PasswordPanel(props: PasswordPanelProps) {
               onChange={(event) => props.rememberIdentifierChange(event)}
               disabled={props.busy()}
             />
-            Remember this identifier
+            {ttc("Remember this identifier")}
           </label>
           <button class={classesPrimaryButton} type="submit" disabled={props.busy() || !props.valid()}>
-            {props.busy() ? "Signing in..." : "Sign in"}
+            {props.busy() ? ttc("Signing in...") : ttc("Sign in")}
           </button>
         </form>
         <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
-          Back to methods
+          {ttc("Back to methods")}
         </button>
       </Show>
     </section>

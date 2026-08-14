@@ -1,5 +1,6 @@
 import { Show } from "solid-js"
 
+import { ttc } from "../../i18n/model/ttc"
 import { classesBackButton } from "../../ui/classes/classesBackButton"
 import { classesCheckbox } from "../../ui/classes/classesCheckbox"
 import { classesHeading } from "../../ui/classes/classesHeading"
@@ -40,14 +41,14 @@ export function PasskeyPanel(props: PasskeyPanelProps) {
           <div>
             <div class={classesIntro}>
               <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-                Passkey not supported
+                {ttc("Passkey not supported")}
               </h1>
               <p class={classesNoticeMessage}>
-                Passkey authentication is not supported in this browser. Please use another sign-in method.
+                {ttc("Passkey authentication is not supported in this browser. Please use another sign-in method.")}
               </p>
             </div>
             <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
-              Back to methods
+              {ttc("Back to methods")}
             </button>
           </div>
         }
@@ -58,27 +59,29 @@ export function PasskeyPanel(props: PasskeyPanelProps) {
             <div>
               <div class={classesIntro}>
                 <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-                  2-Step Verification Required
+                  {ttc("2-Step Verification Required")}
                 </h1>
                 <p class={classesMfaNotice}>
-                  Multi-factor authentication (MFA) is required for this account. MFA support will be enabled in Task 5.
+                  {ttc(
+                    "Multi-factor authentication (MFA) is required for this account. MFA support will be enabled in Task 5.",
+                  )}
                 </p>
               </div>
               <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
-                Back to methods
+                {ttc("Back to methods")}
               </button>
             </div>
           }
         >
           <div class={classesIntro}>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-              Sign in with passkey
+              {ttc("Sign in with passkey")}
             </h1>
           </div>
           <form onSubmit={handleSubmit} novalidate>
             <Show when={!props.options()}>
               <label class={classesLabel} for="identifier">
-                Username or email
+                {ttc("Username or email")}
               </label>
               <input
                 ref={props.identifierInputRegister}
@@ -102,15 +105,15 @@ export function PasskeyPanel(props: PasskeyPanelProps) {
                   onChange={(event) => props.rememberIdentifierChange(event)}
                   disabled={props.busy()}
                 />
-                Remember this identifier
+                {ttc("Remember this identifier")}
               </label>
             </Show>
             <button class={classesPrimaryButton} type="submit" disabled={props.busy()}>
-              {props.busy() ? "Signing in..." : "Sign in with passkey"}
+              {props.busy() ? ttc("Signing in...") : ttc("Sign in with passkey")}
             </button>
           </form>
           <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
-            Back to methods
+            {ttc("Back to methods")}
           </button>
         </Show>
       </Show>

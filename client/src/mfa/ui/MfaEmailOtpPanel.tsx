@@ -1,4 +1,5 @@
 import { Match, Show, Switch } from "solid-js"
+import { ttc } from "../../i18n/model/ttc"
 import { classesBackButton } from "../../ui/classes/classesBackButton"
 import { classesCodeInput } from "../../ui/classes/classesCodeInput"
 import { classesFieldHelp } from "../../ui/classes/classesFieldHelp"
@@ -58,29 +59,29 @@ export function MfaEmailOtpPanel(props: MfaEmailOtpPanelProps) {
         <Match when={state.stage() === "send"}>
           <div class={classesIntro}>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-              Email code
+              {ttc("Email code")}
             </h1>
-            <p class={classesIntroCopy}>Send a verification code to your email address.</p>
+            <p class={classesIntroCopy}>{ttc("Send a verification code to your email address.")}</p>
           </div>
           <button class={classesPrimaryButton} type="button" onClick={state.sendCode} disabled={props.busy()}>
-            {props.busy() ? "Sending code..." : "Send code"}
+            {props.busy() ? ttc("Sending code...") : ttc("Send code")}
           </button>
           <Show when={props.showChooser}>
             <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
-              Back to 2-step choices
+              {ttc("Back to 2-step choices")}
             </button>
           </Show>
           <button class={classesBackButton} type="button" onClick={props.showRootChooser} disabled={props.busy()}>
-            Back to methods
+            {ttc("Back to methods")}
           </button>
         </Match>
 
         <Match when={state.stage() === "enroll"}>
           <div class={classesIntro}>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-              Set up email codes
+              {ttc("Set up email codes")}
             </h1>
-            <p class={classesIntroCopy}>Verification codes will be sent to your account email address.</p>
+            <p class={classesIntroCopy}>{ttc("Verification codes will be sent to your account email address.")}</p>
           </div>
           <button
             class={classesPrimaryButton}
@@ -88,33 +89,33 @@ export function MfaEmailOtpPanel(props: MfaEmailOtpPanelProps) {
             onClick={() => void state.enroll()}
             disabled={props.busy()}
           >
-            {props.busy() ? "Setting up..." : "Set up email codes"}
+            {props.busy() ? ttc("Setting up...") : ttc("Set up email codes")}
           </button>
           <Show when={props.showChooser}>
             <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
-              Back to 2-step choices
+              {ttc("Back to 2-step choices")}
             </button>
           </Show>
           <button class={classesBackButton} type="button" onClick={props.showRootChooser} disabled={props.busy()}>
-            Back to methods
+            {ttc("Back to methods")}
           </button>
         </Match>
 
         <Match when={state.stage() === "code"}>
           <div class={classesIntro}>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-              Email verification code
+              {ttc("Email verification code")}
             </h1>
-            <p class={classesIntroCopy}>Enter the 6-20 digit code sent to your email address.</p>
+            <p class={classesIntroCopy}>{ttc("Enter the 6-20 digit code sent to your email address.")}</p>
           </div>
           <Show when={state.notice()}>
             <p class={classesNoticeMessage} role="status">
-              {state.notice()}
+              {ttc(state.notice())}
             </p>
           </Show>
           <form onSubmit={state.submit} novalidate>
             <label class={classesLabel} for="mfa-email-code">
-              Verification code
+              {ttc("Verification code")}
             </label>
             <input
               ref={state.codeInputRegister}
@@ -139,10 +140,10 @@ export function MfaEmailOtpPanel(props: MfaEmailOtpPanelProps) {
               aria-describedby="mfa-email-code-help"
             />
             <p id="mfa-email-code-help" class={classesFieldHelp}>
-              Enter 6 to 20 digits.
+              {ttc("Enter 6 to 20 digits.")}
             </p>
             <button class={classesPrimaryButton} type="submit" disabled={props.busy() || !state.valid()}>
-              {props.busy() ? "Verifying..." : "Verify"}
+              {props.busy() ? ttc("Verifying...") : ttc("Verify")}
             </button>
           </form>
           <div class={classesResendSection}>
@@ -153,21 +154,21 @@ export function MfaEmailOtpPanel(props: MfaEmailOtpPanelProps) {
               disabled={props.busy() || !state.resendAllowed()}
               aria-describedby={state.countdown() > 0 ? "mfa-email-otp-resend-countdown" : undefined}
             >
-              Resend code
+              {ttc("Resend code")}
             </button>
             <Show when={state.countdown() > 0}>
               <p id="mfa-email-otp-resend-countdown" class={classesFieldHelp} aria-live="polite" aria-atomic="true">
-                Another code can be sent in {state.countdown()} seconds.
+                {ttc("Another code can be sent in {seconds} seconds.").replace("{seconds}", String(state.countdown()))}
               </p>
             </Show>
           </div>
           <Show when={props.showChooser}>
             <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>
-              Back to 2-step choices
+              {ttc("Back to 2-step choices")}
             </button>
           </Show>
           <button class={classesBackButton} type="button" onClick={props.showRootChooser} disabled={props.busy()}>
-            Back to methods
+            {ttc("Back to methods")}
           </button>
         </Match>
       </Switch>

@@ -1,5 +1,6 @@
 import { Show } from "solid-js"
 
+import { ttc } from "../../i18n/model/ttc"
 import type { RecentAccountSummary } from "../../session/model/recentAccountSummarySchema"
 import { RecentAccountChooser } from "../../session/ui/RecentAccountChooser"
 import { classesHeading } from "../../ui/classes/classesHeading"
@@ -32,7 +33,7 @@ export function MethodChooser(props: MethodChooserProps) {
     <section aria-labelledby="login-title">
       <div class={classesIntro}>
         <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-          {hasRecentAccounts() ? "Choose an account or method" : "Choose a method"}
+          {hasRecentAccounts() ? ttc("Choose an account or method") : ttc("Choose a method")}
         </h1>
       </div>
       <Show when={hasRecentAccounts() && props.selectAccount}>
@@ -41,14 +42,14 @@ export function MethodChooser(props: MethodChooserProps) {
           selectAccount={props.selectAccount!}
           busy={props.busy ?? (() => false)}
         />
-        <p class={classesMethodChooserDivider}>Or choose a method</p>
+        <p class={classesMethodChooserDivider}>{ttc("Or choose a method")}</p>
       </Show>
       <ul class={classesMethodList}>
         {props.methods().map((method) => (
           <li>
             <MethodChoiceButton
-              label={method.label}
-              detail={method.detail}
+              label={method.selection.method === "identity_provider" ? method.label : ttc(method.label)}
+              detail={method.detail ? ttc(method.detail) : undefined}
               iconPath={loginMethodIconPathGet(method.selection, method.identityProviderType)}
               iconClass={classesMethodChoiceIcon}
               disabled={props.busy ? props.busy() : false}

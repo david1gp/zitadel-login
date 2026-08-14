@@ -47,9 +47,8 @@ export function mfaStateCreate(inputs: Inputs) {
     inFlight = false
 
     if (!res.success) {
-      const msg = "Unable to load 2-Step Verification options."
-      error.set(msg)
-      inputs.failureSet(msg)
+      error.set("Unable to load 2-Step Verification options.")
+      inputs.failureSet("Unable to load 2-Step Verification options.")
       return
     }
 

@@ -1,5 +1,6 @@
 import { mdiGithub } from "@adaptive-ds/mdi/mdiGithub.js"
 
+import { ttc } from "../../i18n/model/ttc"
 import { classesDemoGithubLink } from "../../ui/classes/classesDemoGithubLink"
 import { Icon } from "../../ui/Icon"
 
@@ -12,8 +13,8 @@ export function DemoGithubLink() {
       href={demoGithubUrl}
       target="_blank"
       rel="noreferrer"
-      aria-label="GitHub project"
-      title="GitHub"
+      aria-label={ttc("GitHub project")}
+      title={ttc("GitHub")}
     >
       <Icon path={mdiGithub} />
     </a>

@@ -1,3 +1,4 @@
+import { ttc } from "../../i18n/model/ttc"
 import { classesThemeToggle } from "../../ui/classes/classesThemeToggle"
 import { classesThemeToggleButton } from "../../ui/classes/classesThemeToggleButton"
 import { classesThemeToggleIcon } from "../../ui/classes/classesThemeToggleIcon"
@@ -16,17 +17,17 @@ export function ThemeToggle(props: ThemeToggleProps) {
     <fieldset
       class={classesThemeToggle}
       disabled={!props.switchable()}
-      title={props.switchable() ? undefined : "Theme is set by the organization"}
+      title={props.switchable() ? undefined : ttc("Theme is set by the organization")}
     >
-      <legend class={classesVisuallyHidden}>Theme</legend>
+      <legend class={classesVisuallyHidden}>{ttc("Theme")}</legend>
       {(["light", "dark", "system"] as const).map((value) => {
         const label = `${value[0]?.toUpperCase()}${value.slice(1)}`
         return (
           <button
             type="button"
             aria-pressed={props.preference() === value}
-            aria-label={`${label} theme`}
-            title={label}
+            aria-label={ttc(`${label} theme`)}
+            title={ttc(label)}
             class={classesThemeToggleButton}
             onClick={() => props.select(value)}
           >

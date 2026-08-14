@@ -1,5 +1,6 @@
 import { Match, Switch } from "solid-js"
 
+import { ttc } from "../../i18n/model/ttc"
 import { classesBackButton } from "../../ui/classes/classesBackButton"
 import { classesHeading } from "../../ui/classes/classesHeading"
 import { classesInput } from "../../ui/classes/classesInput"
@@ -41,40 +42,40 @@ export function PasswordResetPanel(props: PasswordResetPanelProps) {
           <div class={classesLoadingState} role="status">
             <span class={classesSpinner} aria-hidden="true" />
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
-              Checking your reset link...
+              {ttc("Checking your reset link...")}
             </h1>
           </div>
         </Match>
         <Match when={state.step() === "invalid_link"}>
           <div class={classesIntro}>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-              This reset link is no longer valid
+              {ttc("This reset link is no longer valid")}
             </h1>
           </div>
           <button class={classesBackButton} type="button" onClick={props.showLogin}>
-            Back to sign-in
+            {ttc("Back to sign-in")}
           </button>
         </Match>
         <Match when={state.step() === "complete"}>
           <div class={classesIntro}>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-              Your password was changed
+              {ttc("Your password was changed")}
             </h1>
-            <p class={classesIntroCopy}>Sign in with your new password to continue.</p>
+            <p class={classesIntroCopy}>{ttc("Sign in with your new password to continue.")}</p>
           </div>
           <button class={classesBackButton} type="button" onClick={props.showLogin}>
-            Back to sign-in
+            {ttc("Back to sign-in")}
           </button>
         </Match>
         <Match when={state.step() === "ready"}>
           <div class={classesIntro}>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-              Choose a new password
+              {ttc("Choose a new password")}
             </h1>
           </div>
           <form onSubmit={state.submit} novalidate>
             <label class={classesLabel} for="new-password">
-              New password
+              {ttc("New password")}
             </label>
             <div class={classesPasswordInputGroup}>
               <input
@@ -95,13 +96,13 @@ export function PasswordResetPanel(props: PasswordResetPanelProps) {
                 type="button"
                 onClick={state.toggleShowPassword}
                 disabled={state.busy()}
-                aria-label={state.showPassword() ? "Hide password" : "Show password"}
+                aria-label={state.showPassword() ? ttc("Hide password") : ttc("Show password")}
               >
-                {state.showPassword() ? "Hide" : "Show"}
+                {state.showPassword() ? ttc("Hide") : ttc("Show")}
               </button>
             </div>
             <label class={classesLabel} for="confirm-password">
-              Confirm new password
+              {ttc("Confirm new password")}
             </label>
             <input
               class={classesInput}
@@ -116,11 +117,11 @@ export function PasswordResetPanel(props: PasswordResetPanelProps) {
               disabled={state.busy()}
             />
             <button class={classesPrimaryButton} type="submit" disabled={state.busy() || !state.valid()}>
-              {state.busy() ? "Saving..." : "Set new password"}
+              {state.busy() ? ttc("Saving...") : ttc("Set new password")}
             </button>
           </form>
           <button class={classesBackButton} type="button" onClick={props.showLogin} disabled={state.busy()}>
-            Back to sign-in
+            {ttc("Back to sign-in")}
           </button>
         </Match>
       </Switch>

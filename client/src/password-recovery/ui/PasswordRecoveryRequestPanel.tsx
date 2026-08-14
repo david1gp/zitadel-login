@@ -1,5 +1,6 @@
 import { Match, Switch } from "solid-js"
 
+import { ttc } from "../../i18n/model/ttc"
 import { classesBackButton } from "../../ui/classes/classesBackButton"
 import { classesHeading } from "../../ui/classes/classesHeading"
 import { classesInput } from "../../ui/classes/classesInput"
@@ -39,40 +40,42 @@ export function PasswordRecoveryRequestPanel(props: PasswordRecoveryRequestPanel
           <div class={classesLoadingState} role="status">
             <span class={classesSpinner} aria-hidden="true" />
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
-              Loading password recovery...
+              {ttc("Loading password recovery...")}
             </h1>
           </div>
         </Match>
         <Match when={state.step() === "sent"}>
           <div class={classesIntro}>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-              Check your email
+              {ttc("Check your email")}
             </h1>
-            <p class={classesIntroCopy}>If an account matches that email address, we sent a password reset link.</p>
+            <p class={classesIntroCopy}>
+              {ttc("If an account matches that email address, we sent a password reset link.")}
+            </p>
           </div>
           <button class={classesBackButton} type="button" onClick={props.showLogin}>
-            Back to sign-in
+            {ttc("Back to sign-in")}
           </button>
         </Match>
         <Match when={state.step() === "fatal"}>
           <div class={classesIntro}>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-              Password recovery unavailable
+              {ttc("Password recovery unavailable")}
             </h1>
           </div>
           <button class={classesBackButton} type="button" onClick={props.showLogin}>
-            Back to sign-in
+            {ttc("Back to sign-in")}
           </button>
         </Match>
         <Match when={state.step() === "email"}>
           <div class={classesIntro}>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-              Reset your password
+              {ttc("Reset your password")}
             </h1>
           </div>
           <form onSubmit={state.submit} novalidate>
             <label class={classesLabel} for="recovery-email">
-              Email address
+              {ttc("Email address")}
             </label>
             <input
               ref={state.emailInputRegister}
@@ -89,11 +92,11 @@ export function PasswordRecoveryRequestPanel(props: PasswordRecoveryRequestPanel
               disabled={state.busy()}
             />
             <button class={classesPrimaryButton} type="submit" disabled={state.busy() || !state.valid()}>
-              {state.busy() ? "Sending..." : "Send reset link"}
+              {state.busy() ? ttc("Sending...") : ttc("Send reset link")}
             </button>
           </form>
           <button class={classesBackButton} type="button" onClick={props.showLogin} disabled={state.busy()}>
-            Back to sign-in
+            {ttc("Back to sign-in")}
           </button>
         </Match>
       </Switch>

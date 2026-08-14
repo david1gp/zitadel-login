@@ -1,6 +1,8 @@
 import type { JSX } from "solid-js"
 import { Show } from "solid-js"
 
+import { LanguageSwitcher } from "../i18n/ui/LanguageSwitcher"
+import { ttc } from "../i18n/model/ttc"
 import { ThemeToggle } from "../preferences/ui/ThemeToggle"
 import { classMerge } from "./classMerge"
 import { classesLoginCard } from "./classes/classesLoginCard"
@@ -22,6 +24,7 @@ export function LoginFrame(props: LoginFrameProps) {
   return (
     <div class={classMerge(classesLoginFrame, props.cardClass)}>
       <div class={classesLoginTheme}>
+        <LanguageSwitcher />
         <ThemeToggle preference={props.preferredTheme} switchable={props.themeSwitchable} select={props.themeSelect} />
       </div>
       <section
@@ -32,8 +35,9 @@ export function LoginFrame(props: LoginFrameProps) {
       </section>
       <Show when={props.legal()?.termsOfServiceUrl && props.legal()?.privacyPolicyUrl}>
         <p class={classesLoginLegal}>
-          By continuing, you acknowledge the <a href={props.legal()?.termsOfServiceUrl}>Terms of Service</a> and{" "}
-          <a href={props.legal()?.privacyPolicyUrl}>Privacy Policy</a>.
+          {ttc("By continuing, you acknowledge the")}{" "}
+          <a href={props.legal()?.termsOfServiceUrl}>{ttc("Terms of Service")}</a> {ttc("and")}{" "}
+          <a href={props.legal()?.privacyPolicyUrl}>{ttc("Privacy Policy")}</a>.
         </p>
       </Show>
     </div>

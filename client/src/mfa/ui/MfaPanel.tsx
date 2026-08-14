@@ -1,6 +1,7 @@
 import { For, Match, Show, Switch } from "solid-js"
 import type { LoginMethodSelection } from "../../flow/model/loginMethodSelectionSchema"
 import { MethodChoiceButton } from "../../flow/ui/MethodChoiceButton"
+import { ttc } from "../../i18n/model/ttc"
 import { classesBackButton } from "../../ui/classes/classesBackButton"
 import { classesHeading } from "../../ui/classes/classesHeading"
 import { classesIntro } from "../../ui/classes/classesIntro"
@@ -176,14 +177,14 @@ export function MfaPanel(props: MfaPanelProps) {
           <div class={classesLoadingState} role="status">
             <span class={classesSpinner} aria-hidden="true" />
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1">
-              Loading 2-step verification options...
+              {ttc("Loading 2-step verification options...")}
             </h1>
           </div>
         </Match>
         <Match when={!state.options()}>
           <div class={classesIntro}>
             <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-              2-Step Verification
+              {ttc("2-Step Verification")}
             </h1>
           </div>
           <button
@@ -192,10 +193,10 @@ export function MfaPanel(props: MfaPanelProps) {
             onClick={() => void state.reload()}
             disabled={props.busy()}
           >
-            Retry loading options
+            {ttc("Retry loading options")}
           </button>
           <button class={classesBackButton} type="button" onClick={state.showRootChooser} disabled={props.busy()}>
-            Back to methods
+            {ttc("Back to methods")}
           </button>
         </Match>
         <Match when={state.options()}>
@@ -343,11 +344,14 @@ export function MfaPanel(props: MfaPanelProps) {
                     <div>
                       <div class={classesIntro}>
                         <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-                          {mfaFactorLabelGet(factorType())}
+                          {ttc(mfaFactorLabelGet(factorType()))}
                         </h1>
                       </div>
                       <p class={classesMfaDescription}>
-                        Verification with {mfaFactorLabelGet(factorType())} will be completed in the next update.
+                        {ttc("Verification with {method} will be completed in the next update.").replace(
+                          "{method}",
+                          ttc(mfaFactorLabelGet(factorType())),
+                        )}
                       </p>
                       <button
                         class={classesPrimaryButton}
@@ -355,7 +359,7 @@ export function MfaPanel(props: MfaPanelProps) {
                         onClick={() => props.fallbackContinue()}
                         disabled={props.busy()}
                       >
-                        Continue in ZITADEL
+                        {ttc("Continue in ZITADEL")}
                       </button>
                       <Show when={selectOptions() || enrollOptions() || skipOptions()}>
                         <button
@@ -364,7 +368,7 @@ export function MfaPanel(props: MfaPanelProps) {
                           onClick={state.showChooser}
                           disabled={props.busy()}
                         >
-                          Back to 2-step choices
+                          {ttc("Back to 2-step choices")}
                         </button>
                       </Show>
                       <button
@@ -373,7 +377,7 @@ export function MfaPanel(props: MfaPanelProps) {
                         onClick={state.showRootChooser}
                         disabled={props.busy()}
                       >
-                        Back to methods
+                        {ttc("Back to methods")}
                       </button>
                     </div>
                   </Match>
@@ -471,11 +475,14 @@ export function MfaPanel(props: MfaPanelProps) {
                     <div>
                       <div class={classesIntro}>
                         <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-                          {mfaFactorLabelGet(check().method.type)}
+                          {ttc(mfaFactorLabelGet(check().method.type))}
                         </h1>
                       </div>
                       <p class={classesMfaDescription}>
-                        Verification with {mfaFactorLabelGet(check().method.type)} will be completed in the next update.
+                        {ttc("Verification with {method} will be completed in the next update.").replace(
+                          "{method}",
+                          ttc(mfaFactorLabelGet(check().method.type)),
+                        )}
                       </p>
                       <button
                         class={classesPrimaryButton}
@@ -483,7 +490,7 @@ export function MfaPanel(props: MfaPanelProps) {
                         onClick={() => props.fallbackContinue()}
                         disabled={props.busy()}
                       >
-                        Continue in ZITADEL
+                        {ttc("Continue in ZITADEL")}
                       </button>
                       <button
                         class={classesBackButton}
@@ -491,7 +498,7 @@ export function MfaPanel(props: MfaPanelProps) {
                         onClick={state.showRootChooser}
                         disabled={props.busy()}
                       >
-                        Back to methods
+                        {ttc("Back to methods")}
                       </button>
                     </div>
                   </Match>
@@ -504,7 +511,7 @@ export function MfaPanel(props: MfaPanelProps) {
                 <div>
                   <div class={classesIntro}>
                     <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-                      Choose 2-step verification method
+                      {ttc("Choose 2-step verification method")}
                     </h1>
                   </div>
                   <ul class={classesMethodList}>
@@ -512,8 +519,8 @@ export function MfaPanel(props: MfaPanelProps) {
                       {(method) => (
                         <li>
                           <MethodChoiceButton
-                            label={mfaFactorLabelGet(method.type)}
-                            detail={mfaFactorDetailGet(method.type)}
+                            label={ttc(mfaFactorLabelGet(method.type))}
+                            detail={ttc(mfaFactorDetailGet(method.type))}
                             iconPath={mfaFactorIconPathGet(method.type)}
                             disabled={props.busy()}
                             onClick={() => state.selectFactor(method.type)}
@@ -528,7 +535,7 @@ export function MfaPanel(props: MfaPanelProps) {
                     onClick={state.showRootChooser}
                     disabled={props.busy()}
                   >
-                    Back to methods
+                    {ttc("Back to methods")}
                   </button>
                 </div>
               )}
@@ -539,17 +546,19 @@ export function MfaPanel(props: MfaPanelProps) {
                 <div>
                   <div class={classesIntro}>
                     <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-                      Set up 2-step verification
+                      {ttc("Set up 2-step verification")}
                     </h1>
                   </div>
-                  <p class={classesMfaDescription}>Select a method to set up 2-step verification for your account.</p>
+                  <p class={classesMfaDescription}>
+                    {ttc("Select a method to set up 2-step verification for your account.")}
+                  </p>
                   <ul class={classesMethodList}>
                     <For each={enroll().methods}>
                       {(method) => (
                         <li>
                           <MethodChoiceButton
-                            label={`Set up ${mfaFactorLabelGet(method.type)}`}
-                            detail={mfaFactorDetailGet(method.type)}
+                            label={ttc("Set up {method}").replace("{method}", ttc(mfaFactorLabelGet(method.type)))}
+                            detail={ttc(mfaFactorDetailGet(method.type))}
                             iconPath={mfaFactorIconPathGet(method.type)}
                             disabled={props.busy()}
                             onClick={() => state.selectFactor(method.type)}
@@ -564,7 +573,7 @@ export function MfaPanel(props: MfaPanelProps) {
                     onClick={state.showRootChooser}
                     disabled={props.busy()}
                   >
-                    Back to methods
+                    {ttc("Back to methods")}
                   </button>
                 </div>
               )}
@@ -577,27 +586,29 @@ export function MfaPanel(props: MfaPanelProps) {
                     <Match when={skip().reason === "factor_satisfied"}>
                       <div class={classesIntro}>
                         <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-                          2-Step verification satisfied
+                          {ttc("2-Step verification satisfied")}
                         </h1>
                       </div>
-                      <p class={classesMfaDescription}>Your sign-in already satisfies 2-step verification policy.</p>
+                      <p class={classesMfaDescription}>
+                        {ttc("Your sign-in already satisfies 2-step verification policy.")}
+                      </p>
                       <button
                         class={classesPrimaryButton}
                         type="button"
                         onClick={() => props.fallbackContinue()}
                         disabled={props.busy()}
                       >
-                        Continue sign-in
+                        {ttc("Continue sign-in")}
                       </button>
                     </Match>
                     <Match when={skip().reason === "optional_setup"}>
                       <div class={classesIntro}>
                         <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-                          Optional 2-step verification
+                          {ttc("Optional 2-step verification")}
                         </h1>
                       </div>
                       <p class={classesMfaDescription}>
-                        You can set up 2-step verification for extra security or skip for now.
+                        {ttc("You can set up 2-step verification for extra security or skip for now.")}
                       </p>
                       <Show when={skip().methods.length > 0}>
                         <ul class={classesMethodList}>
@@ -605,8 +616,11 @@ export function MfaPanel(props: MfaPanelProps) {
                             {(method) => (
                               <li>
                                 <MethodChoiceButton
-                                  label={`Set up ${mfaFactorLabelGet(method.type)}`}
-                                  detail={mfaFactorDetailGet(method.type)}
+                                  label={ttc("Set up {method}").replace(
+                                    "{method}",
+                                    ttc(mfaFactorLabelGet(method.type)),
+                                  )}
+                                  detail={ttc(mfaFactorDetailGet(method.type))}
                                   iconPath={mfaFactorIconPathGet(method.type)}
                                   disabled={props.busy()}
                                   onClick={() => state.selectFactor(method.type)}
@@ -622,7 +636,7 @@ export function MfaPanel(props: MfaPanelProps) {
                         onClick={state.skipSubmit}
                         disabled={props.busy()}
                       >
-                        {props.busy() ? "Skipping..." : "Skip for now"}
+                        {props.busy() ? ttc("Skipping...") : ttc("Skip for now")}
                       </button>
                     </Match>
                   </Switch>
@@ -632,7 +646,7 @@ export function MfaPanel(props: MfaPanelProps) {
                     onClick={state.showRootChooser}
                     disabled={props.busy()}
                   >
-                    Back to methods
+                    {ttc("Back to methods")}
                   </button>
                 </div>
               )}
@@ -643,13 +657,13 @@ export function MfaPanel(props: MfaPanelProps) {
                 <div>
                   <div class={classesIntro}>
                     <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-                      2-Step verification required
+                      {ttc("2-Step verification required")}
                     </h1>
                   </div>
                   <p class={classesMfaDescription}>
                     {fb().reason === "recovery_code"
-                      ? "Recovery code verification requires native ZITADEL sign-in."
-                      : "This 2-step verification option requires native ZITADEL sign-in."}
+                      ? ttc("Recovery code verification requires native ZITADEL sign-in.")
+                      : ttc("This 2-step verification option requires native ZITADEL sign-in.")}
                   </p>
                   <button
                     class={classesPrimaryButton}
@@ -657,7 +671,7 @@ export function MfaPanel(props: MfaPanelProps) {
                     onClick={() => props.fallbackContinue()}
                     disabled={props.busy()}
                   >
-                    Continue in ZITADEL
+                    {ttc("Continue in ZITADEL")}
                   </button>
                   <button
                     class={classesBackButton}
@@ -665,7 +679,7 @@ export function MfaPanel(props: MfaPanelProps) {
                     onClick={state.showRootChooser}
                     disabled={props.busy()}
                   >
-                    Back to methods
+                    {ttc("Back to methods")}
                   </button>
                 </div>
               )}

@@ -1,3 +1,4 @@
+import { ttc } from "../../i18n/model/ttc"
 import { classesHeading } from "../../ui/classes/classesHeading"
 import { classesInput } from "../../ui/classes/classesInput"
 import { classesIntro } from "../../ui/classes/classesIntro"
@@ -45,17 +46,17 @@ export function PasswordChangeRequiredPanel(props: PasswordChangeRequiredPanelPr
     <section aria-labelledby="login-title">
       <div class={classesIntro}>
         <h1 ref={props.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-          Change your password
+          {ttc("Change your password")}
         </h1>
         <p class={classesIntroCopy}>
           {props.expired()
-            ? "Your password has expired. Set a new password to continue."
-            : "Your password must be changed before you continue."}
+            ? ttc("Your password has expired. Set a new password to continue.")
+            : ttc("Your password must be changed before you continue.")}
         </p>
       </div>
       <form onSubmit={state.submit} novalidate>
         <label class={classesLabel} for="current-password">
-          Current password
+          {ttc("Current password")}
         </label>
         <input
           ref={state.currentPasswordInputRegister}
@@ -71,7 +72,7 @@ export function PasswordChangeRequiredPanel(props: PasswordChangeRequiredPanelPr
           disabled={props.busy()}
         />
         <label class={classesLabel} for="new-password">
-          New password
+          {ttc("New password")}
         </label>
         <div class={classesPasswordInputGroup}>
           <input
@@ -92,13 +93,13 @@ export function PasswordChangeRequiredPanel(props: PasswordChangeRequiredPanelPr
             type="button"
             onClick={state.toggleShowPassword}
             disabled={props.busy()}
-            aria-label={state.showPassword() ? "Hide password" : "Show password"}
+            aria-label={state.showPassword() ? ttc("Hide password") : ttc("Show password")}
           >
-            {state.showPassword() ? "Hide" : "Show"}
+            {state.showPassword() ? ttc("Hide") : ttc("Show")}
           </button>
         </div>
         <label class={classesLabel} for="confirm-password">
-          Confirm new password
+          {ttc("Confirm new password")}
         </label>
         <input
           class={classesInput}
@@ -113,7 +114,7 @@ export function PasswordChangeRequiredPanel(props: PasswordChangeRequiredPanelPr
           disabled={props.busy()}
         />
         <button class={classesPrimaryButton} type="submit" disabled={props.busy() || !state.valid()}>
-          {props.busy() ? "Saving..." : "Change password"}
+          {props.busy() ? ttc("Saving...") : ttc("Change password")}
         </button>
       </form>
     </section>

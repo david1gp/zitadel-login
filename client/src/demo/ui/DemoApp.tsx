@@ -11,6 +11,7 @@ import { PasswordChangeRequiredPanel } from "../../password/ui/PasswordChangeReq
 import { PasswordPanel } from "../../password/ui/PasswordPanel"
 import { PasswordRecoveryRequestPanel } from "../../password-recovery/ui/PasswordRecoveryRequestPanel"
 import { PasswordResetPanel } from "../../password-recovery/ui/PasswordResetPanel"
+import { ttc } from "../../i18n/model/ttc"
 import { classesCardTop } from "../../ui/classes/classesCardTop"
 import { classesContent } from "../../ui/classes/classesContent"
 import { classesDemoScenarioMeta } from "../../ui/classes/classesDemoScenarioMeta"
@@ -80,7 +81,7 @@ export function DemoApp() {
           <div class={classesContent}>
             <Show when={showScenarioMeta(id())}>
               <p class={classesDemoScenarioMeta}>
-                {state.scenario().group} · {state.scenario().label}
+                {ttc(state.scenario().group)} · {ttc(state.scenario().label)}
               </p>
             </Show>
             <Show when={id()} keyed>
@@ -98,14 +99,14 @@ export function DemoApp() {
                     <div class={classesLoadingState} role="status">
                       <span class={classesSpinner} aria-hidden="true" />
                       <h1 ref={state.headingRegister} id="login-title" tabindex="-1">
-                        {scenarioId === "continuing" ? "Continuing sign-in..." : "Loading sign-in..."}
+                        {scenarioId === "continuing" ? ttc("Continuing sign-in...") : ttc("Loading sign-in...")}
                       </h1>
                     </div>
                   </Match>
                   <Match when={scenarioId === "fatal"}>
                     <div class={classesIntro}>
                       <h1 ref={state.headingRegister} id="login-title" tabindex="-1" class={classesHeading}>
-                        Start sign-in again
+                        {ttc("Start sign-in again")}
                       </h1>
                     </div>
                   </Match>
@@ -283,12 +284,12 @@ export function DemoApp() {
             </Show>
             <Show when={state.error()}>
               <div ref={state.errorRegister} id="error-message" class={classesErrorMessage} role="alert" tabindex="-1">
-                {state.error()}
+                {ttc(state.error())}
               </div>
             </Show>
             <Show when={state.completed()}>
               <p class={classesNoticeMessage} role="status">
-                {state.completed()}
+                {ttc(state.completed())}
               </p>
             </Show>
           </div>
