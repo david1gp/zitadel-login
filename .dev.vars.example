@@ -13,4 +13,6 @@ ZITADEL_LOGIN_CLIENT_PAT=
 # FLOW_COOKIE_KEY is 32 random bytes encoded as unpadded base64url.
 # Generate with: openssl rand -base64 32 | tr '+/' '-_' | tr -d '='
 FLOW_COOKIE_KEY=
+# OTP_LIMIT_TEST_SECRET enables POST /api/v2/internal/otp-limit-test. Leave empty to keep the route 404.
+OTP_LIMIT_TEST_SECRET=
 ZITADEL_PASSWORD_RESET_V2_ENABLED=false

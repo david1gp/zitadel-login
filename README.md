@@ -103,6 +103,8 @@ Copy [`wrangler.example.jsonc`](./wrangler.example.jsonc) to `wrangler.jsonc` an
 | `RECENT_ACCOUNT_COOKIE_KEY` | Optional | Same key format as `FLOW_COOKIE_KEY`. Set this to remember recent accounts. |
 | `RECENT_ACCOUNT_COOKIE_PREVIOUS_KEY` | Optional | Previous recent-account key, used only for rotation. |
 | `RATE_LIMITER` | No | Cloudflare Rate Limit binding named `RATE_LIMITER`; the example uses a five-request, 60-second window. |
+| `EMAIL_OTP_COOLDOWN` | No | SQLite-backed Durable Object binding used for atomic email OTP cooldown reservations, including the isolated synthetic test scope. |
+| `OTP_LIMIT_TEST_SECRET` | Optional | 32–256 character Worker secret. Required together with `EMAIL_OTP_COOLDOWN` to enable `POST /api/v2/internal/otp-limit-test`. |
 
 Generate a cookie key without putting it in shell history:
 
@@ -115,7 +117,20 @@ Set deployed secrets interactively so they do not appear in command arguments:
 ```bash
 bunx wrangler secret put ZITADEL_LOGIN_CLIENT_PAT --config wrangler.jsonc
 bunx wrangler secret put FLOW_COOKIE_KEY --config wrangler.jsonc
+bunx wrangler secret put OTP_LIMIT_TEST_SECRET --config wrangler.jsonc
 ```
+
+The isolated OTP limit test API is disabled until both `OTP_LIMIT_TEST_SECRET` and `EMAIL_OTP_COOLDOWN` are configured. It never calls ZITADEL or sends email. The request host and `Origin` header must both equal `PAGES_ORIGIN`:
+
+```bash
+curl -X POST "$PAGES_ORIGIN/api/v2/internal/otp-limit-test" \
+  -H "Origin: $PAGES_ORIGIN" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $OTP_LIMIT_TEST_SECRET" \
+  -d '{"bucket":"synthetic","key":"probe-1"}'
+```
+
+A first accepted probe returns `200` with cooldown metadata. A repeat probe for the same key returns `429` with `Retry-After`. Unconfigured secret or Durable Object bindings return `404`.
 
 ## Local development
 

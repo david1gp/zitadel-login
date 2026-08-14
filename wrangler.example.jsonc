@@ -19,6 +19,20 @@
     "PRIVACY_POLICY_URL": "https://your-site.example/privacy",
     "ZITADEL_PASSWORD_RESET_V2_ENABLED": "false"
   },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "EMAIL_OTP_COOLDOWN",
+        "class_name": "EmailOtpCooldownObject"
+      }
+    ]
+  },
+  "exports": {
+    "EmailOtpCooldownObject": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    }
+  },
   "ratelimits": [
     {
       "name": "RATE_LIMITER",
@@ -30,5 +44,6 @@
     }
   ]
   // Set ZITADEL_LOGIN_CLIENT_PAT and FLOW_COOKIE_KEY with `wrangler secret put`.
+  // Set OTP_LIMIT_TEST_SECRET to enable POST /api/v2/internal/otp-limit-test.
   // Set RECENT_ACCOUNT_COOKIE_KEY and RECENT_ACCOUNT_COOKIE_PREVIOUS_KEY separately to opt into recent accounts.
 }
