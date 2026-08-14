@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test"
 
 import type { WorkerBindings } from "../src/config/workerBindingsSchema"
+import { emailOtpCooldownClientCreate } from "../src/email-otp/cooldown/emailOtpCooldownClientCreate"
 import type { FlowV2Cookie } from "../src/flow/model/flowV2CookieSchema"
 import { mfaV2EmailOtpChallenge } from "../src/mfa/domain/mfaV2EmailOtpChallenge"
 import { mfaV2EmailOtpResend } from "../src/mfa/domain/mfaV2EmailOtpResend"
 import { zitadelClientCreate } from "../src/zitadel/zitadelClientCreate"
+import { emailOtpCooldownNamespaceFakeCreate } from "./emailOtpCooldownNamespaceFakeCreate"
 
 const identityOrigin = "https://identity.example"
 const verifiedAt = "2026-08-11T12:00:00Z"
@@ -123,6 +125,15 @@ function nativeCreate(options: NativeOptions = {}) {
   return { client: zitadelClientCreate(bindings, fetch), calls }
 }
 
+function cooldownCreate(namespace = emailOtpCooldownNamespaceFakeCreate()) {
+  return emailOtpCooldownClientCreate({
+    namespace,
+    cookieKey: bindings.FLOW_COOKIE_KEY,
+    purpose: "mfa-email-otp",
+    identifier: state.authRequestId,
+  })
+}
+
 describe("mfaV2EmailOtpChallenge", () => {
   test("delivers MFA email OTP challenge when method is enrolled and allowed", async () => {
     const native = nativeCreate()
@@ -130,6 +141,7 @@ describe("mfaV2EmailOtpChallenge", () => {
       state,
       now,
       client: native.client,
+      cooldown: cooldownCreate(),
     })
 
     expect(result.success).toBe(true)
@@ -153,12 +165,48 @@ describe("mfaV2EmailOtpChallenge", () => {
       state,
       now,
       client: native.client,
+      cooldown: cooldownCreate(),
     })
 
     expect(result.success).toBe(true)
     if (!result.success) return
     expect(result.data.state.sessionToken).toBe("secret-resend-token")
     expect(result.data.state.transitionCounter).toBe(3)
+    expect(result.data.state.cooldownExpiresAt).toBe(now + 60)
+  })
+
+  test("reserves before the ZITADEL challenge and rejects a second concurrent send without calling ZITADEL", async () => {
+    const native = nativeCreate()
+    const cooldown = cooldownCreate()
+    const first = await mfaV2EmailOtpChallenge({ state, now, client: native.client, cooldown })
+    expect(first.success).toBe(true)
+    if (!first.success) return
+    expect(first.data.state.cooldownExpiresAt).toBe(now + 60)
+    const second = await mfaV2EmailOtpChallenge({ state, now, client: native.client, cooldown })
+    expect(second.success).toBe(false)
+    if (second.success) return
+    expect(second.errorMessage).toBe("rate_limited")
+    expect(second.rawData).toEqual({ expiresAt: now + 60 })
+    expect(native.calls.filter((call) => call.method === "PATCH")).toHaveLength(1)
+  })
+
+  test("fails closed when the Durable Object is unavailable and never challenges ZITADEL", async () => {
+    const native = nativeCreate()
+    const result = await mfaV2EmailOtpChallenge({
+      state,
+      now,
+      client: native.client,
+      cooldown: emailOtpCooldownClientCreate({
+        namespace: undefined,
+        cookieKey: bindings.FLOW_COOKIE_KEY,
+        purpose: "mfa-email-otp",
+        identifier: state.authRequestId,
+      }),
+    })
+    expect(result.success).toBe(false)
+    if (result.success) return
+    expect(result.errorMessage).toBe("cooldown_unavailable")
+    expect(native.calls.some((call) => call.method === "PATCH")).toBe(false)
   })
 
   test("rejects challenge when email OTP is not enrolled for the user", async () => {
@@ -170,6 +218,7 @@ describe("mfaV2EmailOtpChallenge", () => {
       state,
       now,
       client: native.client,
+      cooldown: cooldownCreate(),
     })
 
     expect(result.success).toBe(false)
@@ -189,6 +238,7 @@ describe("mfaV2EmailOtpChallenge", () => {
       state,
       now,
       client: native.client,
+      cooldown: cooldownCreate(),
     })
 
     expect(result.success).toBe(false)
@@ -204,6 +254,7 @@ describe("mfaV2EmailOtpChallenge", () => {
       method: "totp",
       now,
       client: native.client,
+      cooldown: cooldownCreate(),
     })
 
     expect(result.success).toBe(false)
@@ -218,6 +269,7 @@ describe("mfaV2EmailOtpChallenge", () => {
       state,
       now,
       client: native.client,
+      cooldown: cooldownCreate(),
     })
 
     expect(result.success).toBe(false)
@@ -232,6 +284,7 @@ describe("mfaV2EmailOtpChallenge", () => {
       state,
       now,
       client: native.client,
+      cooldown: cooldownCreate(),
     })
 
     expect(result.success).toBe(false)

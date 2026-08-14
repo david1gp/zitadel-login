@@ -5,6 +5,7 @@ import { flowV2CookieOpen } from "../src/flow/domain/flowV2CookieOpen"
 import { flowV2CookieSeal } from "../src/flow/domain/flowV2CookieSeal"
 import type { FlowV2Cookie } from "../src/flow/model/flowV2CookieSchema"
 import { workerAppCreate } from "../src/worker/workerAppCreate"
+import { emailOtpCooldownNamespaceFakeCreate } from "./emailOtpCooldownNamespaceFakeCreate"
 
 const origin = "https://login.example"
 const identityOrigin = "https://identity.example"
@@ -13,17 +14,23 @@ const now = 1_800_000_000
 const flowHandle = "AAAAAAAAAAAAAAAAAAAAAA"
 const cookieName = `__Host-zitadel-login-flow-${flowHandle}`
 const csrfToken = "B".repeat(43)
-const bindings: WorkerBindingsInput = {
-  ZITADEL_ORIGIN: identityOrigin,
-  ZITADEL_ORGANIZATION_ID: "org-1",
-  ZITADEL_ALLOWED_CLIENT_IDS: "client-1",
-  LOGIN_V2_FALLBACK_URL: `${identityOrigin}/ui/v2/login`,
-  PAGES_ORIGIN: origin,
-  SESSION_LIFETIME_SECONDS: "900",
-  ZITADEL_LOGIN_CLIENT_PAT: "test-pat-not-a-real-secret-value",
-  FLOW_COOKIE_KEY: key,
-  RATE_LIMITER: { limit: async () => ({ success: true }) },
+
+function bindingsCreate(overrides: Partial<WorkerBindingsInput> = {}): WorkerBindingsInput {
+  return {
+    ZITADEL_ORIGIN: identityOrigin,
+    ZITADEL_ORGANIZATION_ID: "org-1",
+    ZITADEL_ALLOWED_CLIENT_IDS: "client-1",
+    LOGIN_V2_FALLBACK_URL: `${identityOrigin}/ui/v2/login`,
+    PAGES_ORIGIN: origin,
+    SESSION_LIFETIME_SECONDS: "900",
+    ZITADEL_LOGIN_CLIENT_PAT: "test-pat-not-a-real-secret-value",
+    FLOW_COOKIE_KEY: key,
+    RATE_LIMITER: { limit: async () => ({ success: true }) },
+    EMAIL_OTP_COOLDOWN: emailOtpCooldownNamespaceFakeCreate(),
+    ...overrides,
+  }
 }
+
 const mfaState: Extract<FlowV2Cookie, { stage: "mfa" }> = {
   version: 2,
   flowHandle,
@@ -169,6 +176,7 @@ describe("POST /api/v2/mfa/email-otp/enroll", () => {
         error: (event, context) => logs.push({ event, context }),
       },
     })
+    const bindings = bindingsCreate()
     const response = await app.request(requestCreate(await cookieCreate()), undefined, bindings)
 
     expect(response.status).toBe(201)
@@ -238,7 +246,7 @@ describe("POST /api/v2/mfa/email-otp/enroll", () => {
   test("allows policy-authorized optional setup", async () => {
     const native = nativeCreate({ forceMfa: false })
     const app = workerAppCreate({ fetch: native.fetch, now: () => now })
-    const response = await app.request(requestCreate(await cookieCreate()), undefined, bindings)
+    const response = await app.request(requestCreate(await cookieCreate()), undefined, bindingsCreate())
 
     expect(response.status).toBe(201)
     expect(native.calls.filter((call) => call.url.endsWith("/otp_email"))).toHaveLength(1)
@@ -259,7 +267,7 @@ describe("POST /api/v2/mfa/email-otp/enroll", () => {
     for (const options of cases) {
       const native = nativeCreate(options)
       const app = workerAppCreate({ fetch: native.fetch, now: () => now, logger: { warn: () => {}, error: () => {} } })
-      const response = await app.request(requestCreate(await cookieCreate()), undefined, bindings)
+      const response = await app.request(requestCreate(await cookieCreate()), undefined, bindingsCreate())
 
       expect([403, 502]).toContain(response.status)
       expect(native.calls.some((call) => call.url.endsWith("/otp_email") && call.method === "POST")).toBe(false)
@@ -271,13 +279,14 @@ describe("POST /api/v2/mfa/email-otp/enroll", () => {
     for (const options of [{ authClientId: "other-client" }, { sessionOrganizationId: "other-org" }]) {
       const native = nativeCreate(options)
       const app = workerAppCreate({ fetch: native.fetch, now: () => now, logger: { warn: () => {}, error: () => {} } })
-      const response = await app.request(requestCreate(await cookieCreate()), undefined, bindings)
+      const response = await app.request(requestCreate(await cookieCreate()), undefined, bindingsCreate())
       expect([400, 409]).toContain(response.status)
       expect(native.calls.some((call) => call.url.endsWith("/otp_email"))).toBe(false)
     }
 
     const native = nativeCreate()
     const app = workerAppCreate({ fetch: native.fetch, now: () => now, logger: { warn: () => {}, error: () => {} } })
+    const bindings = bindingsCreate()
     const badCsrf = await app.request(
       requestCreate(await cookieCreate(), { method: "email_otp", csrfToken: "C".repeat(43) }),
       undefined,
@@ -315,7 +324,7 @@ describe("POST /api/v2/mfa/email-otp/enroll", () => {
       randomBytes: (length) => new Uint8Array(length).fill(7),
       logger: { warn: () => {}, error: () => {} },
     })
-    const response = await app.request(requestCreate(await cookieCreate()), undefined, bindings)
+    const response = await app.request(requestCreate(await cookieCreate()), undefined, bindingsCreate())
 
     expect(response.status).toBe(201)
     expect(await response.json()).toEqual({
@@ -332,7 +341,7 @@ describe("POST /api/v2/mfa/email-otp/enroll", () => {
   test("recovers an ambiguous activation through enrolled challenge without replaying AddOTPEmail", async () => {
     const native = nativeCreate({ addStatus: 503, activatedAfterAddFailure: true })
     const app = workerAppCreate({ fetch: native.fetch, now: () => now })
-    const response = await app.request(requestCreate(await cookieCreate()), undefined, bindings)
+    const response = await app.request(requestCreate(await cookieCreate()), undefined, bindingsCreate())
 
     expect(response.status).toBe(201)
     expect(native.calls.filter((call) => call.url.endsWith("/otp_email"))).toHaveLength(1)
@@ -340,12 +349,14 @@ describe("POST /api/v2/mfa/email-otp/enroll", () => {
   })
 
   test("challenge failure seals recoverable enrollment state; replay cannot activate and resend can continue", async () => {
+    let currentNow = now
     const failedNative = nativeCreate({ challengeStatus: 503 })
     const failedApp = workerAppCreate({
       fetch: failedNative.fetch,
-      now: () => now,
+      now: () => currentNow,
       randomBytes: (length) => new Uint8Array(length).fill(7),
     })
+    const bindings = bindingsCreate()
     const failed = await failedApp.request(requestCreate(await cookieCreate()), undefined, bindings)
     expect(failed.status).toBe(201)
     expect(await failed.clone().json()).toEqual({
@@ -370,11 +381,12 @@ describe("POST /api/v2/mfa/email-otp/enroll", () => {
     expect(replay.status).toBe(409)
     expect(failedNative.calls.filter((call) => call.url.endsWith("/otp_email"))).toHaveLength(1)
 
+    currentNow = now + 60
     const recoveryNative = nativeCreate({
       methods: ["AUTHENTICATION_METHOD_TYPE_PASSWORD", "AUTHENTICATION_METHOD_TYPE_OTP_EMAIL"],
       challengeToken: "recovered-secret-token",
     })
-    const recoveryApp = workerAppCreate({ fetch: recoveryNative.fetch, now: () => now })
+    const recoveryApp = workerAppCreate({ fetch: recoveryNative.fetch, now: () => currentNow })
     const resend = await recoveryApp.request(
       new Request(`${origin}/api/v2/mfa/email-otp/resend?flow=${flowHandle}`, {
         method: "POST",
@@ -402,6 +414,7 @@ describe("POST /api/v2/mfa/email-otp/enroll", () => {
       secondFactors: [],
     })
     const changedApp = workerAppCreate({ fetch: changedNative.fetch, now: () => now })
+    const bindings = bindingsCreate()
     const options = await changedApp.request(
       new Request(`${origin}/api/v2/mfa/options?flow=${flowHandle}`, {
         headers: { origin, cookie: await cookieCreate(codeState) },
@@ -415,10 +428,9 @@ describe("POST /api/v2/mfa/email-otp/enroll", () => {
       data: { mode: "fallback", reason: "unsupported_branch" },
     })
 
-    const limitedBindings: WorkerBindingsInput = {
-      ...bindings,
+    const limitedBindings = bindingsCreate({
       RATE_LIMITER: { limit: async () => ({ success: false }) },
-    }
+    })
     const limitedNative = nativeCreate({
       methods: ["AUTHENTICATION_METHOD_TYPE_PASSWORD", "AUTHENTICATION_METHOD_TYPE_OTP_EMAIL"],
     })

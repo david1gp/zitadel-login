@@ -49,11 +49,13 @@ const otpSchema = v.strictObject({
   userId: boundedIdSchema,
   sessionId: boundedIdSchema,
   sessionToken: v.pipe(v.string(), v.minLength(1), v.maxLength(500)),
+  cooldownExpiresAt: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
 })
 const otpDecoySchema = v.strictObject({
   ...baseSchema,
   stage: v.literal("otp_decoy"),
   delegable: v.literal(false),
+  cooldownExpiresAt: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
 })
 const passkeySchema = v.strictObject({
   ...baseSchema,
@@ -120,6 +122,7 @@ const mfaEmailOtpCodeSchema = v.strictObject({
   mfaMethods: v.array(v.pipe(v.string(), v.minLength(1), v.maxLength(100))),
   enrollmentActivationConsumedAt: v.optional(v.pipe(v.number(), v.integer())),
   challengeIssuedAt: v.optional(v.pipe(v.number(), v.integer())),
+  cooldownExpiresAt: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
 })
 const mfaSmsOtpCodeSchema = v.strictObject({
   ...baseSchema,

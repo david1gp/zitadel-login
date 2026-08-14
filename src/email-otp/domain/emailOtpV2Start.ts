@@ -1,6 +1,8 @@
+import { emailOtpCooldownClientCreate } from "../cooldown/emailOtpCooldownClientCreate"
+import { emailOtpCooldownSendReserve } from "../cooldown/emailOtpCooldownSendReserve"
+import { primaryFlowOwnershipPreflight } from "../../flow/domain/primaryFlowOwnershipPreflight"
 import type { FlowV2Cookie } from "../../flow/model/flowV2CookieSchema"
 import type { FlowV2Transition } from "../../flow/model/flowV2TransitionSchema"
-import { primaryFlowOwnershipPreflight } from "../../flow/domain/primaryFlowOwnershipPreflight"
 import { resultCreate } from "../../result/resultCreate"
 import { resultErrorCreate } from "../../result/resultErrorCreate"
 import { zitadelClientCreate } from "../../zitadel/zitadelClientCreate"
@@ -10,19 +12,21 @@ type Input = {
   email: string
   now: number
   client: ReturnType<typeof zitadelClientCreate>
+  cooldown: ReturnType<typeof emailOtpCooldownClientCreate>
 }
 
 function fallbackCreate(state: Input["state"]): FlowV2Transition {
   return { kind: "fallback", path: `/api/v2/flow/fallback?flow=${state.flowHandle}` }
 }
 
-function decoyCreate(state: Input["state"]) {
+function decoyCreate(state: Input["state"], cooldownExpiresAt: number) {
   const { owned: _owned, ...stateBase } = state
   const nextState: Extract<FlowV2Cookie, { stage: "otp_decoy" }> = {
     ...stateBase,
     stage: "otp_decoy",
     delegable: false,
     transitionCounter: state.transitionCounter + 1,
+    cooldownExpiresAt,
   }
   return resultCreate({
     state: nextState,
@@ -61,15 +65,23 @@ export async function emailOtpV2Start(input: Input) {
     user.human.email.email.toLowerCase() === input.email &&
     (!input.state.hintUserId || input.state.hintUserId === user.userId)
   if (!eligible || !user) {
-    if (settings.data.settings.ignoreUnknownUsernames) return decoyCreate(input.state)
-    return resultCreate({ state: input.state, transition: fallbackCreate(input.state) })
+    if (!settings.data.settings.ignoreUnknownUsernames) {
+      return resultCreate({ state: input.state, transition: fallbackCreate(input.state) })
+    }
+    const reserved = await emailOtpCooldownSendReserve(input.cooldown, input.now)
+    if (!reserved.success) return reserved
+    return decoyCreate(input.state, reserved.data)
   }
 
   const methods = await input.client.authenticationMethodsGet(user.userId)
   if (!methods.success) return resultErrorCreate(op, "service_unavailable", { status: resultStatusGet(methods) })
   if (!methods.data.authMethodTypes.includes("AUTHENTICATION_METHOD_TYPE_OTP_EMAIL")) {
-    if (settings.data.settings.ignoreUnknownUsernames) return decoyCreate(input.state)
-    return resultCreate({ state: input.state, transition: fallbackCreate(input.state) })
+    if (!settings.data.settings.ignoreUnknownUsernames) {
+      return resultCreate({ state: input.state, transition: fallbackCreate(input.state) })
+    }
+    const reserved = await emailOtpCooldownSendReserve(input.cooldown, input.now)
+    if (!reserved.success) return reserved
+    return decoyCreate(input.state, reserved.data)
   }
 
   if (
@@ -90,6 +102,9 @@ export async function emailOtpV2Start(input: Input) {
     return resultCreate({ state: input.state, transition: fallbackCreate(input.state) })
   }
 
+  const reserved = await emailOtpCooldownSendReserve(input.cooldown, input.now)
+  if (!reserved.success) return reserved
+
   const created = await input.client.emailOtpSessionCreate(user.userId)
   if (!created.success) {
     const status = resultStatusGet(created)
@@ -108,6 +123,7 @@ export async function emailOtpV2Start(input: Input) {
     userId: user.userId,
     sessionId: created.data.sessionId,
     sessionToken: created.data.sessionToken,
+    cooldownExpiresAt: reserved.data,
   }
   return resultCreate({
     state,

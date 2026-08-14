@@ -5,6 +5,7 @@ import { flowV2CookieOpen } from "../src/flow/domain/flowV2CookieOpen"
 import { flowV2CookieSeal } from "../src/flow/domain/flowV2CookieSeal"
 import type { FlowV2Cookie } from "../src/flow/model/flowV2CookieSchema"
 import { workerAppCreate } from "../src/worker/workerAppCreate"
+import { emailOtpCooldownNamespaceFakeCreate } from "./emailOtpCooldownNamespaceFakeCreate"
 
 const origin = "https://login.example"
 const identityOrigin = "https://identity.example"
@@ -13,16 +14,20 @@ const now = 1_800_000_000
 const flowHandle = "AAAAAAAAAAAAAAAAAAAAAA"
 const csrfToken = "B".repeat(43)
 
-const bindings: WorkerBindingsInput = {
-  ZITADEL_ORIGIN: identityOrigin,
-  ZITADEL_ORGANIZATION_ID: "org-1",
-  ZITADEL_ALLOWED_CLIENT_IDS: "client-1",
-  LOGIN_V2_FALLBACK_URL: `${identityOrigin}/ui/v2/login`,
-  PAGES_ORIGIN: origin,
-  SESSION_LIFETIME_SECONDS: "900",
-  ZITADEL_LOGIN_CLIENT_PAT: "test-pat-not-a-real-secret-value",
-  FLOW_COOKIE_KEY: key,
-  RATE_LIMITER: { limit: async () => ({ success: true }) },
+function bindingsCreate(overrides: Partial<WorkerBindingsInput> = {}): WorkerBindingsInput {
+  return {
+    ZITADEL_ORIGIN: identityOrigin,
+    ZITADEL_ORGANIZATION_ID: "org-1",
+    ZITADEL_ALLOWED_CLIENT_IDS: "client-1",
+    LOGIN_V2_FALLBACK_URL: `${identityOrigin}/ui/v2/login`,
+    PAGES_ORIGIN: origin,
+    SESSION_LIFETIME_SECONDS: "900",
+    ZITADEL_LOGIN_CLIENT_PAT: "test-pat-not-a-real-secret-value",
+    FLOW_COOKIE_KEY: key,
+    RATE_LIMITER: { limit: async () => ({ success: true }) },
+    EMAIL_OTP_COOLDOWN: emailOtpCooldownNamespaceFakeCreate(),
+    ...overrides,
+  }
 }
 
 const authRequest = {
@@ -105,10 +110,13 @@ function nativeCreate(options: NativeOptions = {}) {
   return { fetch, calls }
 }
 
-function dependenciesCreate(fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) {
+function dependenciesCreate(
+  fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
+  nowFn: () => number = () => now,
+) {
   return {
     fetch,
-    now: () => now,
+    now: nowFn,
     randomBytes: (length: number) => new Uint8Array(length).fill(7),
     logger: { warn: () => {}, error: () => {} },
   }
@@ -182,7 +190,7 @@ describe("Worker MFA Email OTP Challenge & Resend Flow", () => {
         },
         body: JSON.stringify({ csrfToken }),
       },
-      bindings,
+      bindingsCreate(),
     )
 
     expect(response.status).toBe(202)
@@ -202,12 +210,17 @@ describe("Worker MFA Email OTP Challenge & Resend Flow", () => {
       expect(opened.data.sessionToken).toBe("updated-secret-mfa-token")
       expect(opened.data.transitionCounter).toBe(3)
     }
+    expect(
+      opened.success && opened.data.stage === "mfa_email_otp_code" ? opened.data.cooldownExpiresAt : undefined,
+    ).toBe(now + 60)
   })
 
   test("resend / token rotation: resends MFA email OTP and rotates sessionToken", async () => {
+    let currentNow = now
     const native = nativeCreate({ latestToken: "rotated-mfa-token" })
-    const app = workerAppCreate(dependenciesCreate(native.fetch))
+    const app = workerAppCreate(dependenciesCreate(native.fetch, () => currentNow))
     const cookie = await flowCookieCreate()
+    const flowBindings = bindingsCreate()
 
     const challenged = await app.request(
       `${origin}/api/v2/mfa/email-otp/challenge?flow=${flowHandle}`,
@@ -216,13 +229,62 @@ describe("Worker MFA Email OTP Challenge & Resend Flow", () => {
         headers: { origin, "content-type": "application/json", cookie },
         body: JSON.stringify({ csrfToken }),
       },
-      bindings,
+      flowBindings,
     )
     const challengeCookie = challenged.headers
       .get("set-cookie")
       ?.match(/__Host-zitadel-login-flow-AAAAAAAAAAAAAAAAAAAAAA=([^;]+)/)?.[1]
     expect(challengeCookie).toBeTruthy()
+    const challengedState = await flowV2CookieOpen(challengeCookie!, flowHandle, [key], now)
+    expect(
+      challengedState.success && challengedState.data.stage === "mfa_email_otp_code"
+        ? challengedState.data.cooldownExpiresAt
+        : undefined,
+    ).toBe(now + 60)
 
+    const cooldownStatus = await app.request(
+      `${origin}/api/v2/mfa/email-otp/cooldown?flow=${flowHandle}`,
+      {
+        headers: {
+          cookie: `__Host-zitadel-login-flow-${flowHandle}=${challengeCookie}`,
+        },
+      },
+      flowBindings,
+    )
+    expect(cooldownStatus.status).toBe(200)
+    expect(await cooldownStatus.json()).toEqual({
+      success: true,
+      data: { cooldownExpiresAt: now + 60, cooldownRemainingSeconds: 60 },
+    })
+
+    currentNow = now + 42
+    const blocked = await app.request(
+      `${origin}/api/v2/mfa/email-otp/resend?flow=${flowHandle}`,
+      {
+        method: "POST",
+        headers: {
+          origin,
+          "content-type": "application/json",
+          cookie: `__Host-zitadel-login-flow-${flowHandle}=${challengeCookie}`,
+        },
+        body: JSON.stringify({ csrfToken }),
+      },
+      flowBindings,
+    )
+    expect(blocked.status).toBe(429)
+    expect(blocked.headers.get("retry-after")).toBe("18")
+    expect(blocked.headers.get("x-cooldown-expires-at")).toBe(String(now + 60))
+    expect(blocked.headers.get("x-cooldown-remaining-seconds")).toBe("18")
+    expect(blocked.headers.get("set-cookie")).toBeNull()
+    expect(await blocked.json()).toEqual({
+      success: false,
+      op: "mfaOtpResend",
+      errorMessage: "rate_limited",
+      data: { cooldownExpiresAt: now + 60, cooldownRemainingSeconds: 18 },
+    })
+    expect(native.calls.filter((call) => call.method === "PATCH")).toHaveLength(1)
+
+    currentNow = now + 60
     const response = await app.request(
       `${origin}/api/v2/mfa/email-otp/resend?flow=${flowHandle}`,
       {
@@ -234,12 +296,14 @@ describe("Worker MFA Email OTP Challenge & Resend Flow", () => {
         },
         body: JSON.stringify({ csrfToken }),
       },
-      bindings,
+      flowBindings,
     )
 
     expect(response.status).toBe(202)
     const body = (await response.json()) as { success: boolean; data: { kind: string } }
     expect(body.success).toBe(true)
+    expect(response.headers.get("x-cooldown-expires-at")).toBe(String(currentNow + 60))
+    expect(response.headers.get("x-cooldown-remaining-seconds")).toBe("60")
 
     const setCookie = response.headers.get("set-cookie")
     const match = setCookie?.match(/__Host-zitadel-login-flow-AAAAAAAAAAAAAAAAAAAAAA=([^;]+)/)
@@ -247,7 +311,82 @@ describe("Worker MFA Email OTP Challenge & Resend Flow", () => {
     expect(opened.success).toBe(true)
     if (opened.success && opened.data.stage === "mfa_email_otp_code") {
       expect(opened.data.sessionToken).toBe("rotated-mfa-token")
+      expect(opened.data.cooldownExpiresAt).toBe(currentNow + 60)
     }
+
+    const limited = await app.request(
+      `${origin}/api/v2/mfa/email-otp/resend?flow=${flowHandle}`,
+      {
+        method: "POST",
+        headers: {
+          origin,
+          "content-type": "application/json",
+          cookie: `__Host-zitadel-login-flow-${flowHandle}=${match![1]}`,
+        },
+        body: JSON.stringify({ csrfToken }),
+      },
+      flowBindings,
+    )
+    expect(limited.status).toBe(429)
+    expect(limited.headers.get("retry-after")).toBe("60")
+    expect(limited.headers.get("x-cooldown-expires-at")).toBe(String(currentNow + 60))
+    expect(limited.headers.get("x-cooldown-remaining-seconds")).toBe("60")
+    expect(limited.headers.get("set-cookie")).toBeNull()
+    expect(await limited.json()).toEqual({
+      success: false,
+      op: "mfaOtpResend",
+      errorMessage: "rate_limited",
+      data: { cooldownExpiresAt: currentNow + 60, cooldownRemainingSeconds: 60 },
+    })
+    expect(native.calls.filter((call) => call.method === "PATCH")).toHaveLength(2)
+  })
+
+  test("rejects MFA email OTP cooldown queries for the wrong origin or inactive flow", async () => {
+    const native = nativeCreate()
+    const app = workerAppCreate(dependenciesCreate(native.fetch))
+    const cookie = await flowCookieCreate()
+    const flowBindings = bindingsCreate()
+    const challenged = await app.request(
+      `${origin}/api/v2/mfa/email-otp/challenge?flow=${flowHandle}`,
+      {
+        method: "POST",
+        headers: { origin, "content-type": "application/json", cookie },
+        body: JSON.stringify({ csrfToken }),
+      },
+      flowBindings,
+    )
+    const challengeCookie = challenged.headers
+      .get("set-cookie")
+      ?.match(/__Host-zitadel-login-flow-AAAAAAAAAAAAAAAAAAAAAA=([^;]+)/)?.[1]
+    expect(challengeCookie).toBeTruthy()
+
+    const wrongOrigin = await app.request(
+      `https://evil.example/api/v2/mfa/email-otp/cooldown?flow=${flowHandle}`,
+      {
+        headers: {
+          cookie: `__Host-zitadel-login-flow-${flowHandle}=${challengeCookie}`,
+        },
+      },
+      flowBindings,
+    )
+    expect(wrongOrigin.status).toBe(403)
+    expect(await wrongOrigin.json()).toEqual({
+      success: false,
+      op: "mfaEmailOtpCooldown",
+      errorMessage: "origin_rejected",
+    })
+
+    const inactive = await app.request(
+      `${origin}/api/v2/mfa/email-otp/cooldown?flow=${flowHandle}`,
+      { headers: { cookie } },
+      flowBindings,
+    )
+    expect(inactive.status).toBe(409)
+    expect(await inactive.json()).toEqual({
+      success: false,
+      op: "mfaEmailOtpCooldown",
+      errorMessage: "flow_stage_invalid",
+    })
   })
 
   test("not enrolled: returns 403 method_not_enrolled when email OTP is not in user authentication methods", async () => {
@@ -269,7 +408,7 @@ describe("Worker MFA Email OTP Challenge & Resend Flow", () => {
         },
         body: JSON.stringify({ csrfToken }),
       },
-      bindings,
+      bindingsCreate(),
     )
 
     expect(response.status).toBe(403)
@@ -299,7 +438,7 @@ describe("Worker MFA Email OTP Challenge & Resend Flow", () => {
         },
         body: JSON.stringify({ csrfToken }),
       },
-      bindings,
+      bindingsCreate(),
     )
 
     expect(response.status).toBe(403)
@@ -313,6 +452,7 @@ describe("Worker MFA Email OTP Challenge & Resend Flow", () => {
     const app = workerAppCreate(dependenciesCreate(native.fetch))
     const readyCookie = await flowCookieCreate({ stage: "ready", delegable: true, owned: true })
 
+    const flowBindings = bindingsCreate()
     const responseReady = await app.request(
       `${origin}/api/v2/mfa/otp/challenge?flow=${flowHandle}`,
       {
@@ -324,7 +464,7 @@ describe("Worker MFA Email OTP Challenge & Resend Flow", () => {
         },
         body: JSON.stringify({ csrfToken }),
       },
-      bindings,
+      flowBindings,
     )
 
     expect(responseReady.status).toBe(409)
@@ -349,7 +489,7 @@ describe("Worker MFA Email OTP Challenge & Resend Flow", () => {
         },
         body: JSON.stringify({ csrfToken }),
       },
-      bindings,
+      flowBindings,
     )
 
     expect(responseVerified.status).toBe(409)
@@ -359,10 +499,9 @@ describe("Worker MFA Email OTP Challenge & Resend Flow", () => {
 
   test("rate limit: returns 429 rate_limited with Retry-After header when rate limit is exceeded", async () => {
     const native = nativeCreate()
-    const customBindings: WorkerBindingsInput = {
-      ...bindings,
+    const customBindings = bindingsCreate({
       RATE_LIMITER: { limit: async () => ({ success: false }) },
-    }
+    })
     const app = workerAppCreate(dependenciesCreate(native.fetch))
     const cookie = await flowCookieCreate()
 
@@ -402,7 +541,7 @@ describe("Worker MFA Email OTP Challenge & Resend Flow", () => {
         },
         body: JSON.stringify({ csrfToken }),
       },
-      bindings,
+      bindingsCreate(),
     )
 
     expect(response.status).toBe(503)
@@ -426,7 +565,7 @@ describe("Worker MFA Email OTP Challenge & Resend Flow", () => {
         },
         body: JSON.stringify({ csrfToken }),
       },
-      bindings,
+      bindingsCreate(),
     )
 
     expect(response.status).toBe(403)

@@ -3,10 +3,16 @@ import { Hono } from "hono"
 import * as v from "valibot"
 import { workerBindingsParse } from "../../config/workerBindingsParse"
 import type { WorkerBindings, WorkerBindingsInput, WorkerRateLimiter } from "../../config/workerBindingsSchema"
+import { emailOtpCooldownClientCreate } from "../../email-otp/cooldown/emailOtpCooldownClientCreate"
+import { emailOtpCooldownLimitedExpiresAtGet } from "../../email-otp/cooldown/emailOtpCooldownLimitedExpiresAtGet"
+import { emailOtpCooldownSendReserve } from "../../email-otp/cooldown/emailOtpCooldownSendReserve"
 import { emailOtpV2Resend } from "../../email-otp/domain/emailOtpV2Resend"
 import { emailOtpV2SessionIsVerified } from "../../email-otp/domain/emailOtpV2SessionIsVerified"
 import { emailOtpV2Start } from "../../email-otp/domain/emailOtpV2Start"
 import { emailOtpV2Verify } from "../../email-otp/domain/emailOtpV2Verify"
+import { cooldownMetadataCreate } from "../../http/cooldownMetadataCreate"
+import type { CooldownMetadata } from "../../http/cooldownMetadataSchema"
+import { cooldownRetryAfterSecondsGet } from "../../http/cooldownRetryAfterSecondsGet"
 import { csrfTokenMatches } from "../../http/csrfTokenMatches"
 import { rateLimitCheck } from "../../http/rateLimitCheck"
 import { requestPayloadParse } from "../../http/requestPayloadParse"
@@ -148,7 +154,12 @@ function errorStatusGet(code: string): 400 | 401 | 403 | 404 | 409 | 415 | 429 |
     return 409
   }
   if (code === "invalid_payload" || code === "invalid_query" || code === "too_many_flows") return 400
-  if (code === "service_unavailable" || code === "rate_limiter_unavailable" || code === "provider_unavailable")
+  if (
+    code === "service_unavailable" ||
+    code === "rate_limiter_unavailable" ||
+    code === "provider_unavailable" ||
+    code === "cooldown_unavailable"
+  )
     return 503
   if (
     code === "password_unavailable" ||
@@ -170,10 +181,21 @@ function errorStatusGet(code: string): 400 | 401 | 403 | 404 | 409 | 415 | 429 |
   return 502
 }
 
-function resultErrorResponse(c: AppContext, op: string, code: string) {
+function resultErrorResponse(c: AppContext, op: string, code: string, retryAfterSeconds = 60) {
   const status = errorStatusGet(code)
-  if (status === 429) c.header("Retry-After", "60")
+  if (status === 429) c.header("Retry-After", String(retryAfterSeconds))
   return c.json({ success: false, op, errorMessage: code }, status)
+}
+
+function cooldownMetadataHeadersSet(c: AppContext, metadata: CooldownMetadata) {
+  c.header("X-Cooldown-Expires-At", String(metadata.cooldownExpiresAt))
+  c.header("X-Cooldown-Remaining-Seconds", String(metadata.cooldownRemainingSeconds))
+}
+
+function cooldownLimitedResponse(c: AppContext, op: string, metadata: CooldownMetadata) {
+  cooldownMetadataHeadersSet(c, metadata)
+  c.header("Retry-After", String(cooldownRetryAfterSecondsGet(metadata)))
+  return c.json({ success: false, op, errorMessage: "rate_limited", data: metadata }, 429)
 }
 
 function transitionResponse(c: AppContext, transition: FlowV2Transition, status: 200 | 202 = 200) {
@@ -288,6 +310,24 @@ async function abuseLimitCheck(
     errorMessage: "rate_limiter_unavailable",
     keyOperation: "abuseKeyCreate",
     operation: "abuseLimitCheck",
+  })
+}
+
+function primaryEmailOtpCooldownGet(bindings: WorkerBindings, authRequestId: string) {
+  return emailOtpCooldownClientCreate({
+    namespace: bindings.EMAIL_OTP_COOLDOWN,
+    cookieKey: bindings.FLOW_COOKIE_KEY,
+    purpose: "email-otp",
+    identifier: authRequestId,
+  })
+}
+
+function mfaEmailOtpCooldownGet(bindings: WorkerBindings, authRequestId: string) {
+  return emailOtpCooldownClientCreate({
+    namespace: bindings.EMAIL_OTP_COOLDOWN,
+    cookieKey: bindings.FLOW_COOKIE_KEY,
+    purpose: "mfa-email-otp",
+    identifier: authRequestId,
   })
 }
 
@@ -672,7 +712,12 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     const mfaState: Extract<FlowV2Cookie, { stage: "mfa" }> =
       state.data.stage === "mfa"
         ? state.data
-        : (({ enrollmentActivationConsumedAt: _consumed, challengeIssuedAt: _issued, ...stateBase }) => ({
+        : (({
+            enrollmentActivationConsumedAt: _consumed,
+            challengeIssuedAt: _issued,
+            cooldownExpiresAt: _cooldown,
+            ...stateBase
+          }) => ({
             ...stateBase,
             stage: "mfa" as const,
           }))(state.data)
@@ -786,18 +831,30 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     const consumed = await stateSet(c, bindings.data, prepared.data.state)
     if (!consumed.success) return resultErrorResponse(c, op, "service_unavailable")
 
+    const now = dependencies.now()
     const activated = await mfaV2EmailOtpEnrollmentActivate({
       state: prepared.data.state,
-      now: dependencies.now(),
+      now,
       client,
+      cooldown: mfaEmailOtpCooldownGet(bindings.data, prepared.data.state.authRequestId),
     })
-    if (!activated.success) return resultErrorResponse(c, op, "enrollment_unavailable")
+    if (!activated.success) {
+      const expiresAt = emailOtpCooldownLimitedExpiresAtGet(activated)
+      if (expiresAt !== undefined) return cooldownLimitedResponse(c, op, cooldownMetadataCreate(expiresAt, now))
+      if (activated.errorMessage === "cooldown_unavailable") {
+        return resultErrorResponse(c, op, activated.errorMessage)
+      }
+      return resultErrorResponse(c, op, "enrollment_unavailable")
+    }
     const response = v.safeParse(mfaEmailOtpEnrollmentResponseSchema, {
       transition: activated.data.transition,
     })
     if (!response.success) return resultErrorResponse(c, op, "service_unavailable")
     const set = await stateSet(c, bindings.data, activated.data.state)
     if (!set.success) return resultErrorResponse(c, op, "service_unavailable")
+    if (activated.data.state.challengeIssuedAt !== undefined) {
+      cooldownMetadataHeadersSet(c, cooldownMetadataCreate(activated.data.state.cooldownExpiresAt ?? 0, now))
+    }
     return c.json(resultCreate(response.output), 201)
   })
 
@@ -1184,20 +1241,24 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!limited.success) return resultErrorResponse(c, op, limited.errorMessage)
     const request = await authRequestRevalidate(bindings.data, state.data)
     if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
+    const now = dependencies.now()
     const result = isSmsOtp
       ? await mfaV2SmsOtpChallenge({
           state: state.data,
           ...(payload.data.method ? { method: payload.data.method } : {}),
-          now: dependencies.now(),
+          now,
           client: zitadelClientCreate(bindings.data, dependencies.fetch),
         })
       : await mfaV2EmailOtpChallenge({
           state: state.data,
           ...(payload.data.method ? { method: payload.data.method } : {}),
-          now: dependencies.now(),
+          now,
           client: zitadelClientCreate(bindings.data, dependencies.fetch),
+          cooldown: mfaEmailOtpCooldownGet(bindings.data, state.data.authRequestId),
         })
     if (!result.success) {
+      const expiresAt = emailOtpCooldownLimitedExpiresAtGet(result)
+      if (expiresAt !== undefined) return cooldownLimitedResponse(c, op, cooldownMetadataCreate(expiresAt, now))
       dependencies.logger.error(isSmsOtp ? "v2_mfa_sms_otp_challenge_failed" : "v2_mfa_email_otp_challenge_failed", {
         status: resultStatusGet(result) ?? 0,
       })
@@ -1205,6 +1266,9 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     }
     const set = await stateSet(c, bindings.data, result.data.state)
     if (!set.success) return resultErrorResponse(c, op, "service_unavailable")
+    if (!isSmsOtp && result.data.state.stage === "mfa_email_otp_code") {
+      cooldownMetadataHeadersSet(c, cooldownMetadataCreate(result.data.state.cooldownExpiresAt ?? 0, now))
+    }
     return transitionResponse(c, result.data.transition, 202)
   }
 
@@ -1240,6 +1304,7 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!csrfTokenMatches(payload.data.csrfToken, state.data.csrfToken)) {
       return resultErrorResponse(c, op, "csrf_rejected")
     }
+    const now = dependencies.now()
     const limited = await abuseLimitCheck(
       bindings.data.RATE_LIMITER,
       bindings.data.FLOW_COOKIE_KEY,
@@ -1258,18 +1323,21 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
         ? await mfaV2SmsOtpResend({
             state: state.data,
             ...(payload.data.method ? { method: payload.data.method } : {}),
-            now: dependencies.now(),
+            now,
             client: zitadelClientCreate(bindings.data, dependencies.fetch),
           })
         : !isSmsOtp && state.data.stage === "mfa_email_otp_code"
           ? await mfaV2EmailOtpResend({
               state: state.data,
               ...(payload.data.method ? { method: payload.data.method } : {}),
-              now: dependencies.now(),
+              now,
               client: zitadelClientCreate(bindings.data, dependencies.fetch),
+              cooldown: mfaEmailOtpCooldownGet(bindings.data, state.data.authRequestId),
             })
           : resultErrorCreate(op, "flow_stage_invalid")
     if (!result.success) {
+      const expiresAt = emailOtpCooldownLimitedExpiresAtGet(result)
+      if (expiresAt !== undefined) return cooldownLimitedResponse(c, op, cooldownMetadataCreate(expiresAt, now))
       dependencies.logger.error(isSmsOtp ? "v2_mfa_sms_otp_resend_failed" : "v2_mfa_email_otp_resend_failed", {
         status: resultStatusGet(result) ?? 0,
       })
@@ -1277,6 +1345,9 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     }
     const set = await stateSet(c, bindings.data, result.data.state)
     if (!set.success) return resultErrorResponse(c, op, "service_unavailable")
+    if (isEmailOtp && result.data.state.stage === "mfa_email_otp_code") {
+      cooldownMetadataHeadersSet(c, cooldownMetadataCreate(result.data.state.cooldownExpiresAt ?? 0, now))
+    }
     return transitionResponse(c, result.data.transition, 202)
   }
 
@@ -1286,6 +1357,26 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
   app.post("/api/v2/mfa/otp/resend", mfaOtpResendHandler)
   app.post("/api/v2/mfa/email-otp/resend", mfaOtpResendHandler)
   app.post("/api/v2/mfa/sms-otp/resend", mfaOtpResendHandler)
+
+  app.get("/api/v2/mfa/email-otp/cooldown", async (c) => {
+    const op = "mfaEmailOtpCooldown"
+    const bindings = bindingsGet(c)
+    if (!bindings.success) return resultErrorResponse(c, op, "service_unavailable")
+    const boundary = requestBoundaryCheck(c, bindings.data, false)
+    if (!boundary.success) return resultErrorResponse(c, op, boundary.errorMessage)
+    const handle = flowHandleQueryGet(c)
+    if (!handle.success) return resultErrorResponse(c, op, handle.errorMessage)
+    const state = await stateGet(c, bindings.data, handle.data)
+    if (!state.success) return resultErrorResponse(c, op, state.errorMessage)
+    if (state.data.stage !== "mfa_email_otp_code") {
+      return resultErrorResponse(c, op, "flow_stage_invalid")
+    }
+    const now = dependencies.now()
+    const status = await mfaEmailOtpCooldownGet(bindings.data, state.data.authRequestId).status(now)
+    if (!status.success) return resultErrorResponse(c, op, status.errorMessage)
+    const metadata = cooldownMetadataCreate(status.data.expiresAt, now)
+    return c.json(resultCreate(metadata), 200)
+  })
 
   const mfaU2fChallengeHandler = async (c: AppContext) => {
     const op = "mfaU2fChallenge"
@@ -1518,21 +1609,48 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     const request = await authRequestRevalidate(bindings.data, state.data)
     if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
 
+    const now = dependencies.now()
     const result = await emailOtpV2Start({
       state: state.data,
       email: payload.data.email,
-      now: dependencies.now(),
+      now,
       client: zitadelClientCreate(bindings.data, dependencies.fetch),
+      cooldown: primaryEmailOtpCooldownGet(bindings.data, state.data.authRequestId),
     })
     if (!result.success) {
+      const expiresAt = emailOtpCooldownLimitedExpiresAtGet(result)
+      if (expiresAt !== undefined) return cooldownLimitedResponse(c, op, cooldownMetadataCreate(expiresAt, now))
       dependencies.logger.error("v2_email_otp_start_failed", { status: resultStatusGet(result) ?? 0 })
       return resultErrorResponse(c, op, result.errorMessage)
     }
     if (result.data.state !== state.data) {
       const set = await stateSet(c, bindings.data, result.data.state)
       if (!set.success) return resultErrorResponse(c, op, "service_unavailable")
+      if (result.data.state.stage === "otp" || result.data.state.stage === "otp_decoy") {
+        cooldownMetadataHeadersSet(c, cooldownMetadataCreate(result.data.state.cooldownExpiresAt ?? 0, now))
+      }
     }
     return transitionResponse(c, result.data.transition, result.data.transition.kind === "render" ? 202 : 200)
+  })
+
+  app.get("/api/v2/email-otp/cooldown", async (c) => {
+    const op = "emailOtpCooldown"
+    const bindings = bindingsGet(c)
+    if (!bindings.success) return resultErrorResponse(c, op, "service_unavailable")
+    const boundary = requestBoundaryCheck(c, bindings.data, false)
+    if (!boundary.success) return resultErrorResponse(c, op, boundary.errorMessage)
+    const handle = flowHandleQueryGet(c)
+    if (!handle.success) return resultErrorResponse(c, op, handle.errorMessage)
+    const state = await stateGet(c, bindings.data, handle.data)
+    if (!state.success) return resultErrorResponse(c, op, state.errorMessage)
+    if (state.data.stage !== "otp" && state.data.stage !== "otp_decoy") {
+      return resultErrorResponse(c, op, "flow_stage_invalid")
+    }
+    const now = dependencies.now()
+    const status = await primaryEmailOtpCooldownGet(bindings.data, state.data.authRequestId).status(now)
+    if (!status.success) return resultErrorResponse(c, op, status.errorMessage)
+    const metadata = cooldownMetadataCreate(status.data.expiresAt, now)
+    return c.json(resultCreate(metadata), 200)
   })
 
   app.post("/api/v2/email-otp/resend", async (c) => {
@@ -1548,6 +1666,7 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!csrfTokenMatches(payload.data.csrfToken, state.data.csrfToken)) {
       return resultErrorResponse(c, op, "csrf_rejected")
     }
+    const now = dependencies.now()
     const limited = await abuseLimitCheck(bindings.data.RATE_LIMITER, bindings.data.FLOW_COOKIE_KEY, "v2-otp-resend", [
       ["flow", state.data.flowHandle],
       ["subject", state.data.stage === "otp" ? state.data.sessionId : state.data.flowHandle],
@@ -1556,22 +1675,38 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!limited.success) return resultErrorResponse(c, op, limited.errorMessage)
     const request = await authRequestRevalidate(bindings.data, state.data)
     if (!request.success) return resultErrorResponse(c, op, request.errorMessage)
+    const cooldown = primaryEmailOtpCooldownGet(bindings.data, state.data.authRequestId)
     if (state.data.stage === "otp_decoy") {
+      const reserved = await emailOtpCooldownSendReserve(cooldown, now)
+      if (!reserved.success) {
+        const expiresAt = emailOtpCooldownLimitedExpiresAtGet(reserved)
+        if (expiresAt !== undefined) return cooldownLimitedResponse(c, op, cooldownMetadataCreate(expiresAt, now))
+        return resultErrorResponse(c, op, reserved.errorMessage)
+      }
       const nextState: Extract<FlowV2Cookie, { stage: "otp_decoy" }> = {
         ...state.data,
         transitionCounter: state.data.transitionCounter + 1,
+        cooldownExpiresAt: reserved.data,
       }
       const set = await stateSet(c, bindings.data, nextState)
       if (!set.success) return resultErrorResponse(c, op, "service_unavailable")
+      cooldownMetadataHeadersSet(c, cooldownMetadataCreate(reserved.data, now))
       return transitionResponse(c, stateTransitionGet(nextState, bindings.data), 202)
     }
     const result = await emailOtpV2Resend({
       state: state.data,
+      now,
       client: zitadelClientCreate(bindings.data, dependencies.fetch),
+      cooldown,
     })
-    if (!result.success) return resultErrorResponse(c, op, result.errorMessage)
+    if (!result.success) {
+      const expiresAt = emailOtpCooldownLimitedExpiresAtGet(result)
+      if (expiresAt !== undefined) return cooldownLimitedResponse(c, op, cooldownMetadataCreate(expiresAt, now))
+      return resultErrorResponse(c, op, result.errorMessage)
+    }
     const set = await stateSet(c, bindings.data, result.data.state)
     if (!set.success) return resultErrorResponse(c, op, "service_unavailable")
+    cooldownMetadataHeadersSet(c, cooldownMetadataCreate(result.data.state.cooldownExpiresAt ?? 0, now))
     return transitionResponse(c, result.data.transition, 202)
   })
 

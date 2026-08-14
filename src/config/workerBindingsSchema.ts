@@ -13,11 +13,24 @@ export type WorkerRateLimiter = {
   limit: (options: { key: string }) => Promise<{ success: boolean }>
 }
 
+export type WorkerEmailOtpCooldown = {
+  getByName: (name: string) => {
+    reserve: (now: number) => Promise<unknown>
+    status: (now: number) => Promise<unknown>
+  }
+}
+
 const rateLimiterSchema = v.custom<WorkerRateLimiter>((value) => {
   if (typeof value !== "object" || value === null) return false
   if (!("limit" in value)) return false
   return typeof value.limit === "function"
 }, "Expected a Cloudflare Rate Limit binding")
+
+const emailOtpCooldownSchema = v.custom<WorkerEmailOtpCooldown>((value) => {
+  if (typeof value !== "object" || value === null) return false
+  if (!("getByName" in value)) return false
+  return typeof value.getByName === "function"
+}, "Expected an email OTP cooldown Durable Object namespace")
 
 const booleanBindingSchema = v.optional(
   v.pipe(
@@ -83,6 +96,8 @@ export const workerBindingsSchema = v.strictObject({
   TERMS_OF_SERVICE_URL: legalUrlBindingSchema,
   PRIVACY_POLICY_URL: legalUrlBindingSchema,
   RATE_LIMITER: rateLimiterSchema,
+  EMAIL_OTP_COOLDOWN: v.optional(emailOtpCooldownSchema),
+  OTP_LIMIT_TEST_SECRET: v.optional(v.pipe(v.string(), v.minLength(32), v.maxLength(256))),
 })
 
 export type WorkerBindings = v.InferOutput<typeof workerBindingsSchema>

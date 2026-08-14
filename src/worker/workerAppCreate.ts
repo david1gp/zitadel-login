@@ -7,11 +7,18 @@ import { bootstrapViewGet } from "../branding/bootstrapViewGet"
 import type { BootstrapView } from "../branding/bootstrapViewSchema"
 import { workerBindingsParse } from "../config/workerBindingsParse"
 import type { WorkerBindings, WorkerBindingsInput, WorkerRateLimiter } from "../config/workerBindingsSchema"
+import { emailOtpCooldownClientCreate } from "../email-otp/cooldown/emailOtpCooldownClientCreate"
+import { emailOtpCooldownLimitedExpiresAtGet } from "../email-otp/cooldown/emailOtpCooldownLimitedExpiresAtGet"
+import { emailOtpCooldownSendReserve } from "../email-otp/cooldown/emailOtpCooldownSendReserve"
 import { flowCookieOpen } from "../flow/flowCookieOpen"
 import type { FlowCookie } from "../flow/flowCookieSchema"
 import { flowCookieSeal } from "../flow/flowCookieSeal"
 import { flowV2RouterCreate } from "../flow/http/flowV2RouterCreate"
+import { cooldownMetadataCreate } from "../http/cooldownMetadataCreate"
+import type { CooldownMetadata } from "../http/cooldownMetadataSchema"
+import { cooldownRetryAfterSecondsGet } from "../http/cooldownRetryAfterSecondsGet"
 import { csrfTokenMatches } from "../http/csrfTokenMatches"
+import { otpLimitTestRouterCreate } from "../http/otpLimitTestRouterCreate"
 import { rateLimitCheck } from "../http/rateLimitCheck"
 import { requestPayloadParse } from "../http/requestPayloadParse"
 import { passwordRecoveryRouterCreate } from "../password-recovery/http/passwordRecoveryRouterCreate"
@@ -123,6 +130,36 @@ async function abuseLimitCheck(
     keyOperation: "abuseKeyCreate",
     operation: "abuseLimitCheck",
   })
+}
+
+function primaryEmailOtpCooldownGet(bindings: WorkerBindings, authRequestId: string) {
+  return emailOtpCooldownClientCreate({
+    namespace: bindings.EMAIL_OTP_COOLDOWN,
+    cookieKey: bindings.FLOW_COOKIE_KEY,
+    purpose: "email-otp",
+    identifier: authRequestId,
+  })
+}
+
+function cooldownMetadataHeadersSet(c: AppContext, metadata: CooldownMetadata) {
+  c.header("X-Cooldown-Expires-At", String(metadata.cooldownExpiresAt))
+  c.header("X-Cooldown-Remaining-Seconds", String(metadata.cooldownRemainingSeconds))
+}
+
+function cooldownLimitedResponse(c: AppContext, metadata: CooldownMetadata) {
+  cooldownMetadataHeadersSet(c, metadata)
+  c.header("Retry-After", String(cooldownRetryAfterSecondsGet(metadata)))
+  return errorResponse(c, 429, "rate_limited", "Too many sign-in attempts. Please retry later.")
+}
+
+function emailOtpCooldownRejectedResponse(
+  c: AppContext,
+  reserved: Extract<Result<number>, { success: false }>,
+  now: number,
+) {
+  const expiresAt = emailOtpCooldownLimitedExpiresAtGet(reserved)
+  if (expiresAt !== undefined) return cooldownLimitedResponse(c, cooldownMetadataCreate(expiresAt, now))
+  return errorResponse(c, 503, "service_unavailable", "The sign-in service is temporarily unavailable.")
 }
 
 function callbackUrlIsSafe(callbackUrl: string, redirectUri: string): boolean {
@@ -332,6 +369,7 @@ export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
       logger: dependencies.logger,
     }),
   )
+  app.route("/", otpLimitTestRouterCreate({ now: dependencies.now }))
 
   app.get("/api/auth-request", async (c) => {
     const bindings = bindingsGet(c)
@@ -522,6 +560,12 @@ export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
       dependencies.logger.error("session_create_failed", { status: resultStatusGet(created) ?? 0 })
       return errorResponse(c, 502, "service_unavailable", "Email sign-in is temporarily unavailable.")
     }
+    const now = dependencies.now()
+    const reserved = await emailOtpCooldownSendReserve(
+      primaryEmailOtpCooldownGet(bindings.data, state.data.authRequestId),
+      now,
+    )
+    if (!reserved.success) return emailOtpCooldownRejectedResponse(c, reserved, now)
     const challenged = await client.sessionChallenge(created.data.sessionId)
     if (!challenged.success) {
       if (resultStatusGet(challenged) === 400) return fallbackResponse(c)
@@ -537,6 +581,7 @@ export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
     }
     const set = await flowCookieSet(c, bindings.data, nextState)
     if (!set.success) return errorResponse(c, 500, "service_unavailable", "The sign-in service is unavailable.")
+    cooldownMetadataHeadersSet(c, cooldownMetadataCreate(reserved.data, now))
     return c.json({ status: "code_sent" }, 202)
   })
 
@@ -564,6 +609,12 @@ export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
     if (!authRequest.success || authRequest.data.clientId !== state.data.clientId) {
       return errorResponse(c, 403, "invalid_flow", "The sign-in request is no longer valid.")
     }
+    const now = dependencies.now()
+    const reserved = await emailOtpCooldownSendReserve(
+      primaryEmailOtpCooldownGet(bindings.data, state.data.authRequestId),
+      now,
+    )
+    if (!reserved.success) return emailOtpCooldownRejectedResponse(c, reserved, now)
     const challenged = await zitadelClientCreate(bindings.data, dependencies.fetch).sessionChallenge(
       state.data.sessionId,
     )
@@ -573,6 +624,7 @@ export function workerAppCreate(overrides: Partial<Dependencies> = {}) {
     }
     const set = await flowCookieSet(c, bindings.data, { ...state.data, sessionToken: challenged.data.sessionToken })
     if (!set.success) return errorResponse(c, 500, "service_unavailable", "The sign-in service is unavailable.")
+    cooldownMetadataHeadersSet(c, cooldownMetadataCreate(reserved.data, now))
     return c.json({ status: "code_sent" }, 202)
   })
 

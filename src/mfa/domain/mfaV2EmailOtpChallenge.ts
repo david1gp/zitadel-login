@@ -1,3 +1,5 @@
+import { emailOtpCooldownClientCreate } from "../../email-otp/cooldown/emailOtpCooldownClientCreate"
+import { emailOtpCooldownSendReserve } from "../../email-otp/cooldown/emailOtpCooldownSendReserve"
 import type { FlowV2Cookie } from "../../flow/model/flowV2CookieSchema"
 import type { FlowV2Transition } from "../../flow/model/flowV2TransitionSchema"
 import { resultCreate } from "../../result/resultCreate"
@@ -10,6 +12,7 @@ type Input = {
   method?: string
   now: number
   client: ReturnType<typeof zitadelClientCreate>
+  cooldown: ReturnType<typeof emailOtpCooldownClientCreate>
 }
 
 function resultStatusGet(result: { success: boolean; rawData?: unknown }): number | undefined {
@@ -35,7 +38,12 @@ export async function mfaV2EmailOtpChallenge(input: Input) {
   const pendingState: Extract<FlowV2Cookie, { stage: "mfa" }> =
     input.state.stage === "mfa"
       ? input.state
-      : (({ enrollmentActivationConsumedAt: _consumed, challengeIssuedAt: _issued, ...stateBase }) => ({
+      : (({
+          enrollmentActivationConsumedAt: _consumed,
+          challengeIssuedAt: _issued,
+          cooldownExpiresAt: _cooldown,
+          ...stateBase
+        }) => ({
           ...stateBase,
           stage: "mfa" as const,
         }))(input.state)
@@ -58,6 +66,9 @@ export async function mfaV2EmailOtpChallenge(input: Input) {
     return resultErrorCreate(op, "method_not_enrolled")
   }
 
+  const reserved = await emailOtpCooldownSendReserve(input.cooldown, input.now)
+  if (!reserved.success) return reserved
+
   const challenged = await input.client.emailOtpSessionChallenge(currentState.sessionId, currentState.sessionToken)
   if (!challenged.success) {
     const status = resultStatusGet(challenged)
@@ -77,6 +88,7 @@ export async function mfaV2EmailOtpChallenge(input: Input) {
       ? { enrollmentActivationConsumedAt: input.state.enrollmentActivationConsumedAt }
       : {}),
     challengeIssuedAt: input.now,
+    cooldownExpiresAt: reserved.data,
   }
 
   const transition: FlowV2Transition = {

@@ -1,16 +1,18 @@
-import { describe, expect, test } from "bun:test"
+import { beforeEach, describe, expect, test } from "bun:test"
 
 import type { WorkerBindingsInput } from "../src/config/workerBindingsSchema"
 import { flowV2CookieOpen } from "../src/flow/domain/flowV2CookieOpen"
 import { flowV2CookieSeal } from "../src/flow/domain/flowV2CookieSeal"
 import type { FlowV2Cookie } from "../src/flow/model/flowV2CookieSchema"
 import { workerAppCreate } from "../src/worker/workerAppCreate"
+import { emailOtpCooldownNamespaceFakeCreate } from "./emailOtpCooldownNamespaceFakeCreate"
 
 const origin = "https://login.example"
 const identityOrigin = "https://identity.example"
 const key = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 const previousKey = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
 const now = 1_800_000_000
+const emailOtpCooldown = emailOtpCooldownNamespaceFakeCreate()
 
 const bindings: WorkerBindingsInput = {
   ZITADEL_ORIGIN: identityOrigin,
@@ -24,6 +26,7 @@ const bindings: WorkerBindingsInput = {
   ZITADEL_CUSTOM_LOGIN_ENABLED: "true",
   FLOW_COOKIE_PREVIOUS_KEY: previousKey,
   RATE_LIMITER: { limit: async () => ({ success: true }) },
+  EMAIL_OTP_COOLDOWN: emailOtpCooldown,
 }
 
 const authRequest = {
@@ -189,6 +192,10 @@ async function flowInitialize(
 }
 
 describe("Worker v2 flow foundation", () => {
+  beforeEach(() => {
+    emailOtpCooldown.reset()
+  })
+
   test("initializes and resumes canonical state without exposing native or session credentials", async () => {
     const native = nativeCreate()
     const app = workerAppCreate({
@@ -569,9 +576,10 @@ describe("Worker v2 flow foundation", () => {
 
   test("starts, resends, verifies, and continues with only the latest native session token", async () => {
     const native = nativeCreate()
+    let currentNow = now
     const app = workerAppCreate({
       fetch: native.fetch,
-      now: () => now,
+      now: () => currentNow,
       randomBytes: (length) => new Uint8Array(length).fill(10),
     })
     const initialized = await flowInitialize(app)
@@ -595,6 +603,20 @@ describe("Worker v2 flow foundation", () => {
       },
     })
     const startedCookie = cookieGet(started)
+    const startedState = await flowV2CookieOpen(startedCookie.split("=", 2)[1] ?? "", initialized.flow, [key], now)
+    expect(
+      startedState.success && startedState.data.stage === "otp" ? startedState.data.cooldownExpiresAt : undefined,
+    ).toBe(now + 60)
+    const cooldownStatus = await app.request(
+      `${origin}/api/v2/email-otp/cooldown?flow=${initialized.flow}`,
+      { headers: { cookie: startedCookie } },
+      bindings,
+    )
+    expect(cooldownStatus.status).toBe(200)
+    expect(await cooldownStatus.json()).toEqual({
+      success: true,
+      data: { cooldownExpiresAt: now + 60, cooldownRemainingSeconds: 60 },
+    })
     const createCall = native.calls.find((call) => call.url === `${identityOrigin}/v2/sessions`)
     expect(createCall?.body).toEqual({
       checks: { user: { userId: "user-1" } },
@@ -602,6 +624,30 @@ describe("Worker v2 flow foundation", () => {
       lifetime: "900s",
     })
 
+    currentNow = now + 42
+    const blocked = await app.request(
+      `${origin}/api/v2/email-otp/resend?flow=${initialized.flow}`,
+      {
+        method: "POST",
+        headers: jsonHeaders(startedCookie),
+        body: JSON.stringify({ csrfToken: initialized.csrfToken }),
+      },
+      bindings,
+    )
+    expect(blocked.status).toBe(429)
+    expect(blocked.headers.get("retry-after")).toBe("18")
+    expect(blocked.headers.get("x-cooldown-expires-at")).toBe(String(now + 60))
+    expect(blocked.headers.get("x-cooldown-remaining-seconds")).toBe("18")
+    expect(blocked.headers.get("set-cookie")).toBeNull()
+    expect(await blocked.json()).toEqual({
+      success: false,
+      op: "emailOtpResend",
+      errorMessage: "rate_limited",
+      data: { cooldownExpiresAt: now + 60, cooldownRemainingSeconds: 18 },
+    })
+    expect(native.calls.filter((call) => call.method === "PATCH")).toHaveLength(0)
+
+    currentNow = now + 60
     const resent = await app.request(
       `${origin}/api/v2/email-otp/resend?flow=${initialized.flow}`,
       {
@@ -613,6 +659,12 @@ describe("Worker v2 flow foundation", () => {
     )
     expect(resent.status).toBe(202)
     const resentCookie = cookieGet(resent)
+    const resentState = await flowV2CookieOpen(resentCookie.split("=", 2)[1] ?? "", initialized.flow, [key], now)
+    expect(
+      resentState.success && resentState.data.stage === "otp" ? resentState.data.cooldownExpiresAt : undefined,
+    ).toBe(currentNow + 60)
+    expect(resent.headers.get("x-cooldown-expires-at")).toBe(String(currentNow + 60))
+    expect(resent.headers.get("x-cooldown-remaining-seconds")).toBe("60")
     const resendCall = native.calls.find(
       (call) => call.method === "PATCH" && (call.body as { challenges?: unknown })?.challenges,
     )
@@ -621,6 +673,28 @@ describe("Worker v2 flow foundation", () => {
       challenges: { otpEmail: { sendCode: {} } },
       lifetime: "900s",
     })
+
+    const limited = await app.request(
+      `${origin}/api/v2/email-otp/resend?flow=${initialized.flow}`,
+      {
+        method: "POST",
+        headers: jsonHeaders(resentCookie),
+        body: JSON.stringify({ csrfToken: initialized.csrfToken }),
+      },
+      bindings,
+    )
+    expect(limited.status).toBe(429)
+    expect(limited.headers.get("retry-after")).toBe("60")
+    expect(limited.headers.get("x-cooldown-expires-at")).toBe(String(now + 120))
+    expect(limited.headers.get("x-cooldown-remaining-seconds")).toBe("60")
+    expect(limited.headers.get("set-cookie")).toBeNull()
+    expect(await limited.json()).toEqual({
+      success: false,
+      op: "emailOtpResend",
+      errorMessage: "rate_limited",
+      data: { cooldownExpiresAt: now + 120, cooldownRemainingSeconds: 60 },
+    })
+    expect(native.calls.filter((call) => call.method === "PATCH")).toHaveLength(1)
 
     const verified = await app.request(
       `${origin}/api/v2/email-otp/verify?flow=${initialized.flow}`,
@@ -778,9 +852,10 @@ describe("Worker v2 flow foundation", () => {
 
   test("uses a non-mutating decoy challenge when enumeration protection hides an unknown email", async () => {
     const native = nativeCreate({ users: [], ignoreUnknownUsernames: true })
+    let currentNow = now
     const app = workerAppCreate({
       fetch: native.fetch,
-      now: () => now,
+      now: () => currentNow,
       randomBytes: (length) => new Uint8Array(length).fill(15),
     })
     const initialized = await flowInitialize(app)
@@ -796,7 +871,22 @@ describe("Worker v2 flow foundation", () => {
     expect(started.status).toBe(202)
     const startedBody = await started.clone().json()
     expect(startedBody.data.screen).toEqual({ name: "email_otp_code" })
+    const startedState = await flowV2CookieOpen(cookieGet(started).split("=", 2)[1] ?? "", initialized.flow, [key], now)
+    expect(
+      startedState.success && startedState.data.stage === "otp_decoy" ? startedState.data.cooldownExpiresAt : undefined,
+    ).toBe(now + 60)
+    const cooldownStatus = await app.request(
+      `${origin}/api/v2/email-otp/cooldown?flow=${initialized.flow}`,
+      { headers: { cookie: cookieGet(started) } },
+      bindings,
+    )
+    expect(cooldownStatus.status).toBe(200)
+    expect(await cooldownStatus.json()).toEqual({
+      success: true,
+      data: { cooldownExpiresAt: now + 60, cooldownRemainingSeconds: 60 },
+    })
 
+    currentNow = now + 60
     const resent = await app.request(
       `${origin}/api/v2/email-otp/resend?flow=${initialized.flow}`,
       {
@@ -807,6 +897,12 @@ describe("Worker v2 flow foundation", () => {
       bindings,
     )
     expect(resent.status).toBe(202)
+    const resentState = await flowV2CookieOpen(cookieGet(resent).split("=", 2)[1] ?? "", initialized.flow, [key], now)
+    expect(
+      resentState.success && resentState.data.stage === "otp_decoy" ? resentState.data.cooldownExpiresAt : undefined,
+    ).toBe(currentNow + 60)
+    expect(resent.headers.get("x-cooldown-expires-at")).toBe(String(currentNow + 60))
+    expect(resent.headers.get("x-cooldown-remaining-seconds")).toBe("60")
 
     const verified = await app.request(
       `${origin}/api/v2/email-otp/verify?flow=${initialized.flow}`,
@@ -821,6 +917,39 @@ describe("Worker v2 flow foundation", () => {
     expect(await verified.json()).toEqual({ success: false, op: "emailOtpVerify", errorMessage: "code_invalid" })
     expect(native.calls.some((call) => call.url === `${identityOrigin}/v2/sessions`)).toBe(false)
     expect(native.calls.some((call) => call.method === "PATCH")).toBe(false)
+  })
+
+  test("rejects email OTP cooldown queries for the wrong origin or inactive flow", async () => {
+    const native = nativeCreate()
+    const app = workerAppCreate({
+      fetch: native.fetch,
+      now: () => now,
+      randomBytes: (length) => new Uint8Array(length).fill(15),
+    })
+    const initialized = await flowInitialize(app)
+    const rejectedOrigin = await app.request(
+      `https://evil.example/api/v2/email-otp/cooldown?flow=${initialized.flow}`,
+      { headers: { cookie: initialized.cookie } },
+      bindings,
+    )
+    expect(rejectedOrigin.status).toBe(403)
+    expect(await rejectedOrigin.json()).toEqual({
+      success: false,
+      op: "emailOtpCooldown",
+      errorMessage: "origin_rejected",
+    })
+
+    const inactive = await app.request(
+      `${origin}/api/v2/email-otp/cooldown?flow=${initialized.flow}`,
+      { headers: { cookie: initialized.cookie } },
+      bindings,
+    )
+    expect(inactive.status).toBe(409)
+    expect(await inactive.json()).toEqual({
+      success: false,
+      op: "emailOtpCooldown",
+      errorMessage: "flow_stage_invalid",
+    })
   })
 
   test("classifies invalid codes and redacts native error bodies", async () => {

@@ -1,6 +1,6 @@
+import { primaryFlowMfaPolicyEvaluate } from "../../flow/domain/primaryFlowMfaPolicyEvaluate"
 import type { FlowV2Cookie } from "../../flow/model/flowV2CookieSchema"
 import type { FlowV2Transition } from "../../flow/model/flowV2TransitionSchema"
-import { primaryFlowMfaPolicyEvaluate } from "../../flow/domain/primaryFlowMfaPolicyEvaluate"
 import { resultCreate } from "../../result/resultCreate"
 import { resultErrorCreate } from "../../result/resultErrorCreate"
 import { zitadelClientCreate } from "../../zitadel/zitadelClientCreate"
@@ -86,8 +86,9 @@ export async function emailOtpV2Verify(input: Input) {
   if (!mfa.supported) return resultErrorCreate(op, "authorization_unavailable")
 
   if (mfa.required) {
+    const { cooldownExpiresAt: _cooldownExpiresAt, ...stateBase } = input.state
     const state: Extract<FlowV2Cookie, { stage: "mfa" }> = {
-      ...input.state,
+      ...stateBase,
       stage: "mfa",
       transitionCounter: input.state.transitionCounter + 1,
       sessionToken: verified.data.sessionToken,
@@ -96,8 +97,9 @@ export async function emailOtpV2Verify(input: Input) {
     return resultCreate({ state, transition: mfaTransitionCreate(state) })
   }
 
+  const { cooldownExpiresAt: _cooldownExpiresAt, ...stateBase } = input.state
   const state: Extract<FlowV2Cookie, { stage: "verified" }> = {
-    ...input.state,
+    ...stateBase,
     stage: "verified",
     transitionCounter: input.state.transitionCounter + 1,
     sessionToken: verified.data.sessionToken,

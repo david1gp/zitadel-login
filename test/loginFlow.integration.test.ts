@@ -7,6 +7,7 @@ import { flowV2InitializeApiRequest } from "../client/src/flow/api/flowV2Initial
 import { flowV2ResumeApiRequest } from "../client/src/flow/api/flowV2ResumeApiRequest"
 import type { WorkerBindingsInput } from "../src/config/workerBindingsSchema"
 import { workerAppCreate } from "../src/worker/workerAppCreate"
+import { emailOtpCooldownNamespaceFakeCreate } from "./emailOtpCooldownNamespaceFakeCreate"
 
 type EmailOtpV1ApiOperation =
   | { type: "initialize"; authRequest: string }
@@ -36,6 +37,7 @@ const browserOrigin = workerOrigin
 const identityOrigin = "https://identity.invalid.test"
 const originalFetch = globalThis.fetch
 
+const cooldown = emailOtpCooldownNamespaceFakeCreate()
 const bindings: WorkerBindingsInput = {
   ZITADEL_ORIGIN: identityOrigin,
   ZITADEL_ORGANIZATION_ID: "org-test",
@@ -47,6 +49,7 @@ const bindings: WorkerBindingsInput = {
   FLOW_COOKIE_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
   ZITADEL_CUSTOM_LOGIN_ENABLED: "true",
   RATE_LIMITER: { limit: async () => ({ success: true }) },
+  EMAIL_OTP_COOLDOWN: cooldown,
 }
 
 const authRequest = {
@@ -67,12 +70,14 @@ function setCookieValueGet(response: Response): string {
 
 afterEach(() => {
   globalThis.fetch = originalFetch
+  cooldown.reset()
 })
 
 describe("browser, Worker, and ZITADEL email OTP contract", () => {
   test("rotates v1 encrypted state through start, resend, verify, and callback", async () => {
     let zitadelCall = 0
     let cookie = ""
+    let currentNow = 1_800_000_000
     const app = workerAppCreate({
       fetch: async (input, init) => {
         const url = String(input)
@@ -130,7 +135,7 @@ describe("browser, Worker, and ZITADEL email OTP contract", () => {
         }
         throw new Error(`Unexpected mocked ZITADEL v4.16 call ${call}`)
       },
-      now: () => 1_800_000_000,
+      now: () => currentNow,
       randomBytes: (length) => new Uint8Array(length).fill(9),
     })
 
@@ -165,6 +170,7 @@ describe("browser, Worker, and ZITADEL email OTP contract", () => {
     const startedCookie = cookie
     expect(startedCookie).not.toContain("initial-challenge-token")
 
+    currentNow += 60
     const resent = await emailOtpV1ApiRequest(workerOrigin, { type: "resend", csrfToken: initialized.data.csrfToken })
     expect(resent).toEqual({ success: true, data: { status: "code_sent" } })
     expect(cookie).not.toBe(startedCookie)
@@ -196,6 +202,7 @@ describe("browser, Worker, and ZITADEL email OTP contract", () => {
     let zitadelCall = 0
     let cookie = ""
     let token = "token-created"
+    let currentNow = 1_800_000_000
     const app = workerAppCreate({
       fetch: async (input, init) => {
         const url = String(input)
@@ -266,7 +273,7 @@ describe("browser, Worker, and ZITADEL email OTP contract", () => {
         }
         throw new Error(`Unexpected v2 test native request: ${method} ${url}`)
       },
-      now: () => 1_800_000_000,
+      now: () => currentNow,
       randomBytes: (length) => new Uint8Array(length).fill(7),
     })
 
@@ -300,6 +307,7 @@ describe("browser, Worker, and ZITADEL email OTP contract", () => {
     })
     expect(started.success).toBe(true)
 
+    currentNow += 60
     const resent = await emailOtpV2ResendApiRequest(workerOrigin, flowHandle, { csrfToken })
     expect(resent.success).toBe(true)
 

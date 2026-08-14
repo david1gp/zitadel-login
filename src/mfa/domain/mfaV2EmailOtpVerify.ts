@@ -43,7 +43,12 @@ export async function mfaV2EmailOtpVerify(input: Input) {
   const pendingState: Extract<FlowV2Cookie, { stage: "mfa" }> =
     input.state.stage === "mfa"
       ? input.state
-      : (({ enrollmentActivationConsumedAt: _consumed, challengeIssuedAt: _issued, ...stateBase }) => ({
+      : (({
+          enrollmentActivationConsumedAt: _consumed,
+          challengeIssuedAt: _issued,
+          cooldownExpiresAt: _cooldown,
+          ...stateBase
+        }) => ({
           ...stateBase,
           stage: "mfa" as const,
         }))(input.state)

@@ -1,3 +1,5 @@
+import { emailOtpCooldownClientCreate } from "../cooldown/emailOtpCooldownClientCreate"
+import { emailOtpCooldownSendReserve } from "../cooldown/emailOtpCooldownSendReserve"
 import type { FlowV2Cookie } from "../../flow/model/flowV2CookieSchema"
 import type { FlowV2Transition } from "../../flow/model/flowV2TransitionSchema"
 import { resultCreate } from "../../result/resultCreate"
@@ -6,7 +8,9 @@ import { zitadelClientCreate } from "../../zitadel/zitadelClientCreate"
 
 type Input = {
   state: Extract<FlowV2Cookie, { stage: "otp" }>
+  now: number
   client: ReturnType<typeof zitadelClientCreate>
+  cooldown: ReturnType<typeof emailOtpCooldownClientCreate>
 }
 
 function resultStatusGet(result: { success: boolean; rawData?: unknown }): number | undefined {
@@ -17,6 +21,8 @@ function resultStatusGet(result: { success: boolean; rawData?: unknown }): numbe
 
 export async function emailOtpV2Resend(input: Input) {
   const op = "emailOtpV2Resend"
+  const reserved = await emailOtpCooldownSendReserve(input.cooldown, input.now)
+  if (!reserved.success) return reserved
   const challenged = await input.client.emailOtpSessionChallenge(input.state.sessionId, input.state.sessionToken)
   if (!challenged.success) {
     const status = resultStatusGet(challenged)
@@ -30,6 +36,7 @@ export async function emailOtpV2Resend(input: Input) {
     ...input.state,
     transitionCounter: input.state.transitionCounter + 1,
     sessionToken: challenged.data.sessionToken,
+    cooldownExpiresAt: reserved.data,
   }
   return resultCreate({
     state,

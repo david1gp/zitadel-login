@@ -62,4 +62,36 @@ describe("workerBindingsParse MFA ownership gate", () => {
     })
     expect(credentials.success).toBe(false)
   })
+
+  test("accepts the email OTP cooldown Durable Object namespace", () => {
+    const namespace = {
+      getByName: () => ({
+        reserve: async () => ({ accepted: true, expiresAt: 0 }),
+        status: async () => ({ expiresAt: 0 }),
+      }),
+    }
+    const result = workerBindingsParse({ ...bindings, EMAIL_OTP_COOLDOWN: namespace })
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.data.EMAIL_OTP_COOLDOWN).toBe(namespace)
+  })
+
+  test("rejects a malformed email OTP cooldown namespace", () => {
+    const result = workerBindingsParse({ ...bindings, EMAIL_OTP_COOLDOWN: {} as never })
+    expect(result.success).toBe(false)
+  })
+
+  test("accepts an optional bounded OTP limit-test secret", () => {
+    const secret = "x".repeat(32)
+    const result = workerBindingsParse({ ...bindings, OTP_LIMIT_TEST_SECRET: secret })
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.data.OTP_LIMIT_TEST_SECRET).toBe(secret)
+
+    const short = workerBindingsParse({ ...bindings, OTP_LIMIT_TEST_SECRET: "x".repeat(31) })
+    expect(short.success).toBe(false)
+
+    const long = workerBindingsParse({ ...bindings, OTP_LIMIT_TEST_SECRET: "x".repeat(257) })
+    expect(long.success).toBe(false)
+  })
 })

@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test"
 
 import type { WorkerBindings } from "../src/config/workerBindingsSchema"
+import { emailOtpCooldownClientCreate } from "../src/email-otp/cooldown/emailOtpCooldownClientCreate"
 import type { FlowV2Cookie } from "../src/flow/model/flowV2CookieSchema"
 import { mfaV2EmailOtpEnrollmentActivate } from "../src/mfa/domain/mfaV2EmailOtpEnrollmentActivate"
 import { mfaV2EmailOtpEnrollmentPrepare } from "../src/mfa/domain/mfaV2EmailOtpEnrollmentPrepare"
 import { zitadelClientCreate } from "../src/zitadel/zitadelClientCreate"
+import { emailOtpCooldownNamespaceFakeCreate } from "./emailOtpCooldownNamespaceFakeCreate"
 
 const identityOrigin = "https://identity.example"
 const now = 1_800_000_000
@@ -111,6 +113,12 @@ describe("mfaV2EmailOtpEnrollment", () => {
       state: prepared.data.state,
       now,
       client: native.client,
+      cooldown: emailOtpCooldownClientCreate({
+        namespace: emailOtpCooldownNamespaceFakeCreate(),
+        cookieKey: bindings.FLOW_COOKIE_KEY,
+        purpose: "mfa-email-otp",
+        identifier: state.authRequestId,
+      }),
     })
     expect(activated.success).toBe(true)
     if (!activated.success) return
@@ -118,6 +126,7 @@ describe("mfaV2EmailOtpEnrollment", () => {
       stage: "mfa_email_otp_code",
       sessionToken: "challenge-secret-token",
       challengeIssuedAt: now,
+      cooldownExpiresAt: now + 60,
     })
     expect(activated.data.state.mfaMethods).toContain("AUTHENTICATION_METHOD_TYPE_OTP_EMAIL")
     const mutations = native.calls.filter((call) => call.method === "POST" || call.method === "PATCH")
@@ -125,5 +134,27 @@ describe("mfaV2EmailOtpEnrollment", () => {
       `${identityOrigin}/v2/users/user-1/otp_email`,
       `${identityOrigin}/v2/sessions/session-1`,
     ])
+  })
+
+  test("reserves before the enrollment challenge and never challenges when the Durable Object rejects", async () => {
+    const native = nativeCreate()
+    const prepared = await mfaV2EmailOtpEnrollmentPrepare({ state, now, client: native.client })
+    expect(prepared.success).toBe(true)
+    if (!prepared.success) return
+    const activated = await mfaV2EmailOtpEnrollmentActivate({
+      state: prepared.data.state,
+      now,
+      client: native.client,
+      cooldown: emailOtpCooldownClientCreate({
+        namespace: undefined,
+        cookieKey: bindings.FLOW_COOKIE_KEY,
+        purpose: "mfa-email-otp",
+        identifier: state.authRequestId,
+      }),
+    })
+    expect(activated.success).toBe(false)
+    if (activated.success) return
+    expect(activated.errorMessage).toBe("cooldown_unavailable")
+    expect(native.calls.some((call) => call.method === "PATCH")).toBe(false)
   })
 })

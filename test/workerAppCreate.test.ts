@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test"
 import type { WorkerBindingsInput } from "../src/config/workerBindingsSchema"
 import { flowCookieSeal } from "../src/flow/flowCookieSeal"
 import { workerAppCreate } from "../src/worker/workerAppCreate"
+import { emailOtpCooldownNamespaceFakeCreate } from "./emailOtpCooldownNamespaceFakeCreate"
 
 const rateLimiter = {
   limit: async (_options: { key: string }) => ({ success: true }),
@@ -159,9 +160,11 @@ describe("Worker native email OTP flow", () => {
         headers: postHeaders(requestCookie),
         body: JSON.stringify({ email: "Person@Example.com", csrfToken: initializedBody.csrfToken }),
       },
-      bindings,
+      { ...bindings, EMAIL_OTP_COOLDOWN: emailOtpCooldownNamespaceFakeCreate() },
     )
     expect(started.status).toBe(202)
+    expect(started.headers.get("x-cooldown-expires-at")).toBe("1800000060")
+    expect(started.headers.get("x-cooldown-remaining-seconds")).toBe("60")
     expect(await started.json()).toEqual({ status: "code_sent" })
     const otpCookie = cookieGet(started)
     expect(otpCookie).not.toContain("challenged-token")
