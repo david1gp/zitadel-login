@@ -142,6 +142,8 @@ export function App(props: AppProps) {
                 emailSubmit={state.emailSubmit}
                 codeSubmit={state.codeSubmit}
                 resend={state.resend}
+                resendAllowed={state.resendAllowed}
+                resendCountdown={state.resendCountdown}
                 emailChange={state.emailChange}
                 showChooser={state.showChooser}
               />

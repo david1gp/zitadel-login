@@ -113,6 +113,7 @@ export function appStateCreate(
     browserHistoryNavigate(browserWindow, loginRoutePathGet(next, search), replace)
     if (next) preference.schedule(next, identifierGet(next))
     if (next?.method === "email_otp") {
+      void emailOtp.reenter()
       emailOtp.emailFocus()
     } else if (next?.method === "password") {
       password.identifierFocus()
@@ -181,6 +182,7 @@ export function appStateCreate(
       if (selected) preference.save(selected, identifier)
     },
     statusContinue,
+    storage,
   })
 
   const password = passwordStateCreate({
@@ -255,6 +257,7 @@ export function appStateCreate(
       error.set("")
       notice.set("")
       if (routeAvailable?.method === "email_otp") {
+        void emailOtp.reenter()
         emailOtp.emailFocus()
       } else if (routeAvailable?.method === "password") {
         password.identifierFocus()
@@ -428,6 +431,8 @@ export function appStateCreate(
     emailSubmit: emailOtp.emailSubmit,
     codeSubmit: emailOtp.codeSubmit,
     resend: emailOtp.resend,
+    resendAllowed: emailOtp.resendAllowed,
+    resendCountdown: emailOtp.resendCountdown,
     emailChange: emailOtp.emailChange,
     passwordIdentifier: password.identifier,
     passwordValue: password.password,

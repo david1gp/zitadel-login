@@ -5,6 +5,7 @@ import { type FlowV2Transition, flowV2TransitionSchema } from "../../flow/model/
 import type { Result } from "../../result/Result"
 import { resultCreate } from "../../result/resultCreate"
 import { resultErrorCreate } from "../../result/resultErrorCreate"
+import { emailOtpCooldownExpiryResponseGet } from "../model/emailOtpCooldownExpiryResponseGet"
 
 const responseSchema = v.strictObject({
   success: v.literal(true),
@@ -21,7 +22,7 @@ export async function emailOtpV2ResendApiRequest(
   apiOrigin: string,
   flowHandle: string,
   input: { csrfToken: string },
-): Promise<Result<FlowV2Transition>> {
+): Promise<Result<FlowV2Transition, { cooldownExpiresAt?: number }>> {
   const op = "emailOtpV2ResendApiRequest"
   const url = new URL("/api/v2/email-otp/resend", apiOrigin || window.location.origin)
   url.searchParams.set("flow", flowHandle)
@@ -36,6 +37,7 @@ export async function emailOtpV2ResendApiRequest(
   } catch (error) {
     return resultErrorCreate(op, "Sign-in is temporarily unavailable. Please try again.", error)
   }
+  const cooldownExpiresAt = emailOtpCooldownExpiryResponseGet(response)
 
   let json: unknown
   try {
@@ -47,12 +49,12 @@ export async function emailOtpV2ResendApiRequest(
   if (!response.ok) {
     const parsedError = v.safeParse(errorSchema, json)
     const code = parsedError.success ? parsedError.output.errorMessage : "service_unavailable"
-    return resultErrorCreate(op, flowV2ErrorMessageGet(code))
+    return { ...resultErrorCreate(op, flowV2ErrorMessageGet(code)), cooldownExpiresAt }
   }
 
   const parsed = v.safeParse(responseSchema, json)
   if (!parsed.success) {
     return resultErrorCreate(op, "The sign-in service returned an invalid response.", json)
   }
-  return resultCreate(parsed.output.data)
+  return { ...resultCreate(parsed.output.data), cooldownExpiresAt }
 }

@@ -1,11 +1,13 @@
-import { createMemo } from "solid-js"
+import { createMemo, onCleanup } from "solid-js"
 
 import { loginIdentifierNormalize } from "../../preferences/model/loginIdentifierNormalize"
 import { createSignalObject } from "../../ui/createSignalObject"
 import type { SignalObject } from "../../ui/SignalObject"
+import { emailOtpCooldownApiRequest } from "../api/emailOtpCooldownApiRequest"
 import { emailOtpV2ResendApiRequest } from "../api/emailOtpV2ResendApiRequest"
 import { emailOtpV2StartApiRequest } from "../api/emailOtpV2StartApiRequest"
 import { emailOtpV2VerifyApiRequest } from "../api/emailOtpV2VerifyApiRequest"
+import { emailOtpCooldownCreate } from "../model/emailOtpCooldownCreate"
 
 export function emailOtpStateCreate(input: {
   apiOrigin: () => string
@@ -18,10 +20,15 @@ export function emailOtpStateCreate(input: {
   notice: SignalObject<string>
   preferenceSave: (identifier: string) => void
   statusContinue: (url: string) => void
+  storage?: Storage
 }) {
   const step = createSignalObject<"email" | "code">("email")
   const email = createSignalObject("")
   const code = createSignalObject("")
+  const cooldown = emailOtpCooldownCreate({
+    storageKey: "zitadel-login.email-otp.cooldown-expires-at",
+    storage: input.storage,
+  })
   let emailInput: HTMLInputElement | undefined
   let codeInput: HTMLInputElement | undefined
 
@@ -30,6 +37,18 @@ export function emailOtpStateCreate(input: {
     input.errorClear()
     input.notice.set("")
   }
+  const cooldownReconcile = async () => {
+    cooldown.reconciliationStart()
+    const result = await emailOtpCooldownApiRequest(input.apiOrigin(), input.flowHandle.get(), "primary")
+    if (!result.success) return false
+    cooldown.reconcile(result.data)
+    return true
+  }
+  const codeEnter = () => {
+    step.set("code")
+    void cooldownReconcile()
+  }
+  onCleanup(cooldown.stop)
   const emailSubmit = async (event: SubmitEvent) => {
     event.preventDefault()
     resetMessages()
@@ -61,7 +80,7 @@ export function emailOtpStateCreate(input: {
     }
     if (transition.kind === "render") {
       input.csrfToken.set(transition.csrfToken)
-      step.set("code")
+      codeEnter()
       focusSchedule(() => codeInput)
     }
   }
@@ -99,12 +118,15 @@ export function emailOtpStateCreate(input: {
     }
   }
   const resend = async () => {
+    if (input.busy.get() || !cooldown.resendAllowed()) return
     resetMessages()
     input.busy.set(true)
     const result = await emailOtpV2ResendApiRequest(input.apiOrigin(), input.flowHandle.get(), {
       csrfToken: input.csrfToken.get(),
     })
     input.busy.set(false)
+    if (result.cooldownExpiresAt !== undefined) cooldown.reconcile(result.cooldownExpiresAt)
+    else void cooldownReconcile()
     if (!result.success) {
       input.failureSet(result.errorMessage)
       return
@@ -120,7 +142,13 @@ export function emailOtpStateCreate(input: {
 
   return {
     step: step.get,
-    stepSet: step.set,
+    stepSet: (nextStep: "email" | "code") => {
+      if (nextStep === "code") {
+        codeEnter()
+        return
+      }
+      step.set(nextStep)
+    },
     email: email.get,
     code: code.get,
     valid: createMemo(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.get())),
@@ -140,6 +168,13 @@ export function emailOtpStateCreate(input: {
     emailSubmit,
     codeSubmit,
     resend,
+    resendAllowed: cooldown.resendAllowed,
+    resendCountdown: cooldown.remainingSeconds,
+    reenter: async () => {
+      if (!(await cooldownReconcile())) return
+      step.set("code")
+      focusSchedule(() => codeInput)
+    },
     emailChange: () => {
       code.set("")
       step.set("email")

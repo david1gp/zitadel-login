@@ -1,9 +1,10 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library"
-import { afterEach, describe, expect, test, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 
 import { MfaEmailOtpPanel } from "../client/src/mfa/ui/MfaEmailOtpPanel"
 
 afterEach(cleanup)
+beforeEach(() => localStorage.clear())
 
 const apiOrigin = "https://worker.example"
 const flowHandle = "flow-123"
@@ -186,6 +187,9 @@ describe("MfaEmailOtpPanel component", () => {
     let updatedCsrf = ""
     const nextCsrfToken = "D".repeat(43)
     const fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      if (String(url).includes("/cooldown")) {
+        return Response.json({ success: true, data: { cooldownExpiresAt: 0, cooldownRemainingSeconds: 0 } })
+      }
       capturedUrl = String(url)
       capturedInit = init
       return Response.json(
@@ -234,7 +238,7 @@ describe("MfaEmailOtpPanel component", () => {
     await vi.waitFor(() => {
       expect(screen.getByRole("heading", { name: "Email verification code" })).toBeTruthy()
     })
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls.filter(([url]) => !String(url).includes("/cooldown"))).toHaveLength(1)
     expect(capturedUrl).toBe(`${apiOrigin}/api/v2/mfa/email-otp/enroll?flow=${flowHandle}`)
     expect(capturedInit?.method).toBe("POST")
     expect(capturedInit?.credentials).toBe("include")
@@ -310,8 +314,14 @@ describe("MfaEmailOtpPanel component", () => {
     expect(stored).not.toContain("12345678")
   })
 
-  test("resumes authoritative code state without enrollment or challenge requests", () => {
-    const fetchMock = vi.fn(async () => Response.json({ success: false }))
+  test("resumes authoritative code state and reconciles its active cooldown", async () => {
+    const cooldownExpiresAt = Math.ceil(Date.now() / 1000) + 60
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        success: true,
+        data: { cooldownExpiresAt, cooldownRemainingSeconds: 60 },
+      }),
+    )
 
     render(() => (
       <MfaEmailOtpPanel
@@ -336,12 +346,22 @@ describe("MfaEmailOtpPanel component", () => {
     expect(screen.getByRole("textbox", { name: "Verification code" })).toBeTruthy()
     expect(screen.queryByRole("button", { name: "Set up email codes" })).toBeNull()
     expect(screen.queryByRole("button", { name: "Send code" })).toBeNull()
-    expect(fetchMock).not.toHaveBeenCalled()
+    const countdown = await screen.findByText(/Another code can be sent in \d+ seconds\./)
+    const resendButton = screen.getByRole("button", { name: "Resend code" }) as HTMLButtonElement
+    expect(resendButton.disabled).toBe(true)
+    expect(resendButton.getAttribute("aria-describedby")).toBe("mfa-email-otp-resend-countdown")
+    expect(countdown.id).toBe("mfa-email-otp-resend-countdown")
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("/api/v2/mfa/email-otp/cooldown")
+    expect(localStorage.getItem("zitadel-login.mfa-email-otp.cooldown-expires-at")).toBe(String(cooldownExpiresAt))
   })
 
   test("allows immediate resend when enrollment activation succeeded but challenge issuance failed", async () => {
-    const fetchMock = vi.fn(async () =>
-      Response.json(
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).includes("/cooldown")) {
+        return Response.json({ success: true, data: { cooldownExpiresAt: 0, cooldownRemainingSeconds: 0 } })
+      }
+      return Response.json(
         {
           success: true,
           data: {
@@ -354,8 +374,8 @@ describe("MfaEmailOtpPanel component", () => {
           },
         },
         { status: 201 },
-      ),
-    )
+      )
+    })
 
     render(() => (
       <MfaEmailOtpPanel
@@ -377,7 +397,9 @@ describe("MfaEmailOtpPanel component", () => {
     ))
 
     fireEvent.click(screen.getByRole("button", { name: "Set up email codes" }))
-    await vi.waitFor(() => expect(screen.getByRole("button", { name: "Resend code" })).toBeTruthy())
+    await vi.waitFor(() =>
+      expect((screen.getByRole("button", { name: "Resend code" }) as HTMLButtonElement).disabled).toBe(false),
+    )
     expect(screen.getByRole("status").textContent).toContain("Resend a code to continue.")
   })
 
@@ -414,5 +436,40 @@ describe("MfaEmailOtpPanel component", () => {
       expect(failure).toBe("The sign-in session is invalid or has expired.")
     })
     expect(screen.getByRole("button", { name: "Set up email codes" })).toBeTruthy()
+  })
+
+  test("keeps MFA resend disabled when cooldown reconciliation fails", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).includes("/cooldown")) {
+        return Response.json(
+          { success: false, op: "mfaEmailOtpCooldown", errorMessage: "service_unavailable" },
+          { status: 503 },
+        )
+      }
+      throw new Error(`Unexpected request: ${String(input)}`)
+    })
+
+    render(() => (
+      <MfaEmailOtpPanel
+        apiOrigin={() => apiOrigin}
+        flowHandle={() => flowHandle}
+        csrfToken={() => csrfToken}
+        csrfTokenSet={() => undefined}
+        busy={() => false}
+        busySet={() => undefined}
+        headingRegister={() => undefined}
+        errorClear={() => undefined}
+        failureSet={() => undefined}
+        fallbackContinue={() => undefined}
+        statusContinue={() => undefined}
+        showRootChooser={() => undefined}
+        fetchFn={fetchMock as unknown as typeof fetch}
+        codePending
+      />
+    ))
+
+    const resendButton = screen.getByRole("button", { name: "Resend code" }) as HTMLButtonElement
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    expect(resendButton.disabled).toBe(true)
   })
 })

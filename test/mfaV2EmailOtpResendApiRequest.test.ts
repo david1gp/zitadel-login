@@ -48,7 +48,14 @@ describe("mfaV2EmailOtpResendApiRequest", () => {
             op: "mfaOtpResend",
             errorMessage: "rate_limited",
           }),
-          { status: 429, headers: { "Content-Type": "application/json" } },
+          {
+            status: 429,
+            headers: {
+              "Content-Type": "application/json",
+              "X-Cooldown-Expires-At": "1800000060",
+              "Retry-After": "60",
+            },
+          },
         ),
     )
 
@@ -62,5 +69,6 @@ describe("mfaV2EmailOtpResendApiRequest", () => {
     expect(res.success).toBe(false)
     if (res.success) return
     expect(res.errorMessage).toBe("Too many sign-in attempts. Please retry later.")
+    expect(res.cooldownExpiresAt).toBe(1_800_000_060)
   })
 })

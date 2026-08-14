@@ -78,6 +78,9 @@ describe("v2 email OTP flow component & URL scrubbing", () => {
           },
         })
       }
+      if (url.includes("/api/v2/email-otp/cooldown")) {
+        return Response.json({ success: true, data: { cooldownExpiresAt: 0, cooldownRemainingSeconds: 0 } })
+      }
       if (url.includes("/api/v2/email-otp/resend")) {
         return Response.json({
           success: true,
@@ -111,7 +114,9 @@ describe("v2 email OTP flow component & URL scrubbing", () => {
     const codeInput = await screen.findByRole("textbox", { name: "Verification code" })
     expect(codeInput).toBeTruthy()
 
-    fireEvent.click(screen.getByRole("button", { name: "Send a new code" }))
+    const resendButton = screen.getByRole("button", { name: "Send a new code" }) as HTMLButtonElement
+    await vi.waitFor(() => expect(resendButton.disabled).toBe(false))
+    fireEvent.click(resendButton)
     expect(await screen.findByText("A new code has been sent.")).toBeTruthy()
 
     fireEvent.input(codeInput, { target: { value: "654321" } })
@@ -144,6 +149,9 @@ describe("v2 email OTP flow component & URL scrubbing", () => {
           },
         })
       }
+      if (url.includes("/api/v2/email-otp/cooldown")) {
+        return Response.json({ success: true, data: { cooldownExpiresAt: 0, cooldownRemainingSeconds: 0 } })
+      }
       throw new Error(`Unexpected request: ${url}`)
     })
 
@@ -153,6 +161,44 @@ describe("v2 email OTP flow component & URL scrubbing", () => {
     expect(await screen.findByRole("textbox", { name: "Verification code" })).toBeTruthy()
     expect(location.pathname).toBe("/login/email-otp")
     expect(location.search).toBe(`?flow=${validFlow}`)
+  })
+
+  test("reconciles and persists only an active server cooldown on reload", async () => {
+    const cooldownExpiresAt = Math.ceil(Date.now() / 1000) + 60
+    localStorage.setItem("zitadel-login.email-otp.cooldown-expires-at", "0")
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes("/api/v2/bootstrap")) return Response.json({ success: true, data: bootstrap })
+      if (url.includes("/api/v2/flow/resume")) {
+        return Response.json({
+          success: true,
+          data: {
+            kind: "render",
+            route: `/login/email-otp?flow=${validFlow}`,
+            screen: { name: "email_otp_code" },
+            csrfToken: validCsrf,
+          },
+        })
+      }
+      if (url.includes("/api/v2/email-otp/cooldown")) {
+        return Response.json({
+          success: true,
+          data: { cooldownExpiresAt, cooldownRemainingSeconds: 60 },
+        })
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    history.replaceState(null, "", `/login/email-otp?flow=${validFlow}`)
+    render(() => <App apiOrigin="https://worker.example" />)
+
+    const resendButton = (await screen.findByRole("button", { name: "Send a new code" })) as HTMLButtonElement
+    const countdown = await screen.findByText(/Another code can be sent in \d+ seconds\./)
+    expect(resendButton.disabled).toBe(true)
+    expect(resendButton.getAttribute("aria-describedby")).toBe("email-otp-resend-countdown")
+    expect(countdown.id).toBe("email-otp-resend-countdown")
+    expect(localStorage.getItem("zitadel-login.email-otp.cooldown-expires-at")).toBe(String(cooldownExpiresAt))
+    expect(localStorage.getItem("zitadel-login.email-otp.cooldown-expires-at")).not.toContain(validFlow)
   })
 
   test("renders fatal error on expired or invalid flow handle", async () => {
@@ -200,5 +246,92 @@ describe("v2 email OTP flow component & URL scrubbing", () => {
     window.dispatchEvent(new PopStateEvent("popstate"))
 
     expect(await screen.findByRole("heading", { name: "Choose a method" })).toBeTruthy()
+  })
+
+  test("re-enters the code panel through browser history only after server reconciliation", async () => {
+    let cooldownRequests = 0
+    const cooldownExpiresAt = Math.ceil(Date.now() / 1000) + 60
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes("/api/v2/bootstrap")) return Response.json({ success: true, data: bootstrap })
+      if (url.includes("/api/v2/flow/resume")) {
+        return Response.json({
+          success: true,
+          data: {
+            kind: "render",
+            route: `/login/email-otp?flow=${validFlow}`,
+            screen: { name: "email_otp_code" },
+            csrfToken: validCsrf,
+          },
+        })
+      }
+      if (url.includes("/api/v2/email-otp/cooldown")) {
+        cooldownRequests += 1
+        return Response.json({
+          success: true,
+          data: { cooldownExpiresAt, cooldownRemainingSeconds: 60 },
+        })
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    history.replaceState(null, "", `/login/email-otp?flow=${validFlow}`)
+    render(() => <App apiOrigin="https://worker.example" />)
+    await screen.findByRole("textbox", { name: "Verification code" })
+    await vi.waitFor(() => expect(cooldownRequests).toBe(1))
+    await vi.waitFor(() => {
+      expect(localStorage.getItem("zitadel-login.email-otp.cooldown-expires-at")).toBe(String(cooldownExpiresAt))
+    })
+
+    history.pushState(null, "", `/login?flow=${validFlow}`)
+    window.dispatchEvent(new PopStateEvent("popstate"))
+    await screen.findByRole("heading", { name: "Choose a method" })
+
+    history.pushState(null, "", `/login/email-otp?flow=${validFlow}`)
+    window.dispatchEvent(new PopStateEvent("popstate"))
+    await screen.findByRole("textbox", { name: "Verification code" })
+    await vi.waitFor(() => expect(cooldownRequests).toBe(2))
+    await vi.waitFor(() => {
+      expect(localStorage.getItem("zitadel-login.email-otp.cooldown-expires-at")).toBe(String(cooldownExpiresAt))
+    })
+  })
+
+  test("keeps primary resend disabled when cooldown reconciliation fails", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes("/api/v2/bootstrap")) return Response.json({ success: true, data: bootstrap })
+      if (url.includes("/api/v2/flow/resume")) {
+        return Response.json({
+          success: true,
+          data: {
+            kind: "render",
+            route: `/login/email-otp?flow=${validFlow}`,
+            screen: { name: "email_otp_code" },
+            csrfToken: validCsrf,
+          },
+        })
+      }
+      if (url.includes("/api/v2/email-otp/cooldown")) {
+        return Response.json(
+          { success: false, op: "emailOtpCooldown", errorMessage: "service_unavailable" },
+          { status: 503 },
+        )
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    })
+    globalThis.fetch = fetchMock
+
+    history.replaceState(null, "", `/login/email-otp?flow=${validFlow}`)
+    render(() => <App apiOrigin="https://worker.example" />)
+
+    const resendButton = (await screen.findByRole("button", { name: "Send a new code" })) as HTMLButtonElement
+    await vi.waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(
+          ([input]) => String(input) === `https://worker.example/api/v2/email-otp/cooldown?flow=${validFlow}`,
+        ),
+      ).toBe(true)
+    })
+    expect(resendButton.disabled).toBe(true)
   })
 })

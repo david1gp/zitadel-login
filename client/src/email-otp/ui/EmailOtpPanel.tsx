@@ -33,6 +33,8 @@ type EmailOtpPanelProps = {
   emailSubmit: (event: SubmitEvent) => void
   codeSubmit: (event: SubmitEvent) => void
   resend: () => void
+  resendAllowed: () => boolean
+  resendCountdown: () => number
   emailChange: () => void
   showChooser: () => void
 }
@@ -80,13 +82,24 @@ export function EmailOtpPanel(props: EmailOtpPanelProps) {
               </button>
             </form>
             <div class={classesCodeActions}>
-              <button class={classesTextButton} type="button" onClick={props.resend} disabled={props.busy()}>
+              <button
+                class={classesTextButton}
+                type="button"
+                onClick={props.resend}
+                disabled={props.busy() || !props.resendAllowed()}
+                aria-describedby={props.resendCountdown() > 0 ? "email-otp-resend-countdown" : undefined}
+              >
                 Send a new code
               </button>
               <button class={classesTextButton} type="button" onClick={props.emailChange} disabled={props.busy()}>
                 Change email
               </button>
             </div>
+            <Show when={props.resendCountdown() > 0}>
+              <p id="email-otp-resend-countdown" class={classesFieldHelp} aria-live="polite" aria-atomic="true">
+                Another code can be sent in {props.resendCountdown()} seconds.
+              </p>
+            </Show>
             <p id="resend-status" class={classesNoticeMessage} role="status">
               {props.notice()}
             </p>

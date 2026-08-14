@@ -2,6 +2,7 @@ import { createMemo, onCleanup, onMount } from "solid-js"
 
 import { appFocusStateCreate } from "../../app/model/appFocusStateCreate"
 import { brandingStateCreate } from "../../branding/ui/brandingStateCreate"
+import { emailOtpCooldownCreate } from "../../email-otp/model/emailOtpCooldownCreate"
 import { browserHistoryNavigate } from "../../flow/model/browserHistoryNavigate"
 import type { LoginMethodSelection } from "../../flow/model/loginMethodSelectionSchema"
 import { loginMethodsGet } from "../../flow/model/loginMethodsGet"
@@ -54,9 +55,18 @@ export function demoAppStateCreate(browserWindow: Window = window) {
 
   const storageResult = browserStorageGet(browserWindow)
   const storage = storageResult.success ? storageResult.data : undefined
+  const emailOtpCooldown = emailOtpCooldownCreate({
+    storageKey: "zitadel-login.email-otp.cooldown-expires-at",
+    storage,
+  })
   const branding = brandingStateCreate(bootstrap, storage)
   const focusState = appFocusStateCreate()
   const fetchFn = demoFetchCreate(() => scenario.get().id)
+
+  const emailOtpCooldownStart = () => {
+    const now = Math.floor(Date.now() / 1000)
+    emailOtpCooldown.reconcile(emailOtpCooldown.expiry() > now ? emailOtpCooldown.expiry() : now + 60)
+  }
 
   const urlWrite = (path: string, replace = false) => {
     browserHistoryNavigate(browserWindow, demoUrlGet({ path, chrome: chrome.get(), picker: pickerOpen.get() }), replace)
@@ -68,6 +78,7 @@ export function demoAppStateCreate(browserWindow: Window = window) {
     if (id === "email-otp-code") {
       emailStep.set("code")
       notice.set("Verification code sent to your email address.")
+      emailOtpCooldownStart()
     }
     if (id === "email-otp-email") emailStep.set("email")
   }
@@ -91,7 +102,10 @@ export function demoAppStateCreate(browserWindow: Window = window) {
   onMount(() => {
     snapshotApply()
     browserWindow.addEventListener("popstate", popstate)
-    onCleanup(() => browserWindow.removeEventListener("popstate", popstate))
+    onCleanup(() => {
+      browserWindow.removeEventListener("popstate", popstate)
+      emailOtpCooldown.stop()
+    })
   })
 
   const methods = createMemo(() => loginMethodsGet(bootstrap.get()))
@@ -215,7 +229,13 @@ export function demoAppStateCreate(browserWindow: Window = window) {
       }
       void completedSet("Email code accepted. Sign-in would continue.")
     },
-    resend: () => notice.set("A new verification code was sent."),
+    resend: () => {
+      if (!emailOtpCooldown.resendAllowed()) return
+      emailOtpCooldownStart()
+      notice.set("A new verification code was sent.")
+    },
+    resendAllowed: emailOtpCooldown.resendAllowed,
+    resendCountdown: emailOtpCooldown.remainingSeconds,
     emailChange: () => {
       emailStep.set("email")
       code.set("")

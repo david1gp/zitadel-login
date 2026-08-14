@@ -1,11 +1,12 @@
-import { onCleanup } from "solid-js"
+import { onCleanup, onMount } from "solid-js"
 
+import { emailOtpCooldownApiRequest } from "../../email-otp/api/emailOtpCooldownApiRequest"
+import { emailOtpCooldownCreate } from "../../email-otp/model/emailOtpCooldownCreate"
 import { createSignalObject } from "../../ui/createSignalObject"
 import { mfaV2EmailOtpChallengeApiRequest } from "../api/mfaV2EmailOtpChallengeApiRequest"
 import { mfaV2EmailOtpEnrollApiRequest } from "../api/mfaV2EmailOtpEnrollApiRequest"
 import { mfaV2EmailOtpResendApiRequest } from "../api/mfaV2EmailOtpResendApiRequest"
 import { mfaV2EmailOtpVerifyApiRequest } from "../api/mfaV2EmailOtpVerifyApiRequest"
-import { mfaOtpCountdownCreate } from "../model/mfaOtpCountdownCreate"
 
 type Inputs = {
   apiOrigin: () => string
@@ -24,6 +25,7 @@ type Inputs = {
   fetchFn?: typeof fetch
   isEnrollment?: boolean
   codePending?: boolean
+  storage?: Storage
 }
 
 export function mfaEmailOtpStateCreate(inputs: Inputs) {
@@ -31,17 +33,30 @@ export function mfaEmailOtpStateCreate(inputs: Inputs) {
   const stage = createSignalObject<"send" | "enroll" | "code">(initialStage)
   const code = createSignalObject("")
   const notice = createSignalObject("")
-  const countdown = mfaOtpCountdownCreate()
+  const cooldown = emailOtpCooldownCreate({
+    storageKey: "zitadel-login.mfa-email-otp.cooldown-expires-at",
+    storage: inputs.storage,
+  })
 
   let codeInputElement: HTMLInputElement | undefined
   let inFlight = false
   let disposed = false
 
   const focusSchedule = () => queueMicrotask(() => codeInputElement?.focus())
+  const cooldownReconcile = async () => {
+    cooldown.reconciliationStart()
+    const result = await emailOtpCooldownApiRequest(inputs.apiOrigin(), inputs.flowHandle(), "mfa", inputs.fetchFn)
+    if (disposed) return
+    if (result.success) cooldown.reconcile(result.data)
+  }
+
+  onMount(() => {
+    if (stage.get() === "code") void cooldownReconcile()
+  })
 
   onCleanup(() => {
     disposed = true
-    countdown.stop()
+    cooldown.stop()
     code.set("")
   })
 
@@ -84,7 +99,7 @@ export function mfaEmailOtpStateCreate(inputs: Inputs) {
         ? "Email codes are set up. Enter the code sent to your email address, or resend it."
         : "Email codes are set up. Resend a code to continue.",
     )
-    if (challengeIssued) countdown.start(30)
+    void cooldownReconcile()
     focusSchedule()
   }
 
@@ -121,12 +136,12 @@ export function mfaEmailOtpStateCreate(inputs: Inputs) {
 
     stage.set("code")
     notice.set("Verification code sent to your email address.")
-    countdown.start(30)
+    void cooldownReconcile()
     focusSchedule()
   }
 
   const resendCode = async () => {
-    if (inputs.busy() || countdown.get() > 0) return
+    if (inputs.busy() || !cooldown.resendAllowed()) return
     inputs.errorClear()
     code.set("")
     inputs.busySet(true)
@@ -138,6 +153,8 @@ export function mfaEmailOtpStateCreate(inputs: Inputs) {
       inputs.fetchFn,
     )
     inputs.busySet(false)
+    if (res.cooldownExpiresAt !== undefined) cooldown.reconcile(res.cooldownExpiresAt)
+    else void cooldownReconcile()
 
     if (!res.success) {
       inputs.failureSet(res.errorMessage)
@@ -159,7 +176,6 @@ export function mfaEmailOtpStateCreate(inputs: Inputs) {
     }
 
     notice.set("A new verification code was sent to your email address.")
-    countdown.start(30)
     focusSchedule()
   }
 
@@ -218,7 +234,8 @@ export function mfaEmailOtpStateCreate(inputs: Inputs) {
     stage: stage.get,
     code: code.get,
     notice: notice.get,
-    countdown: countdown.get,
+    countdown: cooldown.remainingSeconds,
+    resendAllowed: cooldown.resendAllowed,
     valid: () => {
       const len = code.get().length
       return len >= 6 && len <= 20
@@ -236,7 +253,6 @@ export function mfaEmailOtpStateCreate(inputs: Inputs) {
     },
     submit,
     reset: () => {
-      countdown.reset()
       code.set("")
       notice.set("")
       stage.set(initialStage)

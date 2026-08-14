@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 
 import { emailOtpV2ResendApiRequest } from "../client/src/email-otp/api/emailOtpV2ResendApiRequest"
+import { emailOtpCooldownApiRequest } from "../client/src/email-otp/api/emailOtpCooldownApiRequest"
 import { emailOtpV2StartApiRequest } from "../client/src/email-otp/api/emailOtpV2StartApiRequest"
 import { emailOtpV2VerifyApiRequest } from "../client/src/email-otp/api/emailOtpV2VerifyApiRequest"
 import { flowV2InitializeApiRequest } from "../client/src/flow/api/flowV2InitializeApiRequest"
@@ -110,21 +111,39 @@ describe("login v2 API browser contract", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ csrfToken: validCsrf }),
       })
-      return Response.json({
-        success: true,
-        data: {
-          kind: "render",
-          route: `/login/email-otp?flow=${validFlow}`,
-          screen: { name: "email_otp_code" },
-          csrfToken: validCsrf,
+      return Response.json(
+        {
+          success: true,
+          data: {
+            kind: "render",
+            route: `/login/email-otp?flow=${validFlow}`,
+            screen: { name: "email_otp_code" },
+            csrfToken: validCsrf,
+          },
         },
-      })
+        { headers: { "X-Cooldown-Expires-At": "1800000060" } },
+      )
     }
 
     const result = await emailOtpV2ResendApiRequest("https://worker.example", validFlow, {
       csrfToken: validCsrf,
     })
     expect(result.success).toBe(true)
+    expect(result.cooldownExpiresAt).toBe(1_800_000_060)
+  })
+
+  test("gets authoritative primary cooldown with credentials", async () => {
+    const fetchMock = async (input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toBe(`https://worker.example/api/v2/email-otp/cooldown?flow=${validFlow}`)
+      expect(init).toEqual({ credentials: "include" })
+      return Response.json({
+        success: true,
+        data: { cooldownExpiresAt: 1_800_000_060, cooldownRemainingSeconds: 42 },
+      })
+    }
+
+    const result = await emailOtpCooldownApiRequest("https://worker.example", validFlow, "primary", fetchMock)
+    expect(result).toEqual({ success: true, data: 1_800_000_060 })
   })
 
   test("posts a verification payload and accepts continuation transition", async () => {

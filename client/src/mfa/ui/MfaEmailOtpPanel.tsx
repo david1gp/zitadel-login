@@ -150,10 +150,16 @@ export function MfaEmailOtpPanel(props: MfaEmailOtpPanelProps) {
               class={classesSecondaryButton}
               type="button"
               onClick={state.resendCode}
-              disabled={props.busy() || state.countdown() > 0}
+              disabled={props.busy() || !state.resendAllowed()}
+              aria-describedby={state.countdown() > 0 ? "mfa-email-otp-resend-countdown" : undefined}
             >
-              {state.countdown() > 0 ? `Resend code (${state.countdown()}s)` : "Resend code"}
+              Resend code
             </button>
+            <Show when={state.countdown() > 0}>
+              <p id="mfa-email-otp-resend-countdown" class={classesFieldHelp} aria-live="polite" aria-atomic="true">
+                Another code can be sent in {state.countdown()} seconds.
+              </p>
+            </Show>
           </div>
           <Show when={props.showChooser}>
             <button class={classesBackButton} type="button" onClick={props.showChooser} disabled={props.busy()}>

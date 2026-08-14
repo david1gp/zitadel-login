@@ -1,10 +1,12 @@
 import { cleanup, render, screen } from "@solidjs/testing-library"
-import { afterEach, describe, expect, test } from "vitest"
+import { afterEach, describe, expect, test, vi } from "vitest"
 
 import { DemoApp } from "../client/src/demo/ui/DemoApp"
 
 afterEach(() => {
   cleanup()
+  localStorage.clear()
+  vi.useRealTimers()
   history.replaceState(null, "", "/demo")
 })
 
@@ -52,5 +54,27 @@ describe("DemoApp scenario metadata", () => {
     expect(screen.getByRole("heading", { name: "No account linked" })).toBeTruthy()
     expect(screen.getByRole("status").textContent).toContain("No ZITADEL account is linked")
     expect(screen.queryByText("Identity provider · Account not found", { selector: "p" })).toBeNull()
+  })
+
+  test("runs the primary resend cooldown from persisted demo state", () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-08-14T12:00:00Z"))
+    const expiry = Math.ceil(Date.now() / 1000) + 42
+    localStorage.setItem("zitadel-login.email-otp.cooldown-expires-at", String(expiry))
+    history.replaceState(null, "", "/demo/email-otp/code")
+
+    render(() => <DemoApp />)
+
+    const resend = screen.getByRole("button", { name: "Send a new code" }) as HTMLButtonElement
+    const countdown = screen.getByText("Another code can be sent in 42 seconds.")
+    expect(resend.disabled).toBe(true)
+    expect(resend.getAttribute("aria-describedby")).toBe("email-otp-resend-countdown")
+    expect(countdown.id).toBe("email-otp-resend-countdown")
+    expect(countdown.getAttribute("aria-live")).toBe("polite")
+    expect(countdown.getAttribute("aria-atomic")).toBe("true")
+    expect(localStorage.getItem("zitadel-login.email-otp.cooldown-expires-at")).toBe(String(expiry))
+
+    vi.advanceTimersByTime(1_000)
+    expect(screen.getByText("Another code can be sent in 41 seconds.")).toBeTruthy()
   })
 })

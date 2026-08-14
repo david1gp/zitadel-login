@@ -34,21 +34,27 @@ describe("mfaEmailOtpStateCreate", () => {
   test("sendCode triggers challenge API and advances stage to 'code' on success", async () => {
     let busyState = false
     let failureMsg = ""
-    const fetchMock = vi.fn(
-      async () =>
-        new Response(
-          JSON.stringify({
-            success: true,
-            data: {
-              kind: "render",
-              route: `/login/mfa?flow=${flowHandle}`,
-              screen: { name: "mfa_email_otp_code", challengeIssued: true },
-              csrfToken,
-            },
-          }),
-          { status: 202, headers: { "Content-Type": "application/json" } },
-        ),
-    )
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).includes("/cooldown")) {
+        const expiresAt = Math.ceil(Date.now() / 1000) + 60
+        return Response.json({
+          success: true,
+          data: { cooldownExpiresAt: expiresAt, cooldownRemainingSeconds: 60 },
+        })
+      }
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            kind: "render",
+            route: `/login/mfa?flow=${flowHandle}`,
+            screen: { name: "mfa_email_otp_code", challengeIssued: true },
+            csrfToken,
+          },
+        }),
+        { status: 202, headers: { "Content-Type": "application/json" } },
+      )
+    })
 
     const state = mfaEmailOtpStateCreate({
       apiOrigin: () => apiOrigin,
@@ -73,6 +79,7 @@ describe("mfaEmailOtpStateCreate", () => {
 
     expect(state.stage()).toBe("code")
     expect(state.notice()).toBe("Verification code sent to your email address.")
+    await new Promise((resolve) => setTimeout(resolve, 0))
     expect(state.countdown()).toBeGreaterThan(0)
     expect(failureMsg).toBe("")
 
@@ -175,8 +182,15 @@ describe("mfaEmailOtpStateCreate", () => {
   test("enroll advances to the enrollment-aware code stage without a duplicate challenge", async () => {
     let busyState = false
     let updatedCsrf = ""
-    const fetchMock = vi.fn(async () =>
-      Response.json(
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).includes("/cooldown")) {
+        const expiresAt = Math.ceil(Date.now() / 1000) + 60
+        return Response.json({
+          success: true,
+          data: { cooldownExpiresAt: expiresAt, cooldownRemainingSeconds: 60 },
+        })
+      }
+      return Response.json(
         {
           success: true,
           data: {
@@ -189,8 +203,8 @@ describe("mfaEmailOtpStateCreate", () => {
           },
         },
         { status: 201 },
-      ),
-    )
+      )
+    })
 
     const state = mfaEmailOtpStateCreate({
       apiOrigin: () => apiOrigin,
@@ -214,7 +228,8 @@ describe("mfaEmailOtpStateCreate", () => {
 
     await state.enroll()
 
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain("/api/v2/mfa/email-otp/enroll")
     expect(state.stage()).toBe("code")
     expect(updatedCsrf).toBe("D".repeat(43))
@@ -227,7 +242,10 @@ describe("mfaEmailOtpStateCreate", () => {
     const pending = new Promise<void>((resolve) => {
       release = resolve
     })
-    const fetchMock = vi.fn(async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).includes("/cooldown")) {
+        return Response.json({ success: true, data: { cooldownExpiresAt: 0, cooldownRemainingSeconds: 0 } })
+      }
       await pending
       return Response.json(
         {
@@ -268,7 +286,7 @@ describe("mfaEmailOtpStateCreate", () => {
     release?.()
     await Promise.all([first, second])
 
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls.filter(([input]) => !String(input).includes("/cooldown"))).toHaveLength(1)
     expect(state.stage()).toBe("code")
   })
 
