@@ -14,6 +14,7 @@ import { classesSpinner } from "../../ui/classes/classesSpinner"
 import { mfaFactorDetailGet } from "../model/mfaFactorDetailGet"
 import { mfaFactorIconPathGet } from "../model/mfaFactorIconPathGet"
 import { mfaFactorLabelGet } from "../model/mfaFactorLabelGet"
+import type { MfaMethodSummary } from "../model/mfaMethodSummarySchema"
 import type { MfaOptions } from "../model/mfaOptionsSchema"
 import { MfaEmailOtpPanel } from "./MfaEmailOtpPanel"
 import { MfaSmsOtpPanel } from "./MfaSmsOtpPanel"
@@ -37,6 +38,9 @@ type MfaPanelProps = {
   errorClear: () => void
   failureSet: (message: string) => void
   fallbackContinue: (path?: string) => void
+  lastUsedSave?: (factor: MfaMethodSummary["type"]) => void
+  lastUsedFactor?: () => MfaMethodSummary["type"] | undefined
+  webAuthnEnrollmentPending?: () => boolean
   statusContinue?: (url: string) => void
   routeSet: (next: LoginMethodSelection | undefined, replace?: boolean) => void
   credentialsGet?: PasskeyCredentialsGet
@@ -46,6 +50,7 @@ type MfaPanelProps = {
   fetchFn?: typeof fetch
   totpSetupUnavailable?: () => boolean
   emailOtpCodePending?: () => boolean
+  emailOtpEnrollmentPending?: () => boolean
   webAuthnSetupUnavailable?: () => "u2f" | "passkey" | undefined
 }
 
@@ -55,6 +60,7 @@ export function MfaPanel(props: MfaPanelProps) {
     if (sel?.method !== "mfa") return undefined
     return sel.factor
   }
+  const factorLastUsedSave = (factor: MfaMethodSummary["type"]) => () => props.lastUsedSave?.(factor)
 
   const state = mfaStateCreate({
     apiOrigin: props.apiOrigin,
@@ -69,6 +75,7 @@ export function MfaPanel(props: MfaPanelProps) {
     fallbackContinue: props.fallbackContinue,
     statusContinue: props.statusContinue,
     routeSet: props.routeSet,
+    webAuthnEnrollmentPending: props.webAuthnEnrollmentPending,
     fetchFn: props.fetchFn,
     optionsDisabled: () =>
       Boolean(props.totpSetupUnavailable?.() || props.emailOtpCodePending?.() || props.webAuthnSetupUnavailable?.()),
@@ -126,9 +133,11 @@ export function MfaPanel(props: MfaPanelProps) {
             errorClear={props.errorClear}
             failureSet={props.failureSet}
             fallbackContinue={props.fallbackContinue}
+            lastUsedSave={props.emailOtpEnrollmentPending?.() ? undefined : factorLastUsedSave("email_otp")}
             statusContinue={props.statusContinue ?? (() => undefined)}
             showRootChooser={state.showRootChooser}
             fetchFn={props.fetchFn}
+            isEnrollment={props.emailOtpEnrollmentPending?.()}
             codePending
           />
         </Match>
@@ -235,6 +244,7 @@ export function MfaPanel(props: MfaPanelProps) {
                       errorClear={props.errorClear}
                       failureSet={props.failureSet}
                       fallbackContinue={props.fallbackContinue}
+                      lastUsedSave={factorLastUsedSave("totp")}
                       statusContinue={props.statusContinue ?? (() => undefined)}
                       optionsReload={state.reload}
                       showChooser={selectOptions() || enrollOptions() || skipOptions() ? state.showChooser : undefined}
@@ -255,6 +265,7 @@ export function MfaPanel(props: MfaPanelProps) {
                       errorClear={props.errorClear}
                       failureSet={props.failureSet}
                       fallbackContinue={props.fallbackContinue}
+                      lastUsedSave={emailOtpIsEnrollment() ? undefined : factorLastUsedSave("email_otp")}
                       statusContinue={props.statusContinue ?? (() => undefined)}
                       optionsReload={state.reload}
                       showChooser={selectOptions() || enrollOptions() || skipOptions() ? state.showChooser : undefined}
@@ -274,6 +285,7 @@ export function MfaPanel(props: MfaPanelProps) {
                       errorClear={props.errorClear}
                       failureSet={props.failureSet}
                       fallbackContinue={props.fallbackContinue}
+                      lastUsedSave={factorLastUsedSave("sms_otp")}
                       statusContinue={props.statusContinue ?? (() => undefined)}
                       optionsReload={state.reload}
                       showChooser={selectOptions() || enrollOptions() || skipOptions() ? state.showChooser : undefined}
@@ -300,6 +312,7 @@ export function MfaPanel(props: MfaPanelProps) {
                       failureSet={props.failureSet}
                       fallbackContinue={props.fallbackContinue}
                       statusContinue={props.statusContinue ?? (() => undefined)}
+                      enrollmentPendingSet={state.webAuthnEnrollmentPendingSet}
                       assertionStart={state.assertionStart}
                       optionsReload={state.reload}
                       showChooser={selectOptions() || enrollOptions() || skipOptions() ? state.showChooser : undefined}
@@ -323,6 +336,9 @@ export function MfaPanel(props: MfaPanelProps) {
                       errorClear={props.errorClear}
                       failureSet={props.failureSet}
                       fallbackContinue={props.fallbackContinue}
+                      lastUsedSave={factorLastUsedSave(factorType() as "u2f" | "passkey")}
+                      enrollmentPending={state.webAuthnEnrollmentPending}
+                      enrollmentPendingSet={state.webAuthnEnrollmentPendingSet}
                       statusContinue={props.statusContinue ?? (() => undefined)}
                       optionsReload={state.reload}
                       showChooser={selectOptions() || enrollOptions() || skipOptions() ? state.showChooser : undefined}
@@ -400,6 +416,7 @@ export function MfaPanel(props: MfaPanelProps) {
                       errorClear={props.errorClear}
                       failureSet={props.failureSet}
                       fallbackContinue={props.fallbackContinue}
+                      lastUsedSave={factorLastUsedSave("totp")}
                       statusContinue={props.statusContinue ?? (() => undefined)}
                       optionsReload={state.reload}
                       showRootChooser={state.showRootChooser}
@@ -418,6 +435,7 @@ export function MfaPanel(props: MfaPanelProps) {
                       errorClear={props.errorClear}
                       failureSet={props.failureSet}
                       fallbackContinue={props.fallbackContinue}
+                      lastUsedSave={factorLastUsedSave("email_otp")}
                       statusContinue={props.statusContinue ?? (() => undefined)}
                       optionsReload={state.reload}
                       showRootChooser={state.showRootChooser}
@@ -436,6 +454,7 @@ export function MfaPanel(props: MfaPanelProps) {
                       errorClear={props.errorClear}
                       failureSet={props.failureSet}
                       fallbackContinue={props.fallbackContinue}
+                      lastUsedSave={factorLastUsedSave("sms_otp")}
                       statusContinue={props.statusContinue ?? (() => undefined)}
                       optionsReload={state.reload}
                       showRootChooser={state.showRootChooser}
@@ -455,6 +474,9 @@ export function MfaPanel(props: MfaPanelProps) {
                       errorClear={props.errorClear}
                       failureSet={props.failureSet}
                       fallbackContinue={props.fallbackContinue}
+                      lastUsedSave={factorLastUsedSave(check().method.type as "u2f" | "passkey")}
+                      enrollmentPending={state.webAuthnEnrollmentPending}
+                      enrollmentPendingSet={state.webAuthnEnrollmentPendingSet}
                       statusContinue={props.statusContinue ?? (() => undefined)}
                       optionsReload={state.reload}
                       showRootChooser={state.showRootChooser}
@@ -523,6 +545,7 @@ export function MfaPanel(props: MfaPanelProps) {
                             detail={ttc(mfaFactorDetailGet(method.type))}
                             iconPath={mfaFactorIconPathGet(method.type)}
                             disabled={props.busy()}
+                            lastUsed={method.type === props.lastUsedFactor?.()}
                             onClick={() => state.selectFactor(method.type)}
                           />
                         </li>

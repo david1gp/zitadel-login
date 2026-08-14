@@ -109,6 +109,7 @@ export function App(props: AppProps) {
                   errorClear={state.errorClear}
                   failureSet={state.failureSet}
                   fallbackContinue={state.fallbackContinue}
+                  lastUsedSave={state.lastUsedPrimarySave}
                   statusContinue={state.statusContinue}
                   transitionApply={state.passwordChangeTransitionApply}
                 />
@@ -122,6 +123,7 @@ export function App(props: AppProps) {
                 recentAccounts={state.recentAccounts}
                 selectAccount={state.selectAccount}
                 busy={state.busy}
+                lastUsedPrimary={() => state.lastUsedMethods().primary}
               />
             </Match>
             <Match when={state.status() === "ready" && state.selection()?.method === "email_otp"}>
@@ -211,10 +213,14 @@ export function App(props: AppProps) {
                 errorClear={state.errorClear}
                 failureSet={state.failureSet}
                 fallbackContinue={state.fallbackContinue}
+                lastUsedSave={state.lastUsedMfaSave}
+                lastUsedFactor={() => state.lastUsedMethods().mfa}
                 statusContinue={state.statusContinue}
                 routeSet={state.routeSet}
                 totpSetupUnavailable={state.totpSetupUnavailable}
                 emailOtpCodePending={state.emailOtpCodePending}
+                emailOtpEnrollmentPending={state.emailOtpEnrollmentPending}
+                webAuthnEnrollmentPending={state.webAuthnEnrollmentPending}
                 webAuthnSetupUnavailable={state.webAuthnSetupUnavailable}
               />
             </Match>

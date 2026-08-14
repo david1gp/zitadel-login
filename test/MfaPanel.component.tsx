@@ -2,6 +2,8 @@ import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library"
 import { afterEach, describe, expect, test, vi } from "vitest"
 import type { LoginMethodSelection } from "../client/src/flow/model/loginMethodSelectionSchema"
 import { MfaPanel } from "../client/src/mfa/ui/MfaPanel"
+import { classesMethodButtonLastUsed } from "../client/src/ui/classes/classesMethodButtonLastUsed"
+import { classesMethodLastUsedBadge } from "../client/src/ui/classes/classesMethodLastUsedBadge"
 
 afterEach(cleanup)
 
@@ -65,6 +67,7 @@ describe("MfaPanel component", () => {
         routeSet={(next) => {
           selectedNext = next
         }}
+        lastUsedFactor={() => "email_otp"}
         fetchFn={fetchMock as unknown as typeof fetch}
       />
     ))
@@ -72,11 +75,50 @@ describe("MfaPanel component", () => {
     expect(await screen.findByRole("heading", { name: "Choose 2-step verification method" })).toBeTruthy()
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1)
     expect(screen.queryByText("2-Step Verification")).toBeNull()
-    expect(screen.getByRole("button", { name: /Authenticator app/ })).toBeTruthy()
-    expect(screen.getByRole("button", { name: /Email code/ })).toBeTruthy()
+    const totpButton = screen.getByRole("button", { name: /Authenticator app/ })
+    const emailButton = screen.getByRole("button", { name: /Email code/ })
+    expect(totpButton.textContent).not.toContain("Last used")
+    expect(totpButton.className).not.toContain(classesMethodButtonLastUsed)
+    expect(emailButton.className).toContain(classesMethodButtonLastUsed)
+    expect(screen.getByText("Last used").className).toBe(classesMethodLastUsedBadge)
 
     fireEvent.click(screen.getByRole("button", { name: /Authenticator app/ }))
     expect(selectedNext).toEqual({ method: "mfa", factor: "totp" })
+  })
+
+  test("does not highlight a remembered factor that is unavailable", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        success: true,
+        data: {
+          mode: "select",
+          methods: [{ type: "totp" }, { type: "email_otp" }],
+        },
+      }),
+    )
+
+    render(() => (
+      <MfaPanel
+        apiOrigin={() => "https://worker.example"}
+        flowHandle={() => "flow-123"}
+        selection={() => ({ method: "mfa" })}
+        busy={() => false}
+        headingRegister={() => undefined}
+        errorClear={() => undefined}
+        failureSet={() => undefined}
+        fallbackContinue={() => undefined}
+        routeSet={() => undefined}
+        lastUsedFactor={() => "sms_otp"}
+        fetchFn={fetchMock as unknown as typeof fetch}
+      />
+    ))
+
+    expect(await screen.findByRole("heading", { name: "Choose 2-step verification method" })).toBeTruthy()
+    expect(screen.queryByText("Last used")).toBeNull()
+    expect(screen.getByRole("button", { name: /Authenticator app/ }).className).not.toContain(
+      classesMethodButtonLastUsed,
+    )
+    expect(screen.getByRole("button", { name: /Email code/ }).className).not.toContain(classesMethodButtonLastUsed)
   })
 
   test("auto-selects unambiguous method when mode is check", async () => {
@@ -476,6 +518,7 @@ describe("MfaPanel component", () => {
         failureSet={() => undefined}
         fallbackContinue={() => undefined}
         routeSet={() => undefined}
+        lastUsedFactor={() => "u2f"}
         fetchFn={fetchMock as unknown as typeof fetch}
       />
     ))
@@ -483,6 +526,7 @@ describe("MfaPanel component", () => {
     expect(await screen.findByRole("heading", { name: "Set up 2-step verification" })).toBeTruthy()
     expect(screen.getByRole("button", { name: /Set up Security key/ })).toBeTruthy()
     expect(screen.queryByRole("button", { name: /Set up SMS code/ })).toBeNull()
+    expect(screen.queryByText("Last used")).toBeNull()
   })
 
   test("renders skip mode options and posts to v2 skip endpoint on submit", async () => {
