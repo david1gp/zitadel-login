@@ -268,6 +268,36 @@ describe("appInitializationStart", () => {
     }
   })
 
+  test("keeps resumed WebAuthn enrollment assertion state authoritative", async () => {
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes("/api/v2/bootstrap")) return Response.json({ success: true, data: bootstrap })
+      if (url.includes("/api/v2/flow/resume")) {
+        return Response.json({
+          success: true,
+          data: {
+            kind: "render",
+            route: `/login/mfa?flow=${validFlow}`,
+            screen: { name: "mfa", factors: ["AUTHENTICATION_METHOD_TYPE_U2F"], enrollment: true },
+            csrfToken: validCsrf,
+          },
+        })
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    const result = await appInitializationStart(
+      "https://worker.example",
+      new URL(`https://login.example/login/mfa?flow=${validFlow}`),
+      () => undefined,
+    )
+
+    expect(result.success).toBe(true)
+    if (result.success && result.data.status === "ready") {
+      expect(result.data.webAuthnEnrollmentPending).toBe(true)
+    }
+  })
+
   test("resumes authoritative email enrollment code state without returning to enrollment", async () => {
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
@@ -278,7 +308,7 @@ describe("appInitializationStart", () => {
           data: {
             kind: "render",
             route: `/login/mfa?flow=${validFlow}`,
-            screen: { name: "mfa_email_otp_code", challengeIssued: true },
+            screen: { name: "mfa_email_otp_code", challengeIssued: true, enrollment: true },
             csrfToken: validCsrf,
           },
         })
@@ -295,6 +325,7 @@ describe("appInitializationStart", () => {
     expect(result.success).toBe(true)
     if (result.success && result.data.status === "ready") {
       expect(result.data.emailOtpCodePending).toBe(true)
+      expect(result.data.emailOtpEnrollmentPending).toBe(true)
       expect(result.data.totpSetupUnavailable).toBe(false)
       expect(result.data.webAuthnSetupUnavailable).toBeUndefined()
     }
@@ -329,5 +360,35 @@ describe("appInitializationStart", () => {
       expect(result.data.emailOtpCodePending).toBe(false)
       expect(result.data.totpSetupUnavailable).toBe(false)
     }
+  })
+
+  test("keeps resumed completion scope metadata for flow preference promotion", async () => {
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes("/api/v2/bootstrap")) return Response.json({ success: true, data: bootstrap })
+      if (url.includes("/api/v2/flow/resume")) {
+        return Response.json({
+          success: true,
+          data: { kind: "complete", path: `/api/v2/flow/continue?flow=${validFlow}` },
+        })
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    const result = await appInitializationStart(
+      "https://worker.example",
+      new URL(`https://login.example/login/mfa?flow=${validFlow}`),
+      () => undefined,
+    )
+
+    expect(result).toEqual({
+      success: true,
+      data: {
+        status: "continue",
+        continuationUrl: `/api/v2/flow/continue?flow=${validFlow}`,
+        flowHandle: validFlow,
+        organizationId: "org-1",
+      },
+    })
   })
 })

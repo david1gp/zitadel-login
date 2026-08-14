@@ -12,6 +12,13 @@ const transition = {
   csrfToken: "B".repeat(43),
 }
 
+const legacyEmailOtpTransition = {
+  kind: "render" as const,
+  route: `/login/mfa?flow=${"A".repeat(22)}`,
+  screen: { name: "mfa_email_otp_code" as const, challengeIssued: true },
+  csrfToken: "B".repeat(43),
+}
+
 const state = {
   version: 2 as const,
   flowHandle: "A".repeat(22),
@@ -39,6 +46,18 @@ describe("password change required schemas", () => {
     expect(v.safeParse(clientTransitionSchema, transition).success).toBe(true)
     expect(JSON.stringify(transition)).not.toContain("user-1")
     expect(JSON.stringify(transition)).not.toContain("latest-token")
+  })
+
+  test("defaults the enrollment discriminator for legacy Worker and browser transitions", () => {
+    const worker = v.safeParse(workerTransitionSchema, legacyEmailOtpTransition)
+    const client = v.safeParse(clientTransitionSchema, legacyEmailOtpTransition)
+
+    expect(worker.success).toBe(true)
+    expect(client.success).toBe(true)
+    if (worker.success)
+      expect(worker.output.screen).toEqual({ name: "mfa_email_otp_code", challengeIssued: true, enrollment: false })
+    if (client.success)
+      expect(client.output.screen).toEqual({ name: "mfa_email_otp_code", challengeIssued: true, enrollment: false })
   })
 
   test("accept only nondelegable bound state and reject transition secrets", () => {

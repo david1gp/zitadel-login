@@ -61,7 +61,7 @@ async function idpIntentStateSeal(overrides: Partial<Extract<FlowV2Cookie, { sta
 }
 
 describe("GET /api/v2/identity-provider/callback/:provider", () => {
-  test("processes linked success and redirects to /api/v2/flow/continue without intent token in URL", async () => {
+  test("processes linked success and returns through client resume without provider data in URL", async () => {
     const fetch = async (input: RequestInfo | URL) => {
       const url = String(input)
       if (url === `${identityOrigin}/v2/oidc/auth_requests/${authRequest.id}`) {
@@ -118,7 +118,7 @@ describe("GET /api/v2/identity-provider/callback/:provider", () => {
     )
 
     expect(response.status).toBe(302)
-    expect(response.headers.get("location")).toBe(`/api/v2/flow/continue?flow=${flowHandle}`)
+    expect(response.headers.get("location")).toBe(`/login?flow=${flowHandle}`)
     expect(response.headers.get("cache-control")).toBe("no-store")
     expect(response.headers.get("referrer-policy")).toBe("no-referrer")
 

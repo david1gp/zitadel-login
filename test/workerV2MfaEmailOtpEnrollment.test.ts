@@ -187,7 +187,7 @@ describe("POST /api/v2/mfa/email-otp/enroll", () => {
         transition: {
           kind: "render",
           route: `/login/mfa?flow=${flowHandle}`,
-          screen: { name: "mfa_email_otp_code", challengeIssued: true },
+          screen: { name: "mfa_email_otp_code", challengeIssued: true, enrollment: true },
           csrfToken,
         },
       },
@@ -236,7 +236,7 @@ describe("POST /api/v2/mfa/email-otp/enroll", () => {
       data: {
         kind: "render",
         route: `/login/mfa?flow=${flowHandle}`,
-        screen: { name: "mfa_email_otp_code", challengeIssued: true },
+        screen: { name: "mfa_email_otp_code", challengeIssued: true, enrollment: true },
         csrfToken,
       },
     })
@@ -365,7 +365,7 @@ describe("POST /api/v2/mfa/email-otp/enroll", () => {
         transition: {
           kind: "render",
           route: `/login/mfa?flow=${flowHandle}`,
-          screen: { name: "mfa_email_otp_code", challengeIssued: false },
+          screen: { name: "mfa_email_otp_code", challengeIssued: false, enrollment: true },
           csrfToken,
         },
       },

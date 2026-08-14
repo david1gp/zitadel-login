@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library"
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 
 import { App } from "../client/src/app/ui/App"
+import { lastUsedLoginMethodCandidateKey } from "../client/src/preferences/model/lastUsedLoginMethodCandidateKey"
 
 const originalFetch = globalThis.fetch
 const validCsrf = "C".repeat(43)
@@ -84,7 +85,7 @@ function apiMockCreate(requests: string[], bootstrapView = bootstrap) {
     if (url.includes("/api/v2/identity-provider/start")) {
       return Response.json({
         success: true,
-        data: { redirectUrl: "https://github.com/login/oauth/authorize?client_id=github" },
+        data: { redirectUrl: `/api/v2/identity-provider/redirect?flow=${validFlow}` },
       })
     }
     throw new Error(`Unexpected request: ${url}`)
@@ -93,6 +94,7 @@ function apiMockCreate(requests: string[], bootstrapView = bootstrap) {
 
 beforeEach(() => {
   localStorage.clear()
+  sessionStorage.clear()
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
     value: vi.fn(() => ({
@@ -269,6 +271,13 @@ describe("application shell", () => {
 
     fireEvent.click(continueButton)
     expect(requests.some((r) => r.includes("/api/v2/identity-provider/start"))).toBe(true)
+    await vi.waitFor(() => {
+      expect(JSON.parse(sessionStorage.getItem(lastUsedLoginMethodCandidateKey(validFlow)) ?? "null")).toEqual({
+        version: 1,
+        organizationId: "org-1",
+        primary: { method: "identity_provider", identityProviderId: "github-1" },
+      })
+    })
   })
 
   test("applies validated branding and persists all visible theme choices", async () => {
@@ -435,6 +444,10 @@ describe("application shell", () => {
       }
       return fetchMock(input, init)
     })
+    sessionStorage.setItem(
+      lastUsedLoginMethodCandidateKey(validFlow),
+      JSON.stringify({ version: 1, organizationId: "org-1", primary: { method: "password" } }),
+    )
     history.replaceState(null, "", "/login?authRequest=request-1")
 
     render(() => <App apiOrigin="https://worker.example" />)
@@ -446,6 +459,115 @@ describe("application shell", () => {
     fireEvent.click(accountBtn)
 
     expect(requests.some((r) => r.includes("/api/v2/session/continue"))).toBe(true)
+    expect(sessionStorage.getItem(lastUsedLoginMethodCandidateKey(validFlow))).toBeNull()
+    expect(localStorage.getItem("zitadel-login:last-used-method:v1:org-1")).toBeNull()
+  })
+
+  test("clears the primary candidate when returning from MFA to methods", async () => {
+    const requests: string[] = []
+    const fetchMock = apiMockCreate(requests)
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes("/api/v2/flow/resume")) {
+        return Response.json({
+          success: true,
+          data: {
+            kind: "render",
+            route: `/login/mfa?flow=${validFlow}`,
+            screen: { name: "mfa" },
+            csrfToken: validCsrf,
+          },
+        })
+      }
+      return fetchMock(input, init)
+    }) as unknown as typeof fetch
+    sessionStorage.setItem(
+      lastUsedLoginMethodCandidateKey(validFlow),
+      JSON.stringify({ version: 1, organizationId: "org-1", primary: { method: "password" } }),
+    )
+    history.replaceState(null, "", `/login/mfa?flow=${validFlow}`)
+
+    render(() => <App apiOrigin="https://worker.example" />)
+
+    const backButton = await screen.findByRole("button", { name: "Back to methods" })
+    fireEvent.click(backButton)
+
+    expect(sessionStorage.getItem(lastUsedLoginMethodCandidateKey(validFlow))).toBeNull()
+  })
+
+  test("promotes the exact IdP candidate only after resumed completion", async () => {
+    const candidateKey = lastUsedLoginMethodCandidateKey(validFlow)
+    sessionStorage.setItem(
+      candidateKey,
+      JSON.stringify({
+        version: 1,
+        organizationId: "org-1",
+        primary: { method: "identity_provider", identityProviderId: "github-exact-42" },
+      }),
+    )
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes("/api/v2/bootstrap")) return Response.json({ success: true, data: bootstrap })
+      if (url.includes("/api/v2/flow/resume")) {
+        return Response.json({
+          success: true,
+          data: { kind: "complete", path: `/api/v2/flow/continue?flow=${validFlow}` },
+        })
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    })
+    history.replaceState(null, "", `/login?flow=${validFlow}`)
+
+    render(() => <App apiOrigin="https://worker.example" />)
+
+    await screen.findByRole("heading", { name: "Continuing sign-in..." })
+    expect(JSON.parse(localStorage.getItem("zitadel-login:last-used-method:v1:org-1") ?? "null")).toEqual({
+      version: 1,
+      primary: { method: "identity_provider", identityProviderId: "github-exact-42" },
+    })
+    expect(sessionStorage.getItem(candidateKey)).toBeNull()
+  })
+
+  test("clears the primary candidate on initialization fallback and fatal exits", async () => {
+    const candidateKey = lastUsedLoginMethodCandidateKey(validFlow)
+    sessionStorage.setItem(
+      candidateKey,
+      JSON.stringify({ version: 1, organizationId: "org-1", primary: { method: "password" } }),
+    )
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes("/api/v2/bootstrap")) return Response.json({ success: true, data: bootstrap })
+      if (url.includes("/api/v2/flow/resume")) {
+        return Response.json({
+          success: true,
+          data: { kind: "fallback", path: `/api/v2/flow/fallback?flow=${validFlow}` },
+        })
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    })
+    history.replaceState(null, "", `/login?flow=${validFlow}`)
+
+    render(() => <App apiOrigin="https://worker.example" />)
+    await screen.findByRole("heading", { name: "Continuing sign-in..." })
+    expect(sessionStorage.getItem(candidateKey)).toBeNull()
+
+    cleanup()
+    sessionStorage.setItem(
+      candidateKey,
+      JSON.stringify({ version: 1, organizationId: "org-1", primary: { method: "password" } }),
+    )
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes("/api/v2/bootstrap")) return Response.json({ success: true, data: bootstrap })
+      if (url.includes("/api/v2/flow/resume")) {
+        return Response.json({ success: false, op: "flowResume", errorMessage: "expired" }, { status: 410 })
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    })
+    history.replaceState(null, "", `/login?flow=${validFlow}`)
+
+    render(() => <App apiOrigin="https://worker.example" />)
+    await screen.findByRole("heading", { name: "Start sign-in again" })
+    expect(sessionStorage.getItem(candidateKey)).toBeNull()
   })
 
   test("removes stale account and displays generic error on 401 account_invalid", async () => {

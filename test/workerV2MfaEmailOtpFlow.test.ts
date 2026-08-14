@@ -198,7 +198,7 @@ describe("Worker MFA Email OTP Challenge & Resend Flow", () => {
     expect(body.success).toBe(true)
     expect(body.data.kind).toBe("render")
     expect(body.data.route).toBe(`/login/mfa?flow=${flowHandle}`)
-    expect(body.data.screen).toEqual({ name: "mfa_email_otp_code", challengeIssued: true })
+    expect(body.data.screen).toEqual({ name: "mfa_email_otp_code", challengeIssued: true, enrollment: false })
 
     const setCookie = response.headers.get("set-cookie")
     expect(setCookie).toBeTruthy()
@@ -213,6 +213,18 @@ describe("Worker MFA Email OTP Challenge & Resend Flow", () => {
     expect(
       opened.success && opened.data.stage === "mfa_email_otp_code" ? opened.data.cooldownExpiresAt : undefined,
     ).toBe(now + 60)
+
+    const resumed = await app.request(
+      `${origin}/api/v2/flow/resume?flow=${flowHandle}`,
+      { headers: { origin, cookie: `__Host-zitadel-login-flow-${flowHandle}=${match![1]!}` } },
+      bindingsCreate(),
+    )
+    expect(resumed.status).toBe(200)
+    expect((await resumed.json()).data.screen).toEqual({
+      name: "mfa_email_otp_code",
+      challengeIssued: true,
+      enrollment: false,
+    })
   })
 
   test("resend / token rotation: resends MFA email OTP and rotates sessionToken", async () => {

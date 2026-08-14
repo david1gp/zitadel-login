@@ -1,5 +1,6 @@
 import { createMemo, onCleanup } from "solid-js"
 
+import type { LoginMethodSelection } from "../../flow/model/loginMethodSelectionSchema"
 import { loginIdentifierNormalize } from "../../preferences/model/loginIdentifierNormalize"
 import { createSignalObject } from "../../ui/createSignalObject"
 import type { SignalObject } from "../../ui/SignalObject"
@@ -17,6 +18,7 @@ export function emailOtpStateCreate(input: {
   errorClear: () => void
   failureSet: (message: string) => void
   fallbackContinue: (path?: string) => void
+  lastUsedSave?: (selection: LoginMethodSelection) => void
   notice: SignalObject<string>
   preferenceSave: (identifier: string) => void
   statusContinue: (url: string) => void
@@ -75,12 +77,16 @@ export function emailOtpStateCreate(input: {
       return
     }
     if (transition.kind === "complete") {
+      input.lastUsedSave?.({ method: "email_otp" })
       input.statusContinue(transition.path)
       return
     }
     if (transition.kind === "render") {
       input.csrfToken.set(transition.csrfToken)
       codeEnter()
+      if (transition.screen.name === "mfa" || transition.route.startsWith("/login/mfa")) {
+        input.lastUsedSave?.({ method: "email_otp" })
+      }
       focusSchedule(() => codeInput)
     }
   }
@@ -106,6 +112,7 @@ export function emailOtpStateCreate(input: {
     }
     const transition = result.data
     if (transition.kind === "complete") {
+      input.lastUsedSave?.({ method: "email_otp" })
       input.statusContinue(transition.path)
       return
     }
@@ -115,6 +122,9 @@ export function emailOtpStateCreate(input: {
     }
     if (transition.kind === "render") {
       input.csrfToken.set(transition.csrfToken)
+      if (transition.screen.name === "mfa" || transition.route.startsWith("/login/mfa")) {
+        input.lastUsedSave?.({ method: "email_otp" })
+      }
     }
   }
   const resend = async () => {

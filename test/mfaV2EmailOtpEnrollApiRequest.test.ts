@@ -21,7 +21,7 @@ describe("mfaV2EmailOtpEnrollApiRequest", () => {
             transition: {
               kind: "render",
               route: `/login/mfa?flow=${flowHandle}`,
-              screen: { name: "mfa_email_otp_code", challengeIssued: true },
+              screen: { name: "mfa_email_otp_code", challengeIssued: true, enrollment: true },
               csrfToken: nextCsrfToken,
             },
           },
@@ -49,7 +49,7 @@ describe("mfaV2EmailOtpEnrollApiRequest", () => {
       data: {
         kind: "render",
         route: `/login/mfa?flow=${flowHandle}`,
-        screen: { name: "mfa_email_otp_code", challengeIssued: true },
+        screen: { name: "mfa_email_otp_code", challengeIssued: true, enrollment: true },
         csrfToken: nextCsrfToken,
       },
     })
@@ -97,5 +97,41 @@ describe("mfaV2EmailOtpEnrollApiRequest", () => {
     expect(res.success).toBe(false)
     if (res.success) return
     expect(res.errorMessage).toBe("The sign-in service returned an invalid response.")
+  })
+
+  test("defaults a legacy email code transition without enrollment classification", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json(
+        {
+          success: true,
+          data: {
+            transition: {
+              kind: "render",
+              route: `/login/mfa?flow=${flowHandle}`,
+              screen: { name: "mfa_email_otp_code", challengeIssued: true },
+              csrfToken: nextCsrfToken,
+            },
+          },
+        },
+        { status: 201 },
+      ),
+    )
+
+    const res = await mfaV2EmailOtpEnrollApiRequest(
+      apiOrigin,
+      flowHandle,
+      { csrfToken },
+      fetchMock as unknown as typeof fetch,
+    )
+
+    expect(res).toEqual({
+      success: true,
+      data: {
+        kind: "render",
+        route: `/login/mfa?flow=${flowHandle}`,
+        screen: { name: "mfa_email_otp_code", challengeIssued: true, enrollment: false },
+        csrfToken: nextCsrfToken,
+      },
+    })
   })
 })

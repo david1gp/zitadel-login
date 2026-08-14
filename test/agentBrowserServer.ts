@@ -273,7 +273,7 @@ const server = Bun.serve({
             kind: "render",
             route: `/login/mfa/email-otp?flow=${flow}`,
             screen: emailOtpEnrollmentActivated.has(flow)
-              ? { name: "mfa_email_otp_code", challengeIssued: true }
+              ? { name: "mfa_email_otp_code", challengeIssued: true, enrollment: true }
               : { name: "mfa" },
             csrfToken: validCsrf,
           },
@@ -422,7 +422,7 @@ const server = Bun.serve({
             transition: {
               kind: "render",
               route: `/login/mfa?flow=${url.searchParams.get("flow") ?? validFlow}`,
-              screen: { name: "mfa_email_otp_code", challengeIssued: true },
+              screen: { name: "mfa_email_otp_code", challengeIssued: true, enrollment: true },
               csrfToken: validCsrf,
             },
           },

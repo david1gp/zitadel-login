@@ -23,6 +23,9 @@ type Inputs = {
   errorClear: () => void
   failureSet: (message: string) => void
   fallbackContinue: (path?: string) => void
+  lastUsedSave?: (factor: "u2f" | "passkey") => void
+  enrollmentPending?: () => boolean
+  enrollmentPendingSet?: (value: boolean) => void
   statusContinue: (url: string) => void
   optionsReload?: () => Promise<void>
   showChooser?: () => void
@@ -84,6 +87,7 @@ export function mfaU2fStateCreate(inputs: Inputs) {
     if (transition.kind === "render") {
       inputs.csrfTokenSet(transition.csrfToken)
       if (transition.screen.name === "mfa" && transition.screen.options) {
+        inputs.enrollmentPendingSet?.(transition.screen.enrollment === true)
         const parsed = passkeyOptionsParse(transition.screen.options)
         if (parsed.success) {
           options.set(parsed.data)
@@ -174,6 +178,7 @@ export function mfaU2fStateCreate(inputs: Inputs) {
 
     const verifyTransition = verifyRes.data
     if (verifyTransition.kind === "complete") {
+      if (!inputs.enrollmentPending?.()) inputs.lastUsedSave?.(inputs.factorType())
       inputs.statusContinue(verifyTransition.path)
       return
     }
@@ -183,6 +188,9 @@ export function mfaU2fStateCreate(inputs: Inputs) {
     }
     if (verifyTransition.kind === "render") {
       inputs.csrfTokenSet(verifyTransition.csrfToken)
+      if (verifyTransition.screen.name === "mfa") {
+        inputs.enrollmentPendingSet?.(verifyTransition.screen.enrollment === true)
+      }
       if (inputs.optionsReload) {
         await inputs.optionsReload()
       }

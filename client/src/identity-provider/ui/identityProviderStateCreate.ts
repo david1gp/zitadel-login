@@ -1,4 +1,5 @@
 import { browserLocationAssign } from "../../flow/model/browserLocationAssign"
+import type { LoginMethodSelection } from "../../flow/model/loginMethodSelectionSchema"
 import type { SignalObject } from "../../ui/SignalObject"
 import { identityProviderV2StartApiRequest } from "../api/identityProviderV2StartApiRequest"
 
@@ -12,6 +13,7 @@ type IdentityProviderStateCreateOptions = {
   errorClear: () => void
   failureSet: (message: string) => void
   fallbackContinue: (path?: string) => void
+  lastUsedSave?: (selection: LoginMethodSelection) => void
   statusContinue: (url: string) => void
   preferenceSave: () => void
   browserWindow?: Window
@@ -47,6 +49,7 @@ export function identityProviderStateCreate(options: IdentityProviderStateCreate
     }
 
     if ("redirectUrl" in result.data) {
+      options.lastUsedSave?.({ method: "identity_provider", identityProviderId: currentProvider.id })
       if (windowObj) browserLocationAssign(windowObj, result.data.redirectUrl)
       return
     }
@@ -57,6 +60,7 @@ export function identityProviderStateCreate(options: IdentityProviderStateCreate
     }
 
     if (result.data.transition.kind === "complete") {
+      options.lastUsedSave?.({ method: "identity_provider", identityProviderId: currentProvider.id })
       options.statusContinue(result.data.transition.path)
       return
     }

@@ -20,6 +20,7 @@ type Inputs = {
   fallbackContinue: (path?: string) => void
   statusContinue?: (url: string) => void
   routeSet: (next: LoginMethodSelection | undefined, replace?: boolean) => void
+  webAuthnEnrollmentPending?: () => boolean
   fetchFn?: typeof fetch
   optionsDisabled?: () => boolean
 }
@@ -28,6 +29,7 @@ export function mfaStateCreate(inputs: Inputs) {
   const options = createSignalObject<MfaOptions | undefined>(undefined)
   const assertionOptions = createSignalObject<PasskeyOptions | undefined>(undefined)
   const loading = createSignalObject(false)
+  const webAuthnEnrollmentPending = createSignalObject(inputs.webAuthnEnrollmentPending?.() ?? false)
   const error = createSignalObject("")
   let inFlight = false
 
@@ -128,6 +130,8 @@ export function mfaStateCreate(inputs: Inputs) {
   return {
     options: options.get,
     assertionOptions: assertionOptions.get,
+    webAuthnEnrollmentPending: webAuthnEnrollmentPending.get,
+    webAuthnEnrollmentPendingSet: webAuthnEnrollmentPending.set,
     assertionStart: (next: PasskeyOptions) => {
       assertionOptions.set(next)
     },

@@ -27,6 +27,7 @@ type Inputs = {
   failureSet: (message: string) => void
   fallbackContinue: (path?: string) => void
   statusContinue: (url: string) => void
+  enrollmentPendingSet?: (value: boolean) => void
   assertionStart?: (options: PasskeyOptions) => void
   optionsReload?: () => Promise<void>
   credentialsCreate?: PasskeyCredentialsCreate
@@ -180,6 +181,9 @@ export function mfaWebAuthnEnrollStateCreate(inputs: Inputs) {
     }
 
     inputs.csrfTokenSet(transition.csrfToken)
+    if (transition.screen.name === "mfa") {
+      inputs.enrollmentPendingSet?.(transition.screen.enrollment === true)
+    }
     if (transition.screen.name === "mfa" && transition.screen.options && inputs.assertionStart) {
       const assertionOptions = passkeyOptionsParse(transition.screen.options)
       if (assertionOptions.success) {

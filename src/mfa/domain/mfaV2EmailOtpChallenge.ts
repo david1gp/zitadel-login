@@ -94,7 +94,11 @@ export async function mfaV2EmailOtpChallenge(input: Input) {
   const transition: FlowV2Transition = {
     kind: "render",
     route: `/login/mfa?flow=${state.flowHandle}`,
-    screen: { name: "mfa_email_otp_code", challengeIssued: true },
+    screen: {
+      name: "mfa_email_otp_code",
+      challengeIssued: true,
+      enrollment: state.enrollmentActivationConsumedAt !== undefined,
+    },
     csrfToken: state.csrfToken,
   }
 

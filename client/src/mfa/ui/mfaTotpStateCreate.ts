@@ -13,6 +13,7 @@ type Inputs = {
   errorClear: () => void
   failureSet: (message: string) => void
   fallbackContinue: (path?: string) => void
+  lastUsedSave?: () => void
   statusContinue: (url: string) => void
   optionsReload?: () => Promise<void>
   showChooser?: () => void
@@ -64,6 +65,7 @@ export function mfaTotpStateCreate(inputs: Inputs) {
 
     const transition = res.data
     if (transition.kind === "complete") {
+      inputs.lastUsedSave?.()
       inputs.statusContinue(transition.path)
       return
     }

@@ -24,6 +24,9 @@ type MfaU2fPanelProps = {
   errorClear: () => void
   failureSet: (message: string) => void
   fallbackContinue: (path?: string) => void
+  lastUsedSave?: (factor: "u2f" | "passkey") => void
+  enrollmentPending?: () => boolean
+  enrollmentPendingSet?: (value: boolean) => void
   statusContinue: (url: string) => void
   optionsReload?: () => Promise<void>
   showChooser?: () => void
@@ -46,6 +49,9 @@ export function MfaU2fPanel(props: MfaU2fPanelProps) {
     errorClear: props.errorClear,
     failureSet: props.failureSet,
     fallbackContinue: props.fallbackContinue,
+    lastUsedSave: props.lastUsedSave,
+    enrollmentPending: props.enrollmentPending,
+    enrollmentPendingSet: props.enrollmentPendingSet,
     statusContinue: props.statusContinue,
     optionsReload: props.optionsReload,
     showChooser: props.showChooser,

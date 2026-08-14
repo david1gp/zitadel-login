@@ -1,5 +1,6 @@
 import { createMemo, onCleanup, onMount } from "solid-js"
 
+import type { LoginMethodSelection } from "../../flow/model/loginMethodSelectionSchema"
 import { createSignalObject } from "../../ui/createSignalObject"
 import { passwordChangeRequiredApiRequest } from "../api/passwordChangeRequiredApiRequest"
 
@@ -13,6 +14,7 @@ type Inputs = {
   errorClear: () => void
   failureSet: (message: string) => void
   fallbackContinue: (path?: string) => void
+  lastUsedSave?: (selection: LoginMethodSelection) => void
   statusContinue: (url: string) => void
   transitionApply: (route: string) => void
   fetchFn?: typeof fetch
@@ -104,6 +106,7 @@ export function passwordChangeRequiredStateCreate(inputs: Inputs) {
       return
     }
     if (transition.kind === "complete") {
+      inputs.lastUsedSave?.({ method: "password" })
       inputs.statusContinue(transition.path)
       return
     }

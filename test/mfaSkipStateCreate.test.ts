@@ -1,15 +1,36 @@
 import { describe, expect, test } from "bun:test"
 
 import { mfaStateCreate } from "../client/src/mfa/ui/mfaStateCreate"
+import { lastUsedLoginMethodCandidateKey } from "../client/src/preferences/model/lastUsedLoginMethodCandidateKey"
+import { lastUsedLoginMethodCandidateSave } from "../client/src/preferences/model/lastUsedLoginMethodCandidateSave"
+import { lastUsedLoginMethodLoad } from "../client/src/preferences/model/lastUsedLoginMethodLoad"
+import { lastUsedLoginMethodPromote } from "../client/src/preferences/model/lastUsedLoginMethodPromote"
 
 const apiOrigin = "https://worker.example"
 const flowHandle = "flow-handle-123"
 const csrfToken = "B".repeat(43)
 
+function storageCreate(): Storage {
+  const values = new Map<string, string>()
+  return {
+    get length() {
+      return values.size
+    },
+    clear: () => values.clear(),
+    getItem: (key) => values.get(key) ?? null,
+    key: (index) => [...values.keys()][index] ?? null,
+    removeItem: (key) => values.delete(key),
+    setItem: (key, value) => values.set(key, value),
+  }
+}
+
 describe("mfaSkipStateCreate", () => {
   test("skipSubmit performs skip request and triggers statusContinue on completion", async () => {
     let busyState = false
     let completedPath = ""
+    const localStorage = storageCreate()
+    const sessionStorage = storageCreate()
+    lastUsedLoginMethodCandidateSave(sessionStorage, flowHandle, "org-1", { method: "password" })
     const fetchMock = async (input: RequestInfo | URL) => {
       const url = String(input)
       if (url.includes("/api/v2/mfa/skip")) {
@@ -46,6 +67,7 @@ describe("mfaSkipStateCreate", () => {
       fallbackContinue: () => {},
       statusContinue: (path) => {
         completedPath = path
+        lastUsedLoginMethodPromote(localStorage, sessionStorage, flowHandle, "org-1", { version: 1 })
       },
       routeSet: () => {},
       fetchFn: fetchMock as unknown as typeof fetch,
@@ -55,6 +77,11 @@ describe("mfaSkipStateCreate", () => {
 
     expect(completedPath).toBe(`/api/v2/flow/continue?flow=${flowHandle}`)
     expect(busyState).toBe(false)
+    expect(lastUsedLoginMethodLoad(localStorage, "org-1")).toEqual({
+      success: true,
+      data: { version: 1, primary: { method: "password" } },
+    })
+    expect(sessionStorage.getItem(lastUsedLoginMethodCandidateKey(flowHandle))).toBeNull()
   })
 
   test("skipSubmit handles forced-policy rejection by displaying error and reloading options", async () => {

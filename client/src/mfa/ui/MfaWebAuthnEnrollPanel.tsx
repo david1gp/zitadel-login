@@ -30,6 +30,7 @@ type MfaWebAuthnEnrollPanelProps = {
   failureSet: (message: string) => void
   fallbackContinue: (path?: string) => void
   statusContinue: (url: string) => void
+  enrollmentPendingSet?: (value: boolean) => void
   assertionStart?: (options: PasskeyOptions) => void
   optionsReload?: () => Promise<void>
   showChooser?: () => void
@@ -53,6 +54,7 @@ export function MfaWebAuthnEnrollPanel(props: MfaWebAuthnEnrollPanelProps) {
     failureSet: props.failureSet,
     fallbackContinue: props.fallbackContinue,
     statusContinue: props.statusContinue,
+    enrollmentPendingSet: props.enrollmentPendingSet,
     assertionStart: props.assertionStart,
     optionsReload: props.optionsReload,
     credentialsCreate: props.credentialsCreate,

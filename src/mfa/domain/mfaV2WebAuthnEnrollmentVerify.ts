@@ -178,7 +178,7 @@ function recoverableContinuationCreate(state: Extract<FlowV2Cookie, { stage: "mf
   const transition: FlowV2Transition = {
     kind: "render",
     route: `/login/mfa?flow=${state.flowHandle}`,
-    screen: { name: "mfa", factors: state.mfaMethods },
+    screen: { name: "mfa", factors: state.mfaMethods, enrollment: true },
     csrfToken: state.csrfToken,
   }
   return resultCreate({ state, transition })
@@ -213,7 +213,7 @@ async function checkAfterCreate(input: Input, state: Extract<FlowV2Cookie, { sta
   const transition: FlowV2Transition = {
     kind: "render",
     route: `/login/mfa?flow=${state.flowHandle}`,
-    screen: { name: "mfa", factors: state.mfaMethods, options },
+    screen: { name: "mfa", factors: state.mfaMethods, options, enrollment: true },
     csrfToken: state.csrfToken,
   }
   return resultCreate({ state: checkState, transition })

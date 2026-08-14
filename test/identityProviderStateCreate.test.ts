@@ -79,6 +79,7 @@ describe("identityProviderStateCreate factory", () => {
       Response.json({ success: false, op: "identityProviderStart", errorMessage: "idp_not_found" }, { status: 404 })
 
     let failureMessage = ""
+    let lastUsedSaved = false
     const busy = createSignalObject(false)
 
     const state = identityProviderStateCreate({
@@ -93,6 +94,9 @@ describe("identityProviderStateCreate factory", () => {
         failureMessage = msg
       },
       fallbackContinue: () => undefined,
+      lastUsedSave: () => {
+        lastUsedSaved = true
+      },
       statusContinue: () => undefined,
       preferenceSave: () => undefined,
     })
@@ -102,5 +106,41 @@ describe("identityProviderStateCreate factory", () => {
 
     expect(failureMessage).toBe("Sign-in could not be completed. Please try again.")
     expect(busy.get()).toBe(false)
+    expect(lastUsedSaved).toBe(false)
+  })
+
+  test("records the provider and continues when start completes without a redirect", async () => {
+    globalThis.fetch = async () =>
+      Response.json({
+        success: true,
+        data: { kind: "complete", path: `/api/v2/flow/continue?flow=${validFlow}` },
+      })
+
+    let savedSelection: unknown
+    let continuedPath = ""
+    const busy = createSignalObject(false)
+    const state = identityProviderStateCreate({
+      apiOrigin: () => "https://worker.example",
+      busy,
+      csrfToken: () => validCsrf,
+      flowHandle: () => validFlow,
+      provider: () => ({ id: "google-1", name: "Google", type: "google" }),
+      subroute: () => undefined,
+      errorClear: () => undefined,
+      failureSet: () => undefined,
+      fallbackContinue: () => undefined,
+      lastUsedSave: (selection) => {
+        savedSelection = selection
+      },
+      statusContinue: (path) => {
+        continuedPath = path
+      },
+      preferenceSave: () => undefined,
+    })
+
+    await state.submit({ preventDefault: () => undefined } as SubmitEvent)
+
+    expect(savedSelection).toEqual({ method: "identity_provider", identityProviderId: "google-1" })
+    expect(continuedPath).toBe(`/api/v2/flow/continue?flow=${validFlow}`)
   })
 })

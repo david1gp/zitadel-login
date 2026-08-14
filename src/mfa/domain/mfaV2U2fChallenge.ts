@@ -118,6 +118,7 @@ export async function mfaV2U2fChallenge(input: Input) {
       name: "mfa",
       factors: state.mfaMethods,
       options: passkeyOptions,
+      ...(state.webAuthnCheckMethod ? { enrollment: true } : {}),
     },
     csrfToken: state.csrfToken,
   }

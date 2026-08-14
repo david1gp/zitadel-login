@@ -113,6 +113,7 @@ export function demoFetchCreate(scenarioId: () => string): typeof fetch {
           transition: demoTransitionRender("/demo/mfa/email-otp/code", {
             name: "mfa_email_otp_code",
             challengeIssued: true,
+            enrollment: true,
           }),
         },
       })
@@ -126,7 +127,11 @@ export function demoFetchCreate(scenarioId: () => string): typeof fetch {
     ) {
       return demoJsonResponseCreate({
         success: true,
-        data: demoTransitionRender("/demo/mfa/email-otp/code", { name: "mfa_email_otp_code", challengeIssued: true }),
+        data: demoTransitionRender("/demo/mfa/email-otp/code", {
+          name: "mfa_email_otp_code",
+          challengeIssued: true,
+          enrollment: false,
+        }),
       })
     }
 

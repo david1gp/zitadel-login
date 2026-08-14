@@ -21,6 +21,7 @@ type MfaTotpPanelProps = {
   errorClear: () => void
   failureSet: (message: string) => void
   fallbackContinue: (path?: string) => void
+  lastUsedSave?: () => void
   statusContinue: (url: string) => void
   optionsReload?: () => Promise<void>
   showChooser?: () => void
@@ -39,6 +40,7 @@ export function MfaTotpPanel(props: MfaTotpPanelProps) {
     errorClear: props.errorClear,
     failureSet: props.failureSet,
     fallbackContinue: props.fallbackContinue,
+    lastUsedSave: props.lastUsedSave,
     statusContinue: props.statusContinue,
     optionsReload: props.optionsReload,
     showChooser: props.showChooser,

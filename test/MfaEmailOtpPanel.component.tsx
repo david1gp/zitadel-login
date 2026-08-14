@@ -199,7 +199,7 @@ describe("MfaEmailOtpPanel component", () => {
             transition: {
               kind: "render",
               route: `/login/mfa?flow=${flowHandle}`,
-              screen: { name: "mfa_email_otp_code", challengeIssued: true },
+              screen: { name: "mfa_email_otp_code", challengeIssued: true, enrollment: true },
               csrfToken: nextCsrfToken,
             },
           },
@@ -260,7 +260,7 @@ describe("MfaEmailOtpPanel component", () => {
               transition: {
                 kind: "render",
                 route: `/login/mfa?flow=${flowHandle}`,
-                screen: { name: "mfa_email_otp_code", challengeIssued: true },
+                screen: { name: "mfa_email_otp_code", challengeIssued: true, enrollment: true },
                 csrfToken,
               },
             },
@@ -368,7 +368,7 @@ describe("MfaEmailOtpPanel component", () => {
             transition: {
               kind: "render",
               route: `/login/mfa?flow=${flowHandle}`,
-              screen: { name: "mfa_email_otp_code", challengeIssued: false },
+              screen: { name: "mfa_email_otp_code", challengeIssued: false, enrollment: true },
               csrfToken,
             },
           },

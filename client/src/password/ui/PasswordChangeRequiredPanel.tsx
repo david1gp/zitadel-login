@@ -1,3 +1,4 @@
+import type { LoginMethodSelection } from "../../flow/model/loginMethodSelectionSchema"
 import { ttc } from "../../i18n/model/ttc"
 import { classesHeading } from "../../ui/classes/classesHeading"
 import { classesInput } from "../../ui/classes/classesInput"
@@ -21,6 +22,7 @@ type PasswordChangeRequiredPanelProps = {
   errorClear: () => void
   failureSet: (message: string) => void
   fallbackContinue: (path?: string) => void
+  lastUsedSave?: (selection: LoginMethodSelection) => void
   statusContinue: (url: string) => void
   transitionApply: (route: string) => void
   fetchFn?: typeof fetch
@@ -37,6 +39,7 @@ export function PasswordChangeRequiredPanel(props: PasswordChangeRequiredPanelPr
     errorClear: props.errorClear,
     failureSet: props.failureSet,
     fallbackContinue: props.fallbackContinue,
+    lastUsedSave: props.lastUsedSave,
     statusContinue: props.statusContinue,
     transitionApply: props.transitionApply,
     fetchFn: props.fetchFn,

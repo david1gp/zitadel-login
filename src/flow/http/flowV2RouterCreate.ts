@@ -361,7 +361,11 @@ function stateTransitionGet(
     return {
       kind: "render",
       route: `/login/mfa?flow=${state.flowHandle}`,
-      screen: { name: "mfa", factors: state.mfaMethods },
+      screen: {
+        name: "mfa",
+        factors: state.mfaMethods,
+        ...(state.webAuthnCheckMethod ? { enrollment: true } : {}),
+      },
       csrfToken: state.csrfToken,
     }
   }
@@ -380,7 +384,11 @@ function stateTransitionGet(
     return {
       kind: "render",
       route: `/login/mfa?flow=${state.flowHandle}`,
-      screen: { name: "mfa_email_otp_code", challengeIssued: state.challengeIssuedAt !== undefined },
+      screen: {
+        name: "mfa_email_otp_code",
+        challengeIssued: state.challengeIssuedAt !== undefined,
+        enrollment: state.enrollmentActivationConsumedAt !== undefined,
+      },
       csrfToken: state.csrfToken,
     }
   }
@@ -2174,7 +2182,9 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     }
 
     const redirectUrl =
-      result.data.transition.kind === "render" ? result.data.transition.route : result.data.transition.path
+      result.data.transition.kind === "complete"
+        ? `/login?flow=${encodeURIComponent(handle.data)}`
+        : result.data.transition.route
 
     const response = c.redirect(redirectUrl, 302)
     response.headers.set("Cache-Control", "no-store")

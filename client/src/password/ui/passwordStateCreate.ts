@@ -1,5 +1,6 @@
 import { createMemo, onCleanup } from "solid-js"
 
+import type { LoginMethodSelection } from "../../flow/model/loginMethodSelectionSchema"
 import { loginIdentifierNormalize } from "../../preferences/model/loginIdentifierNormalize"
 import { createSignalObject } from "../../ui/createSignalObject"
 import type { SignalObject } from "../../ui/SignalObject"
@@ -13,6 +14,7 @@ export function passwordStateCreate(input: {
   errorClear: () => void
   failureSet: (message: string) => void
   fallbackContinue: (path?: string) => void
+  lastUsedSave?: (selection: LoginMethodSelection) => void
   notice: SignalObject<string>
   preferenceSave: (identifier: string) => void
   statusContinue: (url: string) => void
@@ -76,16 +78,19 @@ export function passwordStateCreate(input: {
       return
     }
     if (transition.kind === "complete") {
+      input.lastUsedSave?.({ method: "password" })
       input.statusContinue(transition.path)
       return
     }
     if (transition.kind === "render") {
       input.csrfToken.set(transition.csrfToken)
       if (transition.screen.name === "password_change_required") {
+        input.lastUsedSave?.({ method: "password" })
         input.changeRequiredSet?.({ expired: transition.screen.expired })
         return
       }
       if (transition.screen.name === "mfa" || transition.route.startsWith("/login/mfa")) {
+        input.lastUsedSave?.({ method: "password" })
         mfaRequired.set(true)
       }
     }

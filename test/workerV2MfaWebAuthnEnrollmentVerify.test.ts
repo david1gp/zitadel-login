@@ -288,6 +288,7 @@ describe("POST /api/v2/mfa/{u2f,passkey}/enroll/verify", () => {
             screen: {
               name: "mfa",
               factors: [method === "u2f" ? "AUTHENTICATION_METHOD_TYPE_U2F" : "AUTHENTICATION_METHOD_TYPE_PASSKEY"],
+              enrollment: true,
               options: {
                 publicKey: {
                   challenge: assertionChallenge,
@@ -330,6 +331,22 @@ describe("POST /api/v2/mfa/{u2f,passkey}/enroll/verify", () => {
         },
       })
       expect(native.calls.filter((call) => call.url.endsWith("/sessions/session-secret-id"))).toHaveLength(1)
+
+      const resumed = await app.request(
+        new Request(`${origin}/api/v2/flow/resume?flow=${flowHandle}`, {
+          headers: { cookie: `${cookieName}=${cookieValueGet(response)}` },
+        }),
+        undefined,
+        bindings,
+      )
+      expect(resumed.status).toBe(200)
+      expect(await resumed.json()).toMatchObject({
+        success: true,
+        data: {
+          kind: "render",
+          screen: { name: "mfa", enrollment: true },
+        },
+      })
     })
   }
 
@@ -465,7 +482,7 @@ describe("POST /api/v2/mfa/{u2f,passkey}/enroll/verify", () => {
           transition: {
             kind: "render",
             route: `/login/mfa?flow=${flowHandle}`,
-            screen: { name: "mfa", factors: ["AUTHENTICATION_METHOD_TYPE_U2F"] },
+            screen: { name: "mfa", factors: ["AUTHENTICATION_METHOD_TYPE_U2F"], enrollment: true },
             csrfToken,
           },
         },

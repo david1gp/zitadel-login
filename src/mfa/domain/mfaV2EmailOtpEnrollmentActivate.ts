@@ -27,7 +27,11 @@ function transitionCreate(state: Input["state"]): FlowV2Transition {
   return {
     kind: "render",
     route: `/login/mfa?flow=${state.flowHandle}`,
-    screen: { name: "mfa_email_otp_code", challengeIssued: state.challengeIssuedAt !== undefined },
+    screen: {
+      name: "mfa_email_otp_code",
+      challengeIssued: state.challengeIssuedAt !== undefined,
+      enrollment: true,
+    },
     csrfToken: state.csrfToken,
   }
 }

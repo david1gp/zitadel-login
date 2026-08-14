@@ -25,6 +25,8 @@ export type AppInitializationData =
   | {
       status: "continue"
       continuationUrl: string
+      flowHandle?: string
+      organizationId?: string
     }
   | {
       status: "ready"
@@ -41,6 +43,8 @@ export type AppInitializationData =
       recentAccounts?: RecentAccountSummary[]
       totpSetupUnavailable: boolean
       emailOtpCodePending: boolean
+      emailOtpEnrollmentPending: boolean
+      webAuthnEnrollmentPending: boolean
       webAuthnSetupUnavailable?: "u2f" | "passkey"
       passwordChangeRequired?: { expired: boolean }
     }
@@ -95,7 +99,12 @@ export async function appInitializationStart(
     return resultCreate({ status: "fallback", fallbackUrl: transition.path })
   }
   if (transition.kind === "complete") {
-    return resultCreate({ status: "continue", continuationUrl: transition.path })
+    return resultCreate({
+      status: "continue",
+      continuationUrl: transition.path,
+      ...(flowHandle ? { flowHandle } : {}),
+      ...(bootstrapResult?.success ? { organizationId: bootstrapResult.data.organization.id } : {}),
+    })
   }
 
   if (transition.kind !== "render") {
@@ -142,6 +151,8 @@ export async function appInitializationStart(
     recentAccounts,
     totpSetupUnavailable: transition.screen.name === "mfa_totp_setup",
     emailOtpCodePending: transition.screen.name === "mfa_email_otp_code",
+    emailOtpEnrollmentPending: transition.screen.name === "mfa_email_otp_code" && transition.screen.enrollment,
+    webAuthnEnrollmentPending: transition.screen.name === "mfa" && transition.screen.enrollment === true,
     webAuthnSetupUnavailable: transition.screen.name === "mfa_webauthn_setup" ? transition.screen.method : undefined,
     passwordChangeRequired:
       transition.screen.name === "password_change_required" ? { expired: transition.screen.expired } : undefined,

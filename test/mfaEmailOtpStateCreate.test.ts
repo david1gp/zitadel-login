@@ -48,7 +48,7 @@ describe("mfaEmailOtpStateCreate", () => {
           data: {
             kind: "render",
             route: `/login/mfa?flow=${flowHandle}`,
-            screen: { name: "mfa_email_otp_code", challengeIssued: true },
+            screen: { name: "mfa_email_otp_code", challengeIssued: true, enrollment: false },
             csrfToken,
           },
         }),
@@ -118,9 +118,10 @@ describe("mfaEmailOtpStateCreate", () => {
     expect(state.valid()).toBe(true)
   })
 
-  test("submit verifies valid code and calls statusContinue on complete transition", async () => {
+  test("submit verifies valid code, records normal factor use, and calls statusContinue", async () => {
     let busyState = false
     let completedPath = ""
+    let saved = false
     const fetchMock = vi.fn(async () =>
       Response.json({
         success: true,
@@ -143,6 +144,9 @@ describe("mfaEmailOtpStateCreate", () => {
       errorClear: () => {},
       failureSet: () => {},
       fallbackContinue: () => {},
+      lastUsedSave: () => {
+        saved = true
+      },
       statusContinue: (path) => {
         completedPath = path
       },
@@ -155,7 +159,40 @@ describe("mfaEmailOtpStateCreate", () => {
     await state.submit(fakeEvent)
 
     expect(completedPath).toBe(`/api/v2/flow/continue?flow=${flowHandle}`)
+    expect(saved).toBe(true)
     expect(state.code()).toBe("") // cleared on submit
+  })
+
+  test("does not record an enrollment factor when a code screen is resumed", async () => {
+    let saved = false
+    const state = mfaEmailOtpStateCreate({
+      apiOrigin: () => apiOrigin,
+      flowHandle: () => flowHandle,
+      csrfToken: () => csrfToken,
+      csrfTokenSet: () => {},
+      busy: () => false,
+      busySet: () => {},
+      errorClear: () => {},
+      failureSet: () => {},
+      fallbackContinue: () => {},
+      lastUsedSave: () => {
+        saved = true
+      },
+      statusContinue: () => {},
+      showRootChooser: () => {},
+      fetchFn: (async () =>
+        Response.json({
+          success: true,
+          data: { kind: "complete", path: `/api/v2/flow/continue?flow=${flowHandle}` },
+        })) as unknown as typeof fetch,
+      isEnrollment: true,
+      codePending: true,
+    })
+
+    state.codeInput("123456")
+    await state.submit({ preventDefault: () => {} } as unknown as SubmitEvent)
+
+    expect(saved).toBe(false)
   })
 
   test("starts in stage 'enroll' when enrollment is authorized and resets back to it", async () => {
@@ -197,7 +234,7 @@ describe("mfaEmailOtpStateCreate", () => {
             transition: {
               kind: "render",
               route: `/login/mfa?flow=${flowHandle}`,
-              screen: { name: "mfa_email_otp_code", challengeIssued: true },
+              screen: { name: "mfa_email_otp_code", challengeIssued: true, enrollment: true },
               csrfToken: "D".repeat(43),
             },
           },

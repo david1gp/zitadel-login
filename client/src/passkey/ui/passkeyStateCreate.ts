@@ -1,5 +1,6 @@
 import { onCleanup } from "solid-js"
 
+import type { LoginMethodSelection } from "../../flow/model/loginMethodSelectionSchema"
 import { loginIdentifierNormalize } from "../../preferences/model/loginIdentifierNormalize"
 import { createSignalObject } from "../../ui/createSignalObject"
 import type { SignalObject } from "../../ui/SignalObject"
@@ -21,6 +22,7 @@ export function passkeyStateCreate(input: {
   errorClear: () => void
   failureSet: (message: string) => void
   fallbackContinue: (path?: string) => void
+  lastUsedSave?: (selection: LoginMethodSelection) => void
   notice: SignalObject<string>
   preferenceSave: (identifier: string) => void
   statusContinue: (url: string) => void
@@ -83,6 +85,7 @@ export function passkeyStateCreate(input: {
         return
       }
       if (transition.kind === "complete") {
+        input.lastUsedSave?.({ method: "passkey" })
         input.statusContinue(transition.path)
         return
       }
@@ -166,12 +169,14 @@ export function passkeyStateCreate(input: {
       return
     }
     if (verifyTransition.kind === "complete") {
+      input.lastUsedSave?.({ method: "passkey" })
       input.statusContinue(verifyTransition.path)
       return
     }
     if (verifyTransition.kind === "render") {
       input.csrfToken.set(verifyTransition.csrfToken)
       if (verifyTransition.screen.name === "mfa" || verifyTransition.route.startsWith("/login/mfa")) {
+        input.lastUsedSave?.({ method: "passkey" })
         mfaRequired.set(true)
       }
     }
