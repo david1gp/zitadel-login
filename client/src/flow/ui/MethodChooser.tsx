@@ -55,7 +55,7 @@ export function MethodChooser(props: MethodChooserProps) {
           <li>
             <MethodChoiceButton
               label={method.selection.method === "identity_provider" ? method.label : ttc(method.label)}
-              detail={method.detail ? ttc(method.detail) : undefined}
+              detail={method.detail ? ttc(method.detail).replace("{provider}", method.label) : undefined}
               iconPath={loginMethodIconPathGet(method.selection, method.identityProviderType)}
               iconClass={classesMethodChoiceIcon}
               disabled={props.busy ? props.busy() : false}

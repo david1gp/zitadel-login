@@ -17,6 +17,7 @@ describe("method chooser view", () => {
           {
             selection: { method: "identity_provider", identityProviderId: "github-1" },
             label: "GitHub",
+            detail: "Use your existing {provider} account to sign in",
           },
         ]}
         select={(selection) => (selected = selection.method)}
@@ -29,8 +30,10 @@ describe("method chooser view", () => {
     expect(screen.queryByText("Sign in")).toBeNull()
     expect(screen.getByText("Receive a one-time code")).toBeTruthy()
     expect(view.container.querySelector("input")).toBeNull()
-    const providerButton = screen.getByRole("button", { name: "GitHub" })
-    expect(providerButton.querySelector("small")).toBeNull()
+    const providerButton = screen.getByRole("button", {
+      name: "GitHub Use your existing GitHub account to sign in",
+    })
+    expect(providerButton.querySelector("small")?.textContent).toBe("Use your existing GitHub account to sign in")
     fireEvent.click(providerButton)
     expect(selected).toBe("identity_provider")
   })

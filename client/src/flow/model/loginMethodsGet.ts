@@ -31,6 +31,7 @@ export function loginMethodsGet(view: BootstrapView): Array<{
       available.push({
         selection: { method: "identity_provider", identityProviderId: provider.id },
         label: provider.name,
+        detail: "Use your existing {provider} account to sign in",
         identityProviderType: provider.type,
       })
     }
