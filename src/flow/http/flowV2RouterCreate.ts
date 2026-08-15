@@ -737,9 +737,13 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     if (!result.success) return resultErrorResponse(c, op, result.errorMessage)
     const options = v.safeParse(mfaOptionsSchema, result.data.options)
     if (!options.success) return resultErrorResponse(c, op, "service_unavailable")
-    if (result.data.state.sessionToken !== state.data.sessionToken) {
+    const storedMfaState = state.data.stage === "mfa" ? state.data : undefined
+    const fallbackReasonChanged =
+      storedMfaState !== undefined && result.data.state.nativeFallbackReason !== storedMfaState.nativeFallbackReason
+    if (result.data.state.sessionToken !== state.data.sessionToken || fallbackReasonChanged) {
       const updatedState = { ...state.data, sessionToken: result.data.state.sessionToken }
-      const set = await stateSet(c, bindings.data, updatedState)
+      const nextState = fallbackReasonChanged ? result.data.state : updatedState
+      const set = await stateSet(c, bindings.data, nextState)
       if (!set.success) return resultErrorResponse(c, op, "service_unavailable")
     }
     return c.json(resultCreate(options.output), 200)
@@ -2272,9 +2276,11 @@ export function flowV2RouterCreate(dependencies: Dependencies) {
     const emailEnrollmentFallback =
       state.data.stage === "mfa_email_otp_code" && state.data.enrollmentActivationConsumedAt !== undefined
     const passwordChangedFallback = state.data.stage === "password_changed"
+    const mfaFallback = state.data.stage === "mfa" && state.data.nativeFallbackReason !== undefined
     if (
       (!emailEnrollmentFallback &&
         !passwordChangedFallback &&
+        !mfaFallback &&
         (state.data.stage !== "ready" || !state.data.delegable)) ||
       state.data.prompt.includes("PROMPT_NONE")
     ) {

@@ -11,6 +11,8 @@ type Input = {
   client: ReturnType<typeof zitadelClientCreate>
 }
 
+type MfaFallbackReason = "recovery_code" | "unsupported_branch"
+
 type SessionFactors = {
   user?: { id: string; organizationId: string }
   password?: { verifiedAt?: string }
@@ -119,6 +121,13 @@ function sessionFactorIsSatisfied(factors: SessionFactors): boolean {
   return false
 }
 
+function mfaFallbackStateCreate(
+  state: Extract<FlowV2Cookie, { stage: "mfa" }>,
+  reason: MfaFallbackReason,
+): Extract<FlowV2Cookie, { stage: "mfa" }> {
+  return { ...state, nativeFallbackReason: reason }
+}
+
 export async function mfaOptionsGet(input: Input) {
   const op = "mfaOptionsGet"
   const session = await input.client.sessionGet(input.state.sessionId, input.state.sessionToken)
@@ -156,14 +165,21 @@ export async function mfaOptionsGet(input: Input) {
   const settings = await input.client.loginSettingsGet(input.state.organizationId)
   if (!settings.success) return resultErrorCreate(op, "mfa_unavailable", { status: resultStatusGet(settings) })
 
+  const { nativeFallbackReason: _nativeFallbackReason, ...stateBase } = input.state
   const latestToken = nativeSession.sessionToken ?? input.state.sessionToken
-  const state = latestToken === input.state.sessionToken ? input.state : { ...input.state, sessionToken: latestToken }
+  const state: Extract<FlowV2Cookie, { stage: "mfa" }> =
+    latestToken === input.state.sessionToken
+      ? { ...stateBase, nativeFallbackReason: undefined }
+      : { ...stateBase, sessionToken: latestToken, nativeFallbackReason: undefined }
   const methodTypes = methods.data.authMethodTypes
   const secondFactors = settings.data.settings?.secondFactors ?? []
   const multiFactors = settings.data.settings?.multiFactors ?? []
 
   if (methodTypes.some((method) => method.includes("RECOVERY"))) {
-    return resultCreate({ state, options: { mode: "fallback", reason: "recovery_code" } satisfies MfaOptions })
+    return resultCreate({
+      state: mfaFallbackStateCreate(state, "recovery_code"),
+      options: { mode: "fallback", reason: "recovery_code" } satisfies MfaOptions,
+    })
   }
   if (
     methodTypes.some((method) => !authenticationMethodTypes.has(method)) ||
@@ -174,7 +190,10 @@ export async function mfaOptionsGet(input: Input) {
     new Set(multiFactors).size !== multiFactors.length ||
     Object.keys(factors).some((factor) => !sessionFactorNames.has(factor))
   ) {
-    return resultCreate({ state, options: { mode: "fallback", reason: "unsupported_branch" } satisfies MfaOptions })
+    return resultCreate({
+      state: mfaFallbackStateCreate(state, "unsupported_branch"),
+      options: { mode: "fallback", reason: "unsupported_branch" } satisfies MfaOptions,
+    })
   }
 
   const passwordPrimary = timestampIsVerified(factors.password?.verifiedAt)
@@ -182,7 +201,10 @@ export async function mfaOptionsGet(input: Input) {
   const emailPrimary = timestampIsVerified(factors.otpEmail?.verifiedAt)
   const webAuthNPrimary = timestampIsVerified(factors.webAuthN?.verifiedAt)
   if ((passwordPrimary && intentPrimary) || (!passwordPrimary && !intentPrimary && !emailPrimary && !webAuthNPrimary)) {
-    return resultCreate({ state, options: { mode: "fallback", reason: "unsupported_branch" } satisfies MfaOptions })
+    return resultCreate({
+      state: mfaFallbackStateCreate(state, "unsupported_branch"),
+      options: { mode: "fallback", reason: "unsupported_branch" } satisfies MfaOptions,
+    })
   }
 
   if (sessionFactorIsSatisfied(factors)) {
@@ -219,5 +241,8 @@ export async function mfaOptionsGet(input: Input) {
       options: { mode: "skip", reason: "optional_setup", methods: policyMethods.allowed } satisfies MfaOptions,
     })
   }
-  return resultCreate({ state, options: { mode: "fallback", reason: "unsupported_branch" } satisfies MfaOptions })
+  return resultCreate({
+    state: mfaFallbackStateCreate(state, "unsupported_branch"),
+    options: { mode: "fallback", reason: "unsupported_branch" } satisfies MfaOptions,
+  })
 }

@@ -81,12 +81,8 @@ export async function mfaV2EmailOtpVerify(input: Input) {
     })
   }
   if (currentOptions?.mode === "fallback") {
-    const fallbackState =
-      input.state.stage === "mfa_email_otp_code"
-        ? { ...input.state, sessionToken: currentState.sessionToken }
-        : currentState
     return resultCreate({
-      state: fallbackState,
+      state: currentState,
       transition: {
         kind: "fallback",
         path: `/api/v2/flow/fallback?flow=${input.state.flowHandle}`,

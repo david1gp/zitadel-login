@@ -75,7 +75,7 @@ export async function mfaV2TotpVerify(input: Input) {
       kind: "fallback",
       path: `/api/v2/flow/fallback?flow=${input.state.flowHandle}`,
     }
-    return resultCreate({ state: input.state, transition })
+    return resultCreate({ state: optionsResult.data.state, transition })
   }
 
   const state: Extract<FlowV2Cookie, { stage: "mfa" }> = {

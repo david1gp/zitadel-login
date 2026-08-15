@@ -244,8 +244,7 @@ export async function mfaV2U2fVerify(input: Input) {
       path: `/api/v2/flow/fallback?flow=${currentState.flowHandle}`,
     }
     const state: Extract<FlowV2Cookie, { stage: "mfa" }> = {
-      ...currentState,
-      sessionToken: latestToken,
+      ...postOptionsResult.data.state,
       options: undefined,
       webAuthnCheckMethod: undefined,
       transitionCounter: currentState.transitionCounter + 1,

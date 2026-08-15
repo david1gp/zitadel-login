@@ -313,6 +313,7 @@ describe("mfaOptionsGet", () => {
     expect(recovery.success).toBe(true)
     if (recovery.success) {
       expect(recovery.data.options).toEqual({ mode: "fallback", reason: "recovery_code" })
+      expect(recovery.data.state.nativeFallbackReason).toBe("recovery_code")
     }
 
     const unknown = await optionsGet({
@@ -326,6 +327,7 @@ describe("mfaOptionsGet", () => {
     expect(unknown.success).toBe(true)
     if (unknown.success) {
       expect(unknown.data.options).toEqual({ mode: "fallback", reason: "unsupported_branch" })
+      expect(unknown.data.state.nativeFallbackReason).toBe("unsupported_branch")
     }
   })
 

@@ -51,13 +51,20 @@ async function cookieCreate(state: FlowV2Cookie) {
   return `${cookieName}=${sealed.data}`
 }
 
-function nativeCreate(options: { sessionStatus?: number } = {}) {
+function responseCookieGet(response: Response) {
+  const header = response.headers.get("set-cookie")
+  if (!header) throw new Error("Expected flow cookie")
+  return `${cookieName}=${header.split(";", 1)[0]?.split("=", 2)[1] ?? ""}`
+}
+
+function nativeCreate(options: { sessionStatus?: number; authRequestStatus?: number; methods?: string[] } = {}) {
   const calls: Array<{ method: string; url: string }> = []
   const fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = String(input)
     const method = init?.method ?? "GET"
     calls.push({ method, url })
     if (url === `${identityOrigin}/v2/oidc/auth_requests/request-1`) {
+      if (options.authRequestStatus) return Response.json({}, { status: options.authRequestStatus })
       return Response.json({
         authRequest: {
           id: "request-1",
@@ -93,7 +100,7 @@ function nativeCreate(options: { sessionStatus?: number } = {}) {
     }
     if (url === `${identityOrigin}/v2/users/user-secret-id/authentication_methods`) {
       return Response.json({
-        authMethodTypes: ["AUTHENTICATION_METHOD_TYPE_PASSWORD", "AUTHENTICATION_METHOD_TYPE_TOTP"],
+        authMethodTypes: options.methods ?? ["AUTHENTICATION_METHOD_TYPE_PASSWORD", "AUTHENTICATION_METHOD_TYPE_TOTP"],
       })
     }
     if (url === `${identityOrigin}/v2/settings/login`) {
@@ -181,5 +188,82 @@ describe("GET /api/v2/mfa/options", () => {
     )
     expect(malformed.status).toBe(409)
     expect(await malformed.json()).toEqual({ success: false, op: "mfaOptions", errorMessage: "flow_invalid" })
+  })
+
+  test("marks an authoritative recovery-code branch for native fallback and consumes the flow cookie", async () => {
+    const native = nativeCreate({
+      methods: ["AUTHENTICATION_METHOD_TYPE_PASSWORD", "AUTHENTICATION_METHOD_TYPE_RECOVERY_CODE"],
+    })
+    const app = workerAppCreate({ fetch: native.fetch, now: () => now })
+    const options = await app.request(
+      `${origin}/api/v2/mfa/options?flow=${flowHandle}`,
+      { headers: { cookie: await cookieCreate(mfaState) } },
+      bindings,
+    )
+
+    expect(await options.json()).toEqual({
+      success: true,
+      data: { mode: "fallback", reason: "recovery_code" },
+    })
+    const markedCookie = responseCookieGet(options)
+    const marked = await flowV2CookieOpen(markedCookie.split("=", 2)[1] ?? "", flowHandle, [key], now)
+    expect(marked.success && marked.data.stage === "mfa" ? marked.data.nativeFallbackReason : undefined).toBe(
+      "recovery_code",
+    )
+
+    const fallback = await app.request(
+      `${origin}/api/v2/flow/fallback?flow=${flowHandle}`,
+      { headers: { cookie: markedCookie } },
+      bindings,
+    )
+    expect(fallback.status).toBe(302)
+    expect(fallback.headers.get("location")).toBe(`${identityOrigin}/ui/v2/login?authRequest=request-1`)
+    expect(fallback.headers.get("set-cookie")).toContain("Max-Age=0")
+    expect(fallback.headers.get("location")).not.toContain("secret")
+    expect(JSON.stringify(await fallback.clone().text())).not.toContain("secret")
+  })
+
+  test("rejects direct fallback for supported MFA, prompt-none, and stale requests", async () => {
+    const supportedNative = nativeCreate()
+    const supportedApp = workerAppCreate({ fetch: supportedNative.fetch, now: () => now })
+    const supported = await supportedApp.request(
+      `${origin}/api/v2/flow/fallback?flow=${flowHandle}`,
+      { headers: { cookie: await cookieCreate(mfaState) } },
+      bindings,
+    )
+    expect(supported.status).toBe(409)
+    expect(await supported.json()).toEqual({ success: false, op: "flowFallback", errorMessage: "fallback_forbidden" })
+
+    const promptNoneState = { ...mfaState, prompt: ["PROMPT_NONE"] as const }
+    const promptNone = await supportedApp.request(
+      `${origin}/api/v2/flow/fallback?flow=${flowHandle}`,
+      {
+        headers: {
+          cookie: await cookieCreate({ ...promptNoneState, nativeFallbackReason: "unsupported_branch" }),
+        },
+      },
+      bindings,
+    )
+    expect(promptNone.status).toBe(409)
+    expect(await promptNone.json()).toEqual({
+      success: false,
+      op: "flowFallback",
+      errorMessage: "fallback_forbidden",
+    })
+
+    const staleNative = nativeCreate({ authRequestStatus: 404 })
+    const staleApp = workerAppCreate({ fetch: staleNative.fetch, now: () => now })
+    const stale = await staleApp.request(
+      `${origin}/api/v2/flow/fallback?flow=${flowHandle}`,
+      {
+        headers: {
+          cookie: await cookieCreate({ ...mfaState, nativeFallbackReason: "unsupported_branch" }),
+        },
+      },
+      bindings,
+    )
+    expect(stale.status).toBe(409)
+    expect(await stale.json()).toEqual({ success: false, op: "flowFallback", errorMessage: "flow_replayed" })
+    expect(stale.headers.get("set-cookie")).toContain("Max-Age=0")
   })
 })

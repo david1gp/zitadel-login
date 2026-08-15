@@ -101,6 +101,7 @@ const mfaSchema = v.strictObject({
   mfaMethods: v.array(v.pipe(v.string(), v.minLength(1), v.maxLength(100))),
   options: v.optional(passkeyOptionsSchema),
   webAuthnCheckMethod: v.optional(v.picklist(["u2f", "passkey"])),
+  nativeFallbackReason: v.optional(v.picklist(["recovery_code", "unsupported_branch"])),
 })
 const mfaTotpSetupSchema = v.strictObject({
   ...baseSchema,

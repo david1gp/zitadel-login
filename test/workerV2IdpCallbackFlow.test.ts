@@ -209,7 +209,8 @@ describe("GET /api/v2/identity-provider/callback/:provider", () => {
       data: { mode: "check", method: { type: "email_otp" } },
     })
   })
-  test("processes MFA required linked user and redirects to /login/mfa", async () => {
+
+  test("processes Google-created MFA and delegates only its authoritative native fallback branch", async () => {
     const fetch = async (input: RequestInfo | URL) => {
       const url = String(input)
       if (url === `${identityOrigin}/v2/oidc/auth_requests/${authRequest.id}`) {
@@ -273,6 +274,31 @@ describe("GET /api/v2/identity-provider/callback/:provider", () => {
     const opened = await flowV2CookieOpen(cookieMatch![1], flowHandle, [key], now)
     expect(opened.success).toBe(true)
     expect(opened.data.stage).toBe("mfa")
+
+    const mfaCookie = `${flowCookieNameGet(flowHandle)}=${cookieMatch![1]}`
+    const options = await app.request(
+      `https://login.example/api/v2/mfa/options?flow=${flowHandle}`,
+      { headers: { cookie: mfaCookie } },
+      bindings,
+    )
+    expect(await options.json()).toEqual({
+      success: true,
+      data: { mode: "fallback", reason: "unsupported_branch" },
+    })
+
+    const markedCookie = options.headers
+      .get("set-cookie")
+      ?.match(new RegExp(`__Host-zitadel-login-flow-${flowHandle}=([^;]+)`))?.[1]
+    expect(markedCookie).toBeTruthy()
+    const fallback = await app.request(
+      `https://login.example/api/v2/flow/fallback?flow=${flowHandle}`,
+      { headers: { cookie: `${flowCookieNameGet(flowHandle)}=${markedCookie}` } },
+      bindings,
+    )
+    expect(fallback.status).toBe(302)
+    expect(fallback.headers.get("location")).toBe(`${identityOrigin}/ui/v2/login?authRequest=request-1`)
+    expect(fallback.headers.get("location")).not.toContain("session-token-1")
+    expect(fallback.headers.get("set-cookie")).toContain("Max-Age=0")
   })
 
   test("processes unlinked new user and redirects to /login/idp/google-1/account-not-found", async () => {
