@@ -1,6 +1,6 @@
 {
   "name": "@adaptive-ds/zitadel-login",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "scripts": {
     "dev": "bun run dev:browser",
     "dev:browser": "vite --config client/vite.config.ts",
