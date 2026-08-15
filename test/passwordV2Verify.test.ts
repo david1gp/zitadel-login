@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test"
+import type { WorkerBindings } from "../src/config/workerBindingsSchema"
 import type { FlowV2Cookie } from "../src/flow/model/flowV2CookieSchema"
 import { passwordV2Verify } from "../src/password/domain/passwordV2Verify"
 import { resultCreate } from "../src/result/resultCreate"
 import { zitadelClientCreate } from "../src/zitadel/zitadelClientCreate"
+
+const identityOrigin = "https://identity.example"
 
 const state: Extract<FlowV2Cookie, { stage: "ready" }> = {
   version: 2,
@@ -20,6 +23,37 @@ const state: Extract<FlowV2Cookie, { stage: "ready" }> = {
   stage: "ready",
   delegable: true,
   owned: true,
+}
+
+const nativeBindings = {
+  ZITADEL_ORIGIN: identityOrigin,
+  ZITADEL_ORGANIZATION_ID: "org-1",
+  ZITADEL_ALLOWED_CLIENT_IDS: ["client-1"],
+  LOGIN_V2_FALLBACK_URL: `${identityOrigin}/ui/v2/login`,
+  PAGES_ORIGIN: "https://login.example",
+  SESSION_LIFETIME_SECONDS: 900,
+  ZITADEL_LOGIN_CLIENT_PAT: "test-pat-not-a-real-secret-value",
+  FLOW_COOKIE_KEY: "A".repeat(43),
+  FLOW_COOKIE_PREVIOUS_KEY: undefined,
+  RECENT_ACCOUNT_COOKIE_KEY: "A".repeat(43),
+  RECENT_ACCOUNT_COOKIE_PREVIOUS_KEY: undefined,
+  ZITADEL_RECENT_ACCOUNT_V2_ENABLED: true,
+  RATE_LIMITER: { limit: async () => ({ success: true }) },
+} satisfies WorkerBindings
+
+function parsedClientCreate() {
+  const calls: string[] = []
+  const fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url = String(input)
+    const method = init?.method ?? "GET"
+    calls.push(`${method} ${url}`)
+    if (url === `${identityOrigin}/v2/settings/login` && method === "GET") {
+      return Response.json({ settings: { allowLocalAuthentication: true, secondFactors: [], multiFactors: [] } })
+    }
+    if (url === `${identityOrigin}/v2/users` && method === "POST") return Response.json({})
+    throw new Error(`Unexpected request: ${method} ${url}`)
+  }
+  return { client: zitadelClientCreate(nativeBindings, fetch), calls }
 }
 
 function clientCreate(
@@ -121,7 +155,24 @@ describe("passwordV2Verify domain", () => {
     ])
   })
 
-  test("returns policy continuation when an MFA method or policy requires it", async () => {
+  test("maps an omitted users result to invalid credentials instead of password unavailable", async () => {
+    const native = parsedClientCreate()
+    const result = await passwordV2Verify({
+      state,
+      identifier: "person@example.com",
+      password: "correct-password",
+      now: 1_800_000_000,
+      client: native.client,
+    })
+
+    expect(result).toEqual({ success: false, op: "passwordV2Verify", errorMessage: "credentials_invalid" })
+    expect(native.calls).toEqual([
+      "GET https://identity.example/v2/settings/login",
+      "POST https://identity.example/v2/users",
+    ])
+  })
+
+  test("delegates to native Login V2 when MFA is required", async () => {
     const native = clientCreate({
       methods: ["AUTHENTICATION_METHOD_TYPE_PASSWORD", "AUTHENTICATION_METHOD_TYPE_TOTP"],
       secondFactors: ["SECOND_FACTOR_TYPE_OTP"],
@@ -133,15 +184,18 @@ describe("passwordV2Verify domain", () => {
       now: 1_800_000_000,
       client: native.client,
     })
-    expect(result).toEqual(
-      expect.objectContaining({
-        success: true,
-        data: expect.objectContaining({
-          state: expect.objectContaining({ stage: "mfa", sessionToken: "latest-token" }),
-          transition: expect.objectContaining({ kind: "render", route: "/login/mfa?flow=AAAAAAAAAAAAAAAAAAAAAA" }),
-        }),
-      }),
-    )
+    expect(result).toEqual({
+      success: true,
+      data: {
+        state,
+        transition: { kind: "fallback", path: "/api/v2/flow/fallback?flow=AAAAAAAAAAAAAAAAAAAAAA" },
+      },
+    })
+    expect(native.calls).toEqual([
+      { method: "passwordSessionCreate", password: "password" },
+      { method: "sessionGet" },
+      { method: "userGet" },
+    ])
   })
 
   test("returns required password change before MFA or completion using refreshed lifecycle state", async () => {

@@ -57,7 +57,7 @@ const userSchema = v.object({
           isVerified: v.boolean(),
         }),
       ),
-      phone: v.optional(v.object({ phone: v.string(), isVerified: v.optional(v.boolean()) })),
+      phone: v.optional(v.object({ phone: v.optional(v.string()), isVerified: v.optional(v.boolean()) })),
       passwordChangeRequired: v.optional(v.boolean()),
       passwordChanged: v.optional(v.string()),
     }),
@@ -65,7 +65,7 @@ const userSchema = v.object({
 })
 
 const userResponseSchema = v.object({ user: userSchema })
-const usersResponseSchema = v.object({ result: v.array(userSchema) })
+const usersResponseSchema = v.object({ result: v.optional(v.array(userSchema), []) })
 const authenticationMethodsResponseSchema = v.object({ authMethodTypes: v.array(v.string()) })
 const sessionCreateResponseSchema = v.object({
   sessionId: v.pipe(v.string(), v.minLength(1), v.maxLength(200)),

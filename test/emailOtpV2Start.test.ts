@@ -46,6 +46,7 @@ const bindings = {
 
 type NativeOptions = {
   users?: unknown[]
+  omitResult?: boolean
   methods?: string[]
   ignoreUnknownUsernames?: boolean
   sessionStatus?: number
@@ -70,6 +71,7 @@ function nativeCreate(options: NativeOptions = {}) {
       })
     }
     if (url === `${identityOrigin}/v2/users` && method === "POST") {
+      if (options.omitResult) return Response.json({})
       return Response.json({
         result: options.users ?? [
           {
@@ -138,6 +140,23 @@ describe("emailOtpV2Start", () => {
       cooldownExpiresAt: now + 60,
     })
     expect(native.calls.some((call) => call.url === `${identityOrigin}/v2/sessions`)).toBe(true)
+  })
+
+  test("treats an omitted users result as no matching email instead of service unavailable", async () => {
+    const native = nativeCreate({ omitResult: true })
+    const result = await emailOtpV2Start({
+      state,
+      email: "person@example.com",
+      now,
+      client: native.client,
+      cooldown: cooldownCreate(),
+    })
+
+    expect(result).toEqual({
+      success: true,
+      data: { state, transition: { kind: "fallback", path: `/api/v2/flow/fallback?flow=${state.flowHandle}` } },
+    })
+    expect(native.calls.some((call) => call.url === `${identityOrigin}/v2/sessions`)).toBe(false)
   })
 
   test("rejects an active reservation without creating a session", async () => {

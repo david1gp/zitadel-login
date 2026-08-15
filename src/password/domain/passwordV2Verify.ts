@@ -1,7 +1,7 @@
-import type { FlowV2Cookie } from "../../flow/model/flowV2CookieSchema"
-import type { FlowV2Transition } from "../../flow/model/flowV2TransitionSchema"
 import { primaryFlowMfaPolicyEvaluate } from "../../flow/domain/primaryFlowMfaPolicyEvaluate"
 import { primaryFlowOwnershipPreflight } from "../../flow/domain/primaryFlowOwnershipPreflight"
+import type { FlowV2Cookie } from "../../flow/model/flowV2CookieSchema"
+import type { FlowV2Transition } from "../../flow/model/flowV2TransitionSchema"
 import { resultCreate } from "../../result/resultCreate"
 import { resultErrorCreate } from "../../result/resultErrorCreate"
 import { zitadelClientCreate } from "../../zitadel/zitadelClientCreate"
@@ -15,12 +15,6 @@ type Input = {
 }
 
 const passwordMethod = "AUTHENTICATION_METHOD_TYPE_PASSWORD"
-const mfaMethods = new Set([
-  "AUTHENTICATION_METHOD_TYPE_TOTP",
-  "AUTHENTICATION_METHOD_TYPE_OTP_SMS",
-  "AUTHENTICATION_METHOD_TYPE_OTP_EMAIL",
-  "AUTHENTICATION_METHOD_TYPE_U2F",
-])
 
 function fallbackCreate(state: Input["state"]): FlowV2Transition {
   return { kind: "fallback", path: `/api/v2/flow/fallback?flow=${state.flowHandle}` }
@@ -44,15 +38,6 @@ function credentialErrorCreate(input: { status?: number; id?: string }) {
     return resultErrorCreate("passwordV2Verify", "credentials_invalid", input)
   }
   return resultErrorCreate("passwordV2Verify", "password_unavailable", input)
-}
-
-function mfaTransitionCreate(state: Extract<FlowV2Cookie, { stage: "mfa" }>): FlowV2Transition {
-  return {
-    kind: "render",
-    route: `/login/mfa?flow=${state.flowHandle}`,
-    screen: { name: "mfa", factors: state.mfaMethods },
-    csrfToken: state.csrfToken,
-  }
 }
 
 function passwordExpiredGet(passwordChanged: string | undefined, maxAgeDays: number | undefined, now: number) {
@@ -183,19 +168,7 @@ export async function passwordV2Verify(input: Input) {
     policy: settings.data.settings ?? {},
   })
   if (!mfa.supported) return resultCreate({ state: input.state, transition: fallbackCreate(input.state) })
-  if (mfa.required) {
-    const state: Extract<FlowV2Cookie, { stage: "mfa" }> = {
-      ...stateBase,
-      stage: "mfa",
-      delegable: false,
-      transitionCounter: input.state.transitionCounter + 1,
-      userId: user.userId,
-      sessionId: created.data.sessionId,
-      sessionToken,
-      mfaMethods: mfa.methods,
-    }
-    return resultCreate({ state, transition: mfaTransitionCreate(state) })
-  }
+  if (mfa.required) return resultCreate({ state: input.state, transition: fallbackCreate(input.state) })
 
   const state: Extract<FlowV2Cookie, { stage: "verified" }> = {
     ...stateBase,

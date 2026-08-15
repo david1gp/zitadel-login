@@ -26,6 +26,7 @@ const supportedSecondFactors = new Set([
   "SECOND_FACTOR_TYPE_U2F",
   "SECOND_FACTOR_TYPE_OTP_EMAIL",
   "SECOND_FACTOR_TYPE_OTP_SMS",
+  "SECOND_FACTOR_TYPE_RECOVERY_CODES",
 ])
 const supportedMultiFactors = new Set(["MULTI_FACTOR_TYPE_UNSPECIFIED", "MULTI_FACTOR_TYPE_U2F_WITH_VERIFICATION"])
 const enrolledMfaMethods = new Set([

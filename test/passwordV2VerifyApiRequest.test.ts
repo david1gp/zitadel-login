@@ -42,16 +42,11 @@ describe("passwordV2VerifyApiRequest browser contract", () => {
     })
   })
 
-  test("returns render transition when MFA is required", async () => {
+  test("returns native fallback transition when MFA is required", async () => {
     globalThis.fetch = async () =>
       Response.json({
         success: true,
-        data: {
-          kind: "render",
-          route: `/login/mfa?flow=${validFlow}`,
-          screen: { name: "mfa", factors: ["AUTHENTICATION_METHOD_TYPE_TOTP"] },
-          csrfToken: validCsrf,
-        },
+        data: { kind: "fallback", path: `/api/v2/flow/fallback?flow=${validFlow}` },
       })
 
     const result = await passwordV2VerifyApiRequest("https://worker.example", validFlow, {
@@ -62,12 +57,7 @@ describe("passwordV2VerifyApiRequest browser contract", () => {
 
     expect(result).toEqual({
       success: true,
-      data: {
-        kind: "render",
-        route: `/login/mfa?flow=${validFlow}`,
-        screen: { name: "mfa", factors: ["AUTHENTICATION_METHOD_TYPE_TOTP"] },
-        csrfToken: validCsrf,
-      },
+      data: { kind: "fallback", path: `/api/v2/flow/fallback?flow=${validFlow}` },
     })
   })
 

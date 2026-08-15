@@ -28,7 +28,7 @@ type Input = {
       passwordChangeRequired?: boolean
       passwordChanged?: string
       email?: { email: string; isVerified: boolean }
-      phone?: { phone: string; isVerified?: boolean }
+      phone?: { phone?: string; isVerified?: boolean }
     }
   }
 }

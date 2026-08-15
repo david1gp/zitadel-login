@@ -257,14 +257,20 @@ describe("Worker v2 password flow", () => {
   })
 
   test("uses live policy for password primary admission and rejects malformed lifecycle", async () => {
-    const cases: Array<{ name: string; options: NativeOptions; kind: "render" | "fallback" }> = [
+    const cases: Array<{ name: string; options: NativeOptions; kind: "render" | "fallback"; session: boolean }> = [
       {
         name: "enrolled MFA",
         options: { methods: ["AUTHENTICATION_METHOD_TYPE_PASSWORD", "AUTHENTICATION_METHOD_TYPE_TOTP"] },
-        kind: "render",
+        kind: "fallback",
+        session: true,
       },
-      { name: "forced MFA", options: { mfa: true }, kind: "render" },
-      { name: "malformed password timestamp", options: { passwordChanged: "not-a-timestamp" }, kind: "fallback" },
+      { name: "forced MFA", options: { mfa: true }, kind: "fallback", session: true },
+      {
+        name: "malformed password timestamp",
+        options: { passwordChanged: "not-a-timestamp" },
+        kind: "fallback",
+        session: false,
+      },
     ]
 
     for (const item of cases) {
@@ -280,7 +286,7 @@ describe("Worker v2 password flow", () => {
       expect(
         native.calls.some((call) => call.url === `${identityOrigin}/v2/sessions`),
         item.name,
-      ).toBe(item.kind === "render")
+      ).toBe(item.session)
     }
   })
 
@@ -488,7 +494,7 @@ describe("Worker v2 password flow", () => {
     })
   })
 
-  test("returns an MFA continuation with the native session instead of completing it", async () => {
+  test("delegates MFA-required password flows to native Login V2", async () => {
     const native = nativeCreate({ methods: ["AUTHENTICATION_METHOD_TYPE_PASSWORD", "AUTHENTICATION_METHOD_TYPE_TOTP"] })
     const app = workerAppCreate({ fetch: native.fetch, now: () => now })
     const initialized = await initialize(app)
@@ -496,20 +502,20 @@ describe("Worker v2 password flow", () => {
     expect(response.status).toBe(200)
     const body = await response.clone().json()
     expect(body.data).toEqual({
-      kind: "render",
-      route: `/login/mfa?flow=${initialized.flow}`,
-      screen: { name: "mfa", factors: ["AUTHENTICATION_METHOD_TYPE_TOTP"] },
-      csrfToken: initialized.csrfToken,
+      kind: "fallback",
+      path: `/api/v2/flow/fallback?flow=${initialized.flow}`,
     })
-    const continued = await app.request(
-      `${origin}/api/v2/flow/continue?flow=${initialized.flow}`,
-      {
-        headers: { cookie: cookieGet(response) },
-      },
+    expect(native.calls.some((call) => call.url === `${identityOrigin}/v2/sessions` && call.method === "POST")).toBe(
+      true,
+    )
+
+    const fallback = await app.request(
+      `${origin}${body.data.path}`,
+      { headers: { cookie: cookieGet(response) } },
       bindings,
     )
-    expect(continued.status).toBe(409)
-    expect(await continued.json()).toEqual({ success: false, op: "flowContinue", errorMessage: "flow_stage_invalid" })
+    expect(fallback.status).toBe(302)
+    expect(fallback.headers.get("location")).toBe(`${identityOrigin}/ui/v2/login?authRequest=request-1`)
   })
 
   test("rejects expired, wrong-stage, and replayed password flows", async () => {
