@@ -10,6 +10,7 @@ const origin = "https://login.example"
 const identityOrigin = "https://identity.example"
 const key = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 const now = 1_800_000_000
+const verifiedAt = "2026-08-11T12:00:00Z"
 const flowHandle = "AAAAAAAAAAAAAAAAAAAAAA"
 
 const bindings: WorkerBindingsInput = {
@@ -138,6 +139,76 @@ describe("GET /api/v2/identity-provider/callback/:provider", () => {
     }
   })
 
+  test("renders enrolled email OTP for a linked user with authoritative verified email", async () => {
+    const fetch = async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === `${identityOrigin}/v2/oidc/auth_requests/${authRequest.id}`) {
+        return Response.json({ authRequest })
+      }
+      if (url === `${identityOrigin}/v2/idp_intents/intent-1`) {
+        return Response.json({
+          idpInformation: { idpId: "google-1", userId: "google-123" },
+          userId: "user-1",
+        })
+      }
+      if (url === `${identityOrigin}/v2/sessions`) {
+        return Response.json({ sessionId: "session-1", sessionToken: "session-token-1" })
+      }
+      if (url === `${identityOrigin}/v2/sessions/session-1?sessionToken=session-token-1`) {
+        return Response.json({
+          session: {
+            id: "session-1",
+            factors: { user: { id: "user-1", organizationId: "org-1" }, intent: { verifiedAt } },
+          },
+        })
+      }
+      if (url === `${identityOrigin}/v2/users/user-1`) {
+        return Response.json({
+          user: {
+            userId: "user-1",
+            state: "USER_STATE_ACTIVE",
+            details: { resourceOwner: "org-1" },
+            human: { email: { email: "redacted@example.invalid", isVerified: true } },
+          },
+        })
+      }
+      if (url === `${identityOrigin}/v2/users/user-1/authentication_methods`) {
+        return Response.json({ authMethodTypes: ["AUTHENTICATION_METHOD_TYPE_OTP_EMAIL"] })
+      }
+      if (url === `${identityOrigin}/v2/settings/login`) {
+        return Response.json({ settings: { forceMfa: true, secondFactors: ["SECOND_FACTOR_TYPE_OTP_EMAIL"] } })
+      }
+      throw new Error(`Unexpected native request: ${url}`)
+    }
+
+    const app = workerAppCreate({ fetch, now: () => now })
+    const cookieValue = await idpIntentStateSeal()
+    const response = await app.request(
+      `https://login.example/api/v2/identity-provider/callback/google-1?flow=${flowHandle}&id=intent-1&token=token-1`,
+      {
+        headers: { cookie: `${flowCookieNameGet(flowHandle)}=${cookieValue}` },
+      },
+      bindings,
+    )
+
+    expect(response.status).toBe(302)
+    expect(response.headers.get("location")).toBe(`/login/mfa?flow=${flowHandle}`)
+
+    const setCookie = response.headers.get("set-cookie")
+    const cookieMatch = setCookie?.match(new RegExp(`__Host-zitadel-login-flow-${flowHandle}=([^;]+)`))
+    expect(cookieMatch).toBeTruthy()
+    const options = await app.request(
+      `https://login.example/api/v2/mfa/options?flow=${flowHandle}`,
+      { headers: { cookie: `${flowCookieNameGet(flowHandle)}=${cookieMatch![1]}` } },
+      bindings,
+    )
+
+    expect(options.status).toBe(200)
+    expect(await options.json()).toEqual({
+      success: true,
+      data: { mode: "check", method: { type: "email_otp" } },
+    })
+  })
   test("processes MFA required linked user and redirects to /login/mfa", async () => {
     const fetch = async (input: RequestInfo | URL) => {
       const url = String(input)

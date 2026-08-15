@@ -40,6 +40,48 @@ const bindings = {
   RATE_LIMITER: { limit: async () => ({ success: true }) },
 }
 
+function linkedMfaClientCreate(options: { emailVerified: boolean }) {
+  const mockFetch = async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url === `${identityOrigin}/v2/idp_intents/intent-1`) {
+      return Response.json({
+        idpInformation: { idpId: "google-1", userId: "google-user-1" },
+        userId: "user-1",
+      })
+    }
+    if (url === `${identityOrigin}/v2/sessions`) {
+      return Response.json({ sessionId: "session-1", sessionToken: "token-1" })
+    }
+    if (url === `${identityOrigin}/v2/sessions/session-1?sessionToken=token-1`) {
+      return Response.json({
+        session: {
+          id: "session-1",
+          factors: { user: { id: "user-1", organizationId: "org-1" } },
+        },
+      })
+    }
+    if (url === `${identityOrigin}/v2/users/user-1`) {
+      return Response.json({
+        user: {
+          userId: "user-1",
+          state: "USER_STATE_ACTIVE",
+          details: { resourceOwner: "org-1" },
+          human: { email: { email: "redacted@example.invalid", isVerified: options.emailVerified } },
+        },
+      })
+    }
+    if (url === `${identityOrigin}/v2/users/user-1/authentication_methods`) {
+      return Response.json({ authMethodTypes: ["AUTHENTICATION_METHOD_TYPE_OTP_EMAIL"] })
+    }
+    if (url === `${identityOrigin}/v2/settings/login`) {
+      return Response.json({ settings: { forceMfa: true, secondFactors: ["SECOND_FACTOR_TYPE_OTP_EMAIL"] } })
+    }
+    throw new Error(`Unexpected url: ${url}`)
+  }
+
+  return zitadelClientCreate(bindings, mockFetch)
+}
+
 describe("identityProviderV2CallbackProcess", () => {
   test("returns provider_mismatch when providerId does not match state idpId", async () => {
     const mockFetch = async () => Response.json({})
@@ -182,6 +224,37 @@ describe("identityProviderV2CallbackProcess", () => {
       }
       expect(result.data.transition.kind).toBe("render")
     }
+  })
+
+  test("uses the linked user's verified email for enrolled email OTP MFA", async () => {
+    const result = await identityProviderV2CallbackProcess({
+      state: idpIntentState,
+      providerId: "google-1",
+      intentId: "intent-1",
+      intentToken: "token-1",
+      client: linkedMfaClientCreate({ emailVerified: true }),
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.state.stage).toBe("mfa")
+      if (result.data.state.stage === "mfa") {
+        expect(result.data.state.mfaMethods).toEqual(["AUTHENTICATION_METHOD_TYPE_OTP_EMAIL"])
+      }
+    }
+  })
+
+  test("does not offer email OTP MFA when the linked user's email is unverified", async () => {
+    const result = await identityProviderV2CallbackProcess({
+      state: idpIntentState,
+      providerId: "google-1",
+      intentId: "intent-1",
+      intentToken: "token-1",
+      client: linkedMfaClientCreate({ emailVerified: false }),
+    })
+
+    expect(result.success).toBe(false)
+    if (!result.success) expect(result.errorMessage).toBe("authorization_unavailable")
   })
 
   test("does not offer SMS MFA after linked identity-provider authentication when the phone is unverified", async () => {

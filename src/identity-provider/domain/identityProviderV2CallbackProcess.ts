@@ -82,7 +82,7 @@ export async function identityProviderV2CallbackProcess(input: Input) {
     const mfa = primaryFlowMfaPolicyEvaluate({
       method: "identity_provider",
       methods: methods.data.authMethodTypes,
-      emailVerified: false,
+      emailVerified: user.data.user.human.email?.isVerified === true,
       phoneVerified: user.data.user.human.phone?.isVerified === true,
       policy: settings.data.settings ?? {},
     })
