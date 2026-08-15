@@ -245,6 +245,7 @@ english,ar
 "Use a hardware security key (FIDO U2F)","استخدم مفتاح أمان مادياً (FIDO U2F)"
 "Use an authenticator app such as 1Password, Google Authenticator, or Aegis to generate 6-digit codes.","استخدم تطبيق مصادقة مثل 1Password أو Google Authenticator أو Aegis لإنشاء رموز مكونة من 6 أرقام."
 "Use another method or account","استخدم طريقة أخرى أو حساباً آخر"
+"Use your existing {provider} account to sign in","استخدم حساب {provider} الحالي لتسجيل الدخول"
 "Use your fingerprint, face, or device PIN","استخدم بصمة إصبعك أو وجهك أو رقم تعريف الجهاز (PIN)"
 "Username or email","اسم المستخدم أو البريد الإلكتروني"
 "Valid reset-link form","نموذج رابط إعادة ضبط صالح"

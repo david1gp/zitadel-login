@@ -245,6 +245,7 @@ english,nl
 "Use a hardware security key (FIDO U2F)","Gebruik een hardware-beveiligingssleutel (FIDO U2F)"
 "Use an authenticator app such as 1Password, Google Authenticator, or Aegis to generate 6-digit codes.","Gebruik een authenticator-app zoals 1Password, Google Authenticator of Aegis om 6-cijferige codes te genereren."
 "Use another method or account","Gebruik een andere methode of account"
+"Use your existing {provider} account to sign in","Gebruik uw bestaande {provider}-account om in te loggen"
 "Use your fingerprint, face, or device PIN","Gebruik uw vingerafdruk, gezichtsherkenning of pincode van het apparaat"
 "Username or email","Gebruikersnaam of e-mailadres"
 "Valid reset-link form","Geldig formulier voor herstellink"

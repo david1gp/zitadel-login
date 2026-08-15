@@ -245,6 +245,7 @@ english,zh
 "Use a hardware security key (FIDO U2F)","使用硬件安全密钥 (FIDO U2F)"
 "Use an authenticator app such as 1Password, Google Authenticator, or Aegis to generate 6-digit codes.","使用 1Password、Google Authenticator 或 Aegis 等身份验证器应用生成 6 位验证码。"
 "Use another method or account","使用其他方式或账号"
+"Use your existing {provider} account to sign in","使用您现有的 {provider} 账号登录"
 "Use your fingerprint, face, or device PIN","使用指纹、面部或设备 PIN 码"
 "Username or email","用户名或邮箱"
 "Valid reset-link form","有效的重置链接表单"

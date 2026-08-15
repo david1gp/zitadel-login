@@ -245,6 +245,7 @@ english,ja
 "Use a hardware security key (FIDO U2F)","ハードウェアセキュリティキー（FIDO U2F）を使用"
 "Use an authenticator app such as 1Password, Google Authenticator, or Aegis to generate 6-digit codes.","1Password、Google Authenticator、Aegisなどの認証アプリを使用して6桁のコードを生成します。"
 "Use another method or account","別の方法またはアカウントを使用"
+"Use your existing {provider} account to sign in","既存の{provider}アカウントを使用してサインイン"
 "Use your fingerprint, face, or device PIN","指紋、顔、またはデバイスPINを使用"
 "Username or email","ユーザー名またはメールアドレス"
 "Valid reset-link form","有効なリセットリンクフォーム"

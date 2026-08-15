@@ -245,6 +245,7 @@ english,tr
 "Use a hardware security key (FIDO U2F)","Donanım güvenlik anahtarı kullanın (FIDO U2F)"
 "Use an authenticator app such as 1Password, Google Authenticator, or Aegis to generate 6-digit codes.","6 basamaklı kodlar üretmek için 1Password, Google Authenticator veya Aegis gibi bir kimlik doğrulama uygulaması kullanın."
 "Use another method or account","Başka bir yöntem veya hesap kullanın"
+"Use your existing {provider} account to sign in","Giriş yapmak için mevcut {provider} hesabınızı kullanın"
 "Use your fingerprint, face, or device PIN","Parmak izinizi, yüzünüzü veya cihaz PIN'inizi kullanın"
 "Username or email","Kullanıcı adı veya e-posta"
 "Valid reset-link form","Geçerli sıfırlama bağlantısı formu"

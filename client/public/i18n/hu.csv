@@ -245,6 +245,7 @@ english,hu
 "Use a hardware security key (FIDO U2F)","Használjon hardveres biztonsági kulcsot (FIDO U2F)"
 "Use an authenticator app such as 1Password, Google Authenticator, or Aegis to generate 6-digit codes.","Használjon egy hitelesítő alkalmazást (például 1Password, Google Authenticator vagy Aegis) 6 számjegyű kódok generálásához."
 "Use another method or account","Másik módszer vagy fiók használata"
+"Use your existing {provider} account to sign in","Használja meglévő {provider}-fiókját a bejelentkezéshez"
 "Use your fingerprint, face, or device PIN","Használja az ujjlenyomatát, arcát vagy eszköz-PIN-kódját"
 "Username or email","Felhasználónév vagy e-mail"
 "Valid reset-link form","Érvényes visszaállító link űrlap"

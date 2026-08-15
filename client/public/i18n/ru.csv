@@ -245,6 +245,7 @@ english,ru
 "Use a hardware security key (FIDO U2F)","Использовать аппаратный ключ безопасности (FIDO U2F)"
 "Use an authenticator app such as 1Password, Google Authenticator, or Aegis to generate 6-digit codes.","Используйте приложение-аутентификатор (например, 1Password, Google Authenticator или Aegis) для генерации 6-значных кодов."
 "Use another method or account","Использовать другой способ или аккаунт"
+"Use your existing {provider} account to sign in","Используйте свой существующий аккаунт {provider} для входа"
 "Use your fingerprint, face, or device PIN","Используйте отпечаток пальца, распознавание лица или PIN-код устройства"
 "Username or email","Имя пользователя или эл. почта"
 "Valid reset-link form","Форма с действительной ссылкой для сброса"

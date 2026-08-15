@@ -78,6 +78,7 @@ export const translationDynamicKeys = [
   "Too many recovery attempts. Please retry later.",
   "Too many sign-in attempts. Please retry later.",
   "Unable to load 2-Step Verification options.",
+  "Use your existing {provider} account to sign in",
   "Verification code sent to your email address.",
   "Verification code sent to your mobile phone via SMS.",
   "Would continue in ZITADEL.",
