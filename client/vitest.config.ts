@@ -8,5 +8,6 @@ export default defineConfig({
   test: {
     environment: "happy-dom",
     include: ["test/**/*.component.tsx"],
+    setupFiles: ["test/vitestSetup.ts"],
   },
 })
