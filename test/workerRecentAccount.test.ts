@@ -136,9 +136,14 @@ describe("Worker recent-account persistence", () => {
     )
 
     expect(response.status).toBe(502)
-    expect(await response.json()).toEqual({ success: false, op: "flowContinue", errorMessage: "callback_unavailable" })
+    const responseBody = await response.text()
+    expect(JSON.parse(responseBody)).toEqual({
+      success: false,
+      op: "flowContinue",
+      errorMessage: "callback_unavailable",
+    })
     expect(response.headers.get("set-cookie") ?? "").not.toContain("__Host-zitadel-login-accounts=")
-    expect(JSON.stringify(await response.clone().text())).not.toContain("session-token")
+    expect(responseBody).not.toContain("session-token")
   })
 
   test("ignores a malformed prior account cookie and replaces it after success", async () => {
