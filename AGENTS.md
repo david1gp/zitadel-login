@@ -1,1 +1,1 @@
-- Source Cloudflare deployment account settings and tokens at runtime from `~/leo/leo-server/env/env.conf`; never print or copy them into tracked files.
+- Source Cloudflare deployment account settings and tokens at runtime from `/home/david/leo_internal/dev-servers/leo-server/env/env.conf`; never print or copy them into tracked files.

@@ -14,7 +14,7 @@ Assess the current project, deploy it to Cloudflare Pages, verify appropriate ic
 - Reconciliation against `~/opensource/zitadel`: password, passkey/WebAuthn, passwordless/email OTP, TOTP, email OTP, U2F, and external IdP/SSO are covered. Recovery code remains an intentional native fallback, private-key authentication is not a browser login method, and SMS remains audit-only.
 - No application or icon implementation change is required before deployment; the smallest correct task-3 change is documentation only.
 - The Cloudflare Pages frontend is paired with a Cloudflare Worker and uses the repository deployment workflow.
-- Use the existing Cloudflare account settings and tokens from `~/leo/leo-server/env` for deployment without copying them into tracked files or disclosing their values.
+- Use the existing Cloudflare account settings and tokens from `/home/david/leo_internal/dev-servers/leo-server/env/env.conf` for deployment without copying them into tracked files or disclosing their values.
 - Record the reusable Cloudflare credential location in `AGENTS.md` so future deployments avoid the recurring account/authentication mismatch.
 - The current build is deployed to the existing `zitadel-login` Pages project and paired Worker; production is available at `https://login.contentoren.de` and `https://zitadel-login.pages.dev`.
 
@@ -40,5 +40,5 @@ Assess the current project, deploy it to Cloudflare Pages, verify appropriate ic
 
 - `docs/20260813_project-state-cf-pages-zitadel-methods.md`
 - `~/opensource/zitadel`
-- `~/leo/leo-server/env`
+- `/home/david/leo_internal/dev-servers/leo-server/env/env.conf`
 - `AGENTS.md`
