@@ -8,7 +8,7 @@
     "build": "bun run build:browser && bun run build:worker",
     "build:browser": "vite build --config client/vite.config.ts",
     "build:worker": "tsc -p tsconfig.worker.json",
-    "type-check": "tsc -p tsconfig.browser.json && tsc -p tsconfig.worker.json && bun run type-check:ops",
+    "type-check": "bun check -p tsconfig.browser.json && bun check -p tsconfig.worker.json && bun run type-check:ops",
     "type-check:ops": "tsc --ignoreConfig --noEmit --target ESNext --module ESNext --moduleResolution Bundler --strict --noUncheckedIndexedAccess --noImplicitReturns --types bun ops/zitadel/*.ts",
     "test": "bun test --pass-with-no-tests && vitest run --config client/vitest.config.ts",
     "ops:zitadel:otp-email": "bun run ops/zitadel/organizationOtpEmailConfigure.ts",
